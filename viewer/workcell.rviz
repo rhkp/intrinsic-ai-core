@@ -1,0 +1,59 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.5
+      Plane Cell Count: 20
+      Color: 95; 105; 120
+      Alpha: 0.5
+      Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Workcell
+      Enabled: true
+      Topic:
+        Value: /workcell_markers
+        Depth: 5
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Durability Policy: Transient Local
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 35; 40; 49
+    Fixed Frame: root
+    Frame Rate: 20
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Name: Current View
+      Distance: 3.5
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0.4
+      Pitch: 0.6
+      Yaw: 0.8
+      Target Frame: <Fixed Frame>
+      Near Clip Distance: 0.01
+      Invert Z Axis: false
+Window Geometry:
+  Width: 1560
+  Height: 820
+  X: 10
+  Y: 30
+  Hide Left Dock: false
+  Hide Right Dock: true

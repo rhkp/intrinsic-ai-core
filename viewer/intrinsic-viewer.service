@@ -1,0 +1,28 @@
+[Unit]
+Description=Intrinsic RViz desktop through private SSH-forwarded sockets
+After=network-online.target k3s.service
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+Environment=HOME=/home/ubuntu
+WorkingDirectory=/home/ubuntu
+RuntimeDirectory=intrinsic-viewer
+RuntimeDirectoryMode=0700
+UMask=0077
+ExecStart=/home/ubuntu/.local/lib/intrinsic-viewer/run-viewer.sh
+Restart=on-failure
+RestartSec=5
+KillMode=control-group
+TimeoutStopSec=15
+NoNewPrivileges=true
+OOMScoreAdjust=800
+MemoryMax=3G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target
