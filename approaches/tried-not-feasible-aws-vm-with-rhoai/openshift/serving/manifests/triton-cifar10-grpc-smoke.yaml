@@ -1,0 +1,21 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: triton-cifar10-grpc-smoke
+  namespace: arhkp-intrinsic
+  annotations:
+    security.opendatahub.io/enable-auth: "true"
+    serving.kserve.io/deploymentMode: Standard
+  labels:
+    networking.kserve.io/visibility: exposed
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    model:
+      modelFormat:
+        name: triton
+        version: "2"
+      protocolVersion: grpc-v2
+      runtime: triton-kserve-grpc-smoke
+      storageUri: gs://kfserving-examples/models/torchscript

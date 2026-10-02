@@ -1,0 +1,49 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: triton-kserve-grpc-smoke
+  namespace: arhkp-intrinsic
+  labels:
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/display-name: Triton gRPC smoke runtime
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8002"
+  containers:
+    - name: kserve-container
+      args:
+        - tritonserver
+        - --model-store=/mnt/models
+        - --grpc-port=9000
+        - --http-port=8080
+        - --allow-grpc=true
+        - --allow-http=true
+      image: nvcr.io/nvidia/tritonserver@sha256:551599c0812bb706121410a71abda07f9920d25e6c66edf1ec07a375e49f5f90
+      resources:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
+      ports:
+        - containerPort: 9000
+          name: h2c
+          protocol: TCP
+      volumeMounts:
+        - mountPath: /dev/shm
+          name: shm
+  protocolVersions:
+    - v2
+    - grpc-v2
+  supportedModelFormats:
+    - name: triton
+      version: "2"
+      autoSelect: true
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi

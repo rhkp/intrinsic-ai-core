@@ -8,6 +8,12 @@ logs must stay out of this repository.
 
 - [Deployed pods and their roles](PODS_README.md) — all 51 pods, grouped by
   namespace, with brief explanations and read-only inspection commands.
+- [AWS simulation demo runbook](DEMO_README.md) — one-cycle commands, observed
+  arm motion, recovery steps, and the current full-cycle limitation.
+- [OpenShift and OpenShift AI work plan](OPENSHIFT_PLAN.md) — assessed migration
+  blockers, component placement, and phased validation on a GPU-capable OpenShift cluster.
+- [Deployment approaches](approaches/README.md) — the **VM Only** baseline and
+  archived **AWS VM + RHOAI** hybrid experiment.
 
 ## Authoritative instructions
 
@@ -431,3 +437,46 @@ transient-local subscription to `/workcell_markers`. The desktop stays at
 window makes the controls easier to read. RViz's view controls rotate, pan, and
 zoom the camera without commanding robot motion. Private diagnostic logs remain
 under `~/intrinsic-install-logs/viewer-*.log` on the VM.
+
+## Simulation demo attempts — 2026-09-30
+
+Followed the pinned upstream **Visualize the Solution** tutorial. Verified that
+the deployment's `simulated` setting was true, the UR and Hand-E resources used
+simulation images, all 51 pods were ready, and ICON was enabled.
+
+Workpiece pose-estimator registration succeeded with the tutorial's parameters.
+Built and ran `//src:omts_app` with `configs/lab_bb_01/app_config.yaml` and an
+explicit `--num_cycles=1` limit. The first attempt failed when the simulated
+gripper's Zenoh query received no reply. Router logs showed no matching gripper
+queryable even though the driver pod was ready. Recreated only
+`rs-hande-gripper-0` and verified that its command handler registered with Zenoh.
+
+The retry executed camera capture, pose estimation, arm motion, gripping,
+placement, and unloading steps. It then failed planning a motion after reattaching
+the workpiece during unloading, reporting a collision between
+`raw_stock_2x3x5.base_link` and `enclosure.base_link`. A clean retry after the
+upstream-documented world reset reproduced the same collision. This resembles
+the tutorial's documented simulation placement/grasp limitation; the exact cause
+of our collision has not been established.
+
+**Functional simulation steps were demonstrated, but a complete machine-tending
+cycle has not passed.** Collision checking and upstream motion code were unchanged.
+After the attempts, reset the world again and re-enabled the simulated controller.
+ICON reported enabled, all 51 pods were ready, and no demo was left running.
+Private registration/demo logs remain on the VM with mode `600`.
+
+See [the demo runbook](DEMO_README.md) for repeatable commands and the distinction
+between demonstrated behavior and the remaining simulation failure. The
+[OpenShift plan](OPENSHIFT_PLAN.md) now uses this more precise baseline.
+
+## Hybrid feasibility experiment — 2026-10-01
+
+We tested RHOAI-managed Triton serving on dev01 while Intrinsic Core and the
+simulation remained on the AWS VM. Internal gRPC inference passed, but the
+AWS VM could not complete gRPC inference through the token-authenticated model
+route because HTTP/2 (`h2`) was not negotiated. A manual custom-certificate
+change to the RHOAI-managed route was not a durable, supported configuration;
+REST would require client/integration changes and was not validated end to end.
+We have set the hybrid approach aside and will plan a full OpenShift deployment.
+See the [archived experiment record](approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
+and [full OpenShift work plan](OPENSHIFT_PLAN.md).

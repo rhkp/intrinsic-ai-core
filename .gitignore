@@ -1,0 +1,36 @@
+# Generated local CodeGraph index and cache.
+.codegraph/
+
+# Local-only architecture deliverables under review.
+/architecture/
+
+# Local environment configuration. Commit only sanitized placeholders/demo
+# values in .env.sample; keep real values in ignored .env files.
+.env
+.env.*
+!.env.sample
+
+# Local machine metadata and private credentials/certificates.
+.DS_Store
+__pycache__/
+*.py[cod]
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.csr
+*.p8
+*.p7b
+*.p7c
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.kubeconfig
+/kubeconfig
+.secrets/
+secrets/
+*.token
+*.secret
+*.credentials
