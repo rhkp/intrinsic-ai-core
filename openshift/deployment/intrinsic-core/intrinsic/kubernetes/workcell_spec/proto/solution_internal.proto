@@ -1,0 +1,60 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package intrinsic_proto.workcell_spec.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "intrinsic/kubernetes/workcell_spec/proto/solution_internal_go_proto";
+
+// SolutionInternal provides information to the SolutionService which exposes an
+// external status message about the currently running solution.
+service SolutionInternal {
+  // Returns information about the currently running (if any) workcell spec.
+  // Returns NOT_FOUND if no workcell spec has been Applied yet.
+  rpc GetWorkcellStatus(google.protobuf.Empty)
+      returns (GetWorkcellStatusResponse) {}
+}
+
+message GetWorkcellStatusResponse {
+  enum WorkcellStatus {
+    UNKNOWN = 0;
+    // Ready to receive requests.
+    HEALTHY = 1;
+    // Not ready to receive requests, but should fix itself.
+    PENDING = 2;
+    // Non-recoverable error.
+    ERROR = 3;
+    // The workcell spec is about to be deleted.
+    STOPPING = 4;
+  }
+  WorkcellStatus status = 3;
+  // If status != HEALTHY, a human-readable explanation of why.
+  // Note that after (re-)installing an app, the expectation is for it to go
+  // through a few unhealthy states before it's healthy.
+  string error_reason = 4;
+
+  // The version of the installed workcell spec.
+  string version = 5;
+
+  // The unique cluster name, e.g. "lab-mtv-01" or "dev-user-foo-bar-com".
+  string cluster_name = 10;
+
+  reserved 1, 2, 6, 7, 8, 9;
+  reserved "display_name", "icon_instance_names", "name", "simulated",
+      "services", "started_at";
+}

@@ -1,0 +1,63 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package intrinsic_proto.workcell_spec.v1;
+
+import "intrinsic/config/proto/application.proto"; 
+import "intrinsic/kubernetes/generator/proto/auth_options.proto";
+
+option go_package = "intrinsic/kubernetes/workcell_spec/proto/deploy_go_proto";
+
+service DeployService {
+  // Auth annotations for consumption by the following helm_chart:
+  //   cs/symbol://intrinsic/kubernetes/api_relay/cloud:api-relay
+  option (intrinsic_proto.auth.service_options).auth_methods =
+      AUTH_METHOD_API_KEY;
+
+
+  // Deploys the given application on the cluster.
+  rpc DeployApplication(DeployApplicationRequest)
+      returns (DeployApplicationResponse) {}
+
+  // Stop the running application.
+  // Terminates the currently-running app and cleans up the database. If no app
+  // is running the database is cleaned.
+  rpc StopApplication(StopApplicationRequest)
+      returns (StopApplicationResponse) {}
+
+}
+
+
+message DeployApplicationRequest {
+  // The application which should be deployed.
+  intrinsic_proto.config.Application application = 1;
+
+  reserved 2;
+  reserved "charts_to_apply";
+}
+
+message DeployApplicationResponse {}
+
+message StopApplicationRequest {
+  // Wait until the app is stopped.
+  bool wait = 1;
+}
+
+message StopApplicationResponse {
+  reserved 1;
+  reserved "name";
+}
+

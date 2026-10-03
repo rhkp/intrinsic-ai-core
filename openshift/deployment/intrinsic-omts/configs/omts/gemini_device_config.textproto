@@ -1,0 +1,16 @@
+[type.googleapis.com/intrinsic_proto.perception.v1.CameraConfig]:  {
+  identifier:  {
+    ros:  {
+      device_id:  "CPEB4630008M"
+      driver_type:  "orbbec"
+    }
+  }
+  camera_settings: {
+    name: "exposure"
+    float_value: 0.002
+  }
+  camera_settings: {
+    name: "enable_laser"
+    bool_value: true
+  }
+}

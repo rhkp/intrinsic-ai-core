@@ -1,0 +1,62 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+# Configuration for yamllint.
+# The linter is run on the output of `helm template`, which leaves some
+# artifacts such as whitespaces where helm expressions were.
+# See https://yamllint.readthedocs.io/en/stable/rules.html for an explanation
+# of the rules.
+yaml-files:
+  - '*.yaml'
+  - '*.yml'
+  - '.yamllint'
+
+rules:
+  braces: enable
+  brackets: enable
+  colons: enable
+  commas: enable
+  comments: enable
+  # This rule would block comments inline with helm tags.
+  comments-indentation: disable
+  # The `helm template` command doesn't add a document-end tag.
+  document-end: disable
+  # While `helm template` actually does add these, disable the check since we
+  # don't include them in our yaml files.
+  document-start: disable
+  empty-lines:
+    max: 2
+    max-start: 0
+    max-end: 0
+  # Helm templating leaves whitespace.
+  empty-values: disable
+  hyphens: enable
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+  key-duplicates: enable
+  # TODO(intrinsic-cloud): Consider increasing strictness.
+  key-ordering: disable
+  # Helm templating can generate long lines.
+  line-length: disable
+  new-line-at-end-of-file: enable
+  new-lines: enable
+  octal-values: enable
+  # Helm templating leaves whitespace.
+  trailing-spaces: disable
+  # TODO(intrinsic-cloud): Consider increasing strictness
+  quoted-strings: disable
+  truthy: enable

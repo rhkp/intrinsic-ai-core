@@ -1,0 +1,399 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Used by tests to override organization id.
+{{- $org_id := .Values.test_org }}
+{{- if not $org_id }}
+  {{- if .Values.intrinsic_ai }}
+    {{- $org_id = .Values.intrinsic_ai.organization }}
+  {{- end }}
+{{- end }}
+
+# Used by tests to override cluster id.
+{{- $cluster_id := .Values.test_vm | default .Values.robot.name }}
+
+{{ if not (or .Values.feature_options.disable_zenoh_storage .Values.running_in_test_vm) }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: zenohd-storage-v2{{ .Values.testonly_name_suffix }}
+  labels:
+    app: zenohd{{ .Values.testonly_name_suffix }}
+spec:
+  capacity:
+    storage: 10Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  storageClassName: local-storage
+  local:
+    path: /var/apps
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zenohd-storage-v2{{ .Values.testonly_name_suffix }}
+spec:
+  storageClassName: local-storage
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: zenohd
+---
+{{ end }}  # if not (or .Values.feature_options.disable_zenoh_storage .Values.running_in_test_vm)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zenoh-router{{ .Values.testonly_name_suffix }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zenoh-router{{ .Values.testonly_name_suffix }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: zenoh-router{{ .Values.testonly_name_suffix }}
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: zenoh-router
+          image: "{{ .Values.registry }}{{ .Values.images.zenohd }}"
+          env:
+            {{ if eq .Values.project "intrinsic-integration-tests" }}
+            - name: RUST_LOG
+              value: "info"
+            {{ else }}
+            - name: RUST_LOG
+              value: "debug"
+            - name: NO_COLOR
+              value: "true"
+            {{ end }}
+            {{ if not .Values.feature_options.disable_zenoh_storage }}
+            - name: ZENOH_BACKEND_FS_ROOT
+              value: "/data"
+            {{ end }}
+          command: ["/dumb-init"]
+          args:
+            - --
+            - /zenohd
+            - -c
+            - /zenoh-router-config.json
+          securityContext:
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: zenoh-router-config
+              mountPath: /zenoh-router-config.json
+              subPath: zenoh-router-config.json
+            {{ if not .Values.feature_options.disable_zenoh_storage }}
+            - name: kv-data
+              mountPath: /data
+            {{ end }}
+          resources:
+            limits:
+              cpu: 2500m
+              memory: 2.5Gi
+            requests:
+              cpu: "0"
+              memory: 1Gi
+        - name: zenoh-introspection
+          image: "{{ .Values.registry }}{{ .Values.images.zenoh_introspection }}"
+          args:
+            - /intrinsic/platform/pubsub/introspection/zenoh_introspection
+            - --opencensus_metrics_port=9101
+      serviceAccount: zenoh-router-sa{{ .Values.testonly_name_suffix }}
+      serviceAccountName: zenoh-router-sa{{ .Values.testonly_name_suffix }}
+      volumes:
+        - name: zenoh-router-config
+          configMap:
+            name: zenoh-router-config{{ .Values.testonly_name_suffix }}
+        {{ if not .Values.feature_options.disable_zenoh_storage }}
+        - name: kv-data
+        {{ if .Values.running_in_test_vm }}
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
+        {{ else }}  # if .Values.running_in_test_vm
+          persistentVolumeClaim:
+            claimName: zenohd-storage-v2{{ .Values.testonly_name_suffix }}
+        {{ end }}  # if .Values.running_in_test_vm
+        {{ end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zenoh-router-config{{ .Values.testonly_name_suffix }}
+data:
+  {{ if not .Values.feature_options.disable_zenoh_storage }}
+  zenoh-router-config.json: |
+    {
+      "mode": "router",
+      {{ if .Values.feature_options.enable_line_orchestration_network }}
+      "id": "{{ regexReplaceAll "^0+" ($cluster_id | sha256sum | trunc 32) "" }}",
+      {{ end }}
+      "connect": { "endpoints": [] },
+      "listen": {
+        "endpoints": [ "tcp/0.0.0.0:7447" ]
+      },
+      "scouting": {
+        "multicast": { "enabled": false },
+        "gossip": {
+          "enabled": true,
+          "multihop": false,
+          "autoconnect": { "peer": ["router"] }
+        }
+      },
+      "access_control": {
+        "enabled": true,
+        "default_permission": "allow",
+        "rules": [
+          {
+            "id": "disallow kvstore_repl cloud query",
+            "permission": "deny",
+            "flows": ["egress"],
+            "key_exprs": [
+              "kv_store_repl/{{ $cluster_id }}/**",
+            ],
+            "messages": [
+              "query"
+            ],
+          },
+          {
+            "id": "disallow kvstore cloud query",
+            "permission": "deny",
+            "flows": ["egress"],
+            "key_exprs": [
+              "kv_store/**",
+            ],
+            "messages": [
+              "query"
+            ],
+          },
+          {
+            "id": "disallow local memory storage cloud query",
+            "permission": "deny",
+            "flows": ["egress"],
+            "key_exprs": [
+              "capture_results/**",
+              "intrinsic_inference/**",
+            ],
+            "messages": [
+              "query"
+            ],
+          },
+          {{ if .Values.feature_options.enable_line_orchestration_network }}
+          {
+            "id": "disallow interipc_kv cloud query",
+            "permission": "deny",
+            "flows": ["egress"],
+            "key_exprs": [
+              "interipc_kv/**",
+            ],
+            "messages": [
+              "query"
+            ],
+          },
+          {{ end }}
+        ],
+        "subjects": [
+          {
+            "id": "all subjects",
+          }
+        ],
+        "policies": [
+          {
+            "rules": [
+              "disallow kvstore_repl cloud query",
+              "disallow kvstore cloud query",
+              "disallow local memory storage cloud query",
+              {{ if .Values.feature_options.enable_line_orchestration_network }}
+              "disallow interipc_kv cloud query",
+              {{ end }}
+            ],
+            "subjects": ["all subjects"],
+          }
+        ]
+      },
+      "plugins_loading": {
+        "enabled": true,
+      },
+      "plugins": {
+        "storage_manager": {
+          "__path__": ["/libzenoh_plugin_storage_manager.so"],
+          "__required__": true,
+          "volumes": {
+            "fs": {
+              "__path__": ["/libzenoh_backend_fs.so"],
+              "__required__": true,
+              "read_only": "false",
+              "on_closure": "do_nothing",
+            },
+          },
+          "storages": {
+            "kv_store_repl": {
+              // the key expression this storage will subscribes to
+              "key_expr": "kv_store_repl/{{ $cluster_id }}/**",
+              "volume": {
+                "id": "fs",
+                // the key/values will be stored as files within this directory (relative to ${ZENOH_BACKEND_FS_ROOT})
+                "dir": "{{ $cluster_id }}",
+              },
+              "replication": {
+                "interval": 10,
+                "sub_intervals": 5,
+                "propagation_delay": 250,
+                "hot": 6,
+                "warm": 30,
+              }
+            },
+            "kv": {
+              // the key expression this storage will subscribes to
+              "key_expr": "kv_store/**",
+              "volume": {
+                "id": "fs",
+                // the key/values will be stored as files within this directory (relative to ${ZENOH_BACKEND_FS_ROOT})
+                "dir": "keys"
+              }
+            },
+            {{ if .Values.feature_options.enable_line_orchestration_network }}
+            "interipc_kv": {
+              // the key expression this storage will subscribes to
+              "key_expr": "interipc_kv/**",
+              "volume": {
+                "id": "fs",
+                // the key/values will be stored as files within this directory (relative to ${ZENOH_BACKEND_FS_ROOT})
+                "dir": "interipc"
+              },
+              "replication": {
+                "interval": 10,
+                "sub_intervals": 5,
+                "propagation_delay": 250,
+                "hot": 6,
+                "warm": 30,
+              }
+            },
+            {{ end }}
+            // the capture results store might be cleared before each run
+            "capture_results": {
+              "key_expr": "capture_results/**",
+              "volume": "memory"
+            },
+            // the intrinsic inference store might be cleared before each run
+            "intrinsic_inference": {
+              "key_expr": "intrinsic_inference/**",
+              "volume": "memory"
+            }
+          }
+        }
+      }
+    }
+  {{ else }}
+  zenoh-router-config.json: |
+    {
+      "mode": "router",
+      {{ if .Values.feature_options.enable_line_orchestration_network }}
+      "id": "{{ regexReplaceAll "^0+" ($cluster_id | sha256sum | trunc 32) "" }}",
+      {{ end }}
+      "connect": { "endpoints": [] },
+      "listen": {
+        "endpoints": [ "tcp/0.0.0.0:7447" ]
+      },
+      "scouting": {
+        "multicast": { "enabled": false },
+        "gossip": {
+          "enabled": true,
+          "multihop": false,
+          "autoconnect": { "peer": ["router"] }
+        }
+      },
+      "plugins": {
+      }
+    }
+  {{ end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zenoh-router{{ .Values.testonly_name_suffix }}
+  labels:
+    app: zenoh-router{{ .Values.testonly_name_suffix }}
+spec:
+  ports:
+    - name: zenoh-router
+      port: 7447
+      protocol: TCP
+  selector:
+    app: zenoh-router{{ .Values.testonly_name_suffix }}
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: zenoh-router{{ .Values.testonly_name_suffix }}
+spec:
+  gateways:
+    - app-ingress/gateway
+  hosts:
+    - "*"
+  tcp:
+    - match:
+        - port: 7447
+      route:
+        - destination:
+            host: zenoh-router
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zenoh-router-host{{ .Values.testonly_name_suffix }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: zenoh-router{{ .Values.testonly_name_suffix }}
+  ports:
+    - name: zenoh-router-host
+      port: 17447
+      targetPort: 7447
+      protocol: TCP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zenoh-router-sa{{ .Values.testonly_name_suffix }}
+---
+# Grant the zenoh-router service account the permission to fetch the IPC identity token.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zenoh-router-sa-xfa-config-ipcidentity-fetcher{{ .Values.testonly_name_suffix }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: xfa-config-ipcidentity-fetcher
+subjects:
+  - kind: ServiceAccount
+    name: zenoh-router-sa{{ .Values.testonly_name_suffix }}
+    namespace: {{ .Release.Namespace }}

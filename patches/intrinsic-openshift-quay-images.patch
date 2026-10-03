@@ -1,0 +1,24 @@
+diff --git a/intrinsic/platform/pubsub/fds_core.yaml b/intrinsic/platform/pubsub/fds_core.yaml
+--- a/intrinsic/platform/pubsub/fds_core.yaml
++++ b/intrinsic/platform/pubsub/fds_core.yaml
+@@ -81,7 +81,7 @@
+       terminationGracePeriodSeconds: 5
+       containers:
+         - name: zenoh-router
+-          image: "us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2"
++          image: "{{ .Values.registry }}{{ .Values.images.zenohd }}"
+           env:
+             {{ if eq .Values.project "intrinsic-integration-tests" }}
+             - name: RUST_LOG
+diff --git a/intrinsic/executive/templates/code-execution.yaml b/intrinsic/executive/templates/code-execution.yaml
+--- a/intrinsic/executive/templates/code-execution.yaml
++++ b/intrinsic/executive/templates/code-execution.yaml
+@@ -51,7 +51,7 @@
+           # Runs a jupyter server on localhost:8888 as non-root user
+           # Images from: ghcr.io/intrinsic-ai/code-execution-jupyter-server
+           # Use executive/tools/release_code_execution_image.sh to update this.
+-          image: ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c
++          image: "{{ .Values.registry }}{{ .Values.images.code_execution_jupyter_server }}"
+           securityContext:
+             runAsUser: 1000
+             runAsGroup: 1000

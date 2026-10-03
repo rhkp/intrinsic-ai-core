@@ -1,0 +1,246 @@
+{
+  "adaptations": [
+    {
+      "id": "openshift-registry-publisher",
+      "status": "applied-to-owned-copy",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "patches/intrinsic-openshift-registry.patch",
+      "patch_sha256": "d3fa7e7133b3173b897b4417722078f4c083082fa67cf40abf6a2b591ea16b35",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/chart_executable.go",
+          "current_sha256": "9198fb787ba003322c269c1e65fa3db1d279a0ca662ab3fa689f9756a90861cb"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/production/BUILD",
+          "current_sha256": "c077d828ce52a088b6a1cfb6ad1440c4e628af5bbf1abdf788a414e5b0f424a8"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/production/image_publisher.go",
+          "current_sha256": "e2580688eaa3bc6ecf650a91da2715804af47903a41fefa5e9a0e1301187bdef"
+        }
+      ],
+      "added_adaptation_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/production/openshift_registry_publisher.go",
+          "sha256": "b17942856ef5c89c23bf50b4547f425c94336e59dff14da60d1bff4b30e10021"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/production/openshift_registry_publisher_test.go",
+          "sha256": "502a7bc6f3e1b685f03e64ba1fdeda7e7b0e889263caad1d56da7f74d68fbff2"
+        }
+      ],
+      "validation": {
+        "git_apply_check": "passed before application",
+        "gofmt": "passed on changed Go files",
+        "copied_tree_unit_tests": "not run",
+        "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
+        "full_upstream_bazel_build": "not run",
+        "live_intrinsic_deployment": "not run"
+      }
+    },
+    {
+      "id": "openshift-image-pull-identity",
+      "status": "applied-to-owned-copy",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/renderutil.go",
+          "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/resources.yaml",
+          "current_sha256": "92d3440631c695b32d7321ae898b973769b95360c8f429d64e79750625fb3e50"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/skills.yaml",
+          "current_sha256": "231e39e93b48dcf2113f544a7885c25c3506d78b43e3f7afb64055d474254721"
+        }
+      ],
+      "added_adaptation_files": [
+        {
+          "path": "openshift/deployment/manifests/image-pull-access.yaml",
+          "sha256": "7f12afb3d09edcb68488250ac1ef970771342fe8df6657e14621c20af3338225"
+        },
+        {
+          "path": "openshift/deployment/validate_image_pull_templates.py",
+          "sha256": "2c6e416ea143bca21f4c3b43dd523607f37e16d33a5408edf631a631fcf29bff"
+        }
+      ],
+      "validation": {
+        "gofmt": "passed on changed Go file",
+        "helm_template_render": "passed for resource and skill templates; verifies intrinsic-runtime, token automount disabled, and no generated pull Secrets/imagePullSecrets",
+        "live_serviceaccount_pull_smoke": "passed previously in arhkp-intrinsic with a restricted pod and synthetic integrated-registry image; adapted Intrinsic workloads not deployed",
+        "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
+        "copied_tree_unit_tests": "not run",
+        "full_upstream_bazel_build": "not run; complete Core/OMTS deployment build remains pending",
+        "live_intrinsic_deployment": "not run"
+      }
+    },
+    {
+      "id": "openshift-gpu-taint-toleration",
+      "status": "applied-to-owned-copy",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/renderutil.go",
+          "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+        }
+      ],
+      "added_adaptation_files": [
+        {
+          "path": "openshift/gpu_smoke.py",
+          "sha256": "47f3c018eb2c6f247cc501b1392db0a792ae92950df72d8e15d7809ee769a3cd"
+        }
+      ],
+      "validation": {
+        "gofmt": "passed",
+        "dev01_gpu_scheduling_and_device_smoke": "passed with exact g5-gpu=true:NoSchedule toleration; temporary pod cleanup verified",
+        "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
+        "copied_tree_unit_tests": "not run; Go/Bazel build context is not present in the selected deployment copy",
+        "full_upstream_bazel_build": "not run; complete Core/OMTS deployment build remains pending",
+        "live_intrinsic_gpu_deployment": "not run"
+      }
+    },
+    {
+      "id": "openshift-quay-image-lock",
+      "status": "applied-to-owned-copy",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "patches/intrinsic-openshift-quay-images.patch",
+      "patch_sha256": "7930186d38130fff4f45d384a753874c61816ef24775bca97b71893714e9b246",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/platform/pubsub/fds_core.yaml",
+          "current_sha256": "f51550b7f37be8da61dd29e18d8bfa179f5207e15abab189973fdd4977d4586b"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/executive/templates/code-execution.yaml",
+          "current_sha256": "768a0bb18d88edc8ff4bc21eccd12bf8dd9b6ada4b4d417d5a10db8a1c02cad4"
+        }
+      ],
+      "added_adaptation_files": [
+        {
+          "path": "openshift/image-lock.json",
+          "sha256": "85cc60fc45b91eeebc1faa7be58c4ae53692d633417163bef154b6f954a60191"
+        },
+        {
+          "path": "openshift/deployment/quay-image-values.yaml",
+          "sha256": "f0d72d00ac09125895d0a16e5fb0133c176f879eeaa035ffc94124b59a393e1d"
+        },
+        {
+          "path": "openshift/render_quay_image_values.py",
+          "sha256": "80b3c18bd954e2b12dcf499cac13801aca7d77695e9d338a88425afc653ed9ae"
+        },
+        {
+          "path": "openshift/smoke_quay_image.py",
+          "sha256": "0a281f390981662c36adb330c569695373f3a5cfc5b4d561016ec408c6e1ea39"
+        }
+      ],
+      "validation": {
+        "upstream_release_archive_checksum": "passed for release 20260922.0",
+        "mirrored_images": "24 images mirrored to Quay and recorded by immutable digest (22 release tarballs plus zenohd and Jupyter sidecar)",
+        "base_and_app_helm_template_render": "passed; all rendered image references resolve to Quay digests in image-lock.json",
+        "dev01_restricted_scc_image_smoke": "passed for HTTP gateway, Zenoh daemon, and Jupyter sidecar images after Quay repositories were made public; each pulled and started with assigned non-root UID, and pod cleanup verified; this does not validate full workload behavior",
+        "full_intrinsic_workload": "not deployed; this image smoke is not a workload compatibility claim"
+      }
+    },
+    {
+      "id": "openshift-grpc-routing",
+      "status": "OpenShift gRPC routing adaptation passes x86 builds; adapted workcell service image is published and anonymously pullable by digest.",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/renderutil.go",
+          "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/asset_deployment_service.go",
+          "current_sha256": "926ed09cdd1db3a31df6d1427275705eeeb688f0ea92b8702427b815097cab91"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/instances/instance_conversion.go",
+          "current_sha256": "230ad4a883adad0fb08f41381375c41655e9d566817ed7d34b0cffc14dfc82e5"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/assets/instances/asset_instances_service.go",
+          "current_sha256": "d45f46118c6094972df66717779647727c70a0047f934d52f1a4787029fa3165"
+        },
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/deploy_service.go",
+          "current_sha256": "8b62a4619dac1aa71a9e44a52ff0d6bfbd4a4a336e28b4a279794e70cdacde5f"
+        }
+      ],
+      "added_adaptation_files": [
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
+          "sha256": "ca4b21997c8d9e0ee03628eb2ad2677219248eab98118eb9a204f82dcd9b5c1a"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
+          "sha256": "864e1552f29ba666605e3c3e4bed53497cc4f03cb0f6f908e56db6d54d4e6129"
+        },
+        {
+          "path": "openshift/configure_routing.py",
+          "sha256": "776d27469145403a0143f69dcea9a96bd5de23b32bac79764a9733064cb3a2c7"
+        },
+        {
+          "path": "openshift/test_configure_routing.py",
+          "sha256": "431b8e0a5bb69408cee3fee1de3d3ccb89f98203fa54d8270d107815bebfd25e"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
+          "sha256": "31f6f9cb64b09ff95b58036a83fdb4e5bdd1bb159127f443e7ede4b3dfe75535"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/deploy/controller-rbac.yaml",
+          "sha256": "a79f67a62023b7346358650287106e183f38f97946d238603532d928cb704b23"
+        },
+        {
+          "path": "openshift/validate_source_manifest.py",
+          "sha256": "29fa691ae7dbf531209389a904d512724d9535d307a378b16ef2bf2d54e2e656"
+        },
+        {
+          "path": "openshift/.env.sample",
+          "sha256": "7610131d9b5b04f7a1c5b73a8f5a6bf25776df0219ee3b75a153970541e9ea36"
+        },
+        {
+          "path": "openshift/deployment/manifests/servicemesh-member.yaml",
+          "sha256": "b64961765ea238cd4072272b343a400ee1f69ffd34b89de27cfde9c86577f8cc"
+        },
+        {
+          "path": "openshift/deployment/manifests/intrinsic-dedicated-grpc-gateway.yaml",
+          "sha256": "ff36d9e72b7c48ee2dcc14b36dec4c18ac356acb80637381a84c246883d5c6e1"
+        }
+      ],
+      "validation": {
+        "controller_go_tests": "passed",
+        "offline_manifest_and_routing_tests": "passed (14 tests)",
+        "core_renderer_bazel_target": "passed on x86 build host; 2,217 actions; 665.204 seconds",
+        "live_mesh_routing": "passed; dedicated injected Gateway, exact-host HTTP/2 listener, internal endpoint, and project routing ConfigMap verified",
+        "live_grpc_smoke": "not run; no Core workload or generated VirtualServices have been deployed",
+        "assetdeploymentservice_and_chart_cli": "passed on x86 build host; 4,051 actions; 397.196 seconds",
+        "workcell_spec_service_image": "passed on x86 build host; //intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar; 194 actions; 21.208 seconds",
+        "full_upstream_bazel_build": "not run",
+        "live_intrinsic_deployment": "not run; no Core workload applied",
+        "image_secret_marker_scan": "passed; no secret environment names, sensitive-path matches, private-key markers, or AWS-key markers",
+        "quay_publish": "passed; adapted Linux/amd64 image published under a unique tag and recorded by digest in openshift/image-lock.json",
+        "anonymous_digest_pull": "passed on x86 build host",
+        "service_mesh_enrollment": "passed; namespace ServiceMeshMember Ready",
+        "controller_build": "passed; project BuildConfig build #5 completed",
+        "controller_rollout": "passed; one Ready replica uses the new immutable image digest",
+        "routing_configmap": "applied from the ignored local .env using the dedicated gateway Service and Gateway",
+        "dedicated_gateway_manifest_server_dry_run": "passed against dev01 admission",
+        "dedicated_gateway_deployment": "passed; gateway injection produced a Ready Envoy proxy and internal ClusterIP endpoint",
+        "external_route_check": "passed; no project OpenShift Route exists and Service Mesh automatic route creation is disabled",
+        "shared_gateway_or_control_plane_change": "none; the shared ingress gateway and ServiceMeshControlPlane were not changed",
+        "controller_routing_config_rollout": "passed; controller restarted and one replica Ready with the routing configuration",
+        "mesh_network_policy": "mesh-managed policy permits ingress from enrolled mesh namespaces; project-specific workload identity authorization not configured"
+      }
+    }
+  ]
+}

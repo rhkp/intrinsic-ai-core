@@ -1,0 +1,141 @@
+// Copyright 2019 The Cloud Robotics Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Package main defines the entry point for the chart assignment controller service.
+//
+// Ensures selected apps are running on the robot.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"contrib.go.opencensus.io/exporter/stackdriver"
+	controller "example.invalid/intrinsic-openshift/chartassignment-controller/controller"
+	apps "github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+	"github.com/googlecloudrobotics/ilog"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+)
+
+var (
+	cloudCluster         = flag.Bool("cloud-cluster", true, "Is the controller deployed in cloud cluster")
+	healthzPort          = flag.Int("healthz-port", 8080, "Listening port of the /healthz probe")
+	webhookEnabled       = flag.Bool("webhook-enabled", false, "Whether the webhook should be served")
+	watchNamespace       = flag.String("watch-namespace", "", "Only reconcile ChartAssignments in this namespace")
+	webhookPort          = flag.Int("webhook-port", 9876, "Listening port of the custom resource webhook")
+	certDir              = flag.String("cert-dir", "", "Directory for TLS certificates")
+	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project. Not relevant for cloud cluster")
+	maxQPS               = flag.Int("apiserver-max-qps", 50, "Maximum number of calls to the API server per second.")
+	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
+)
+
+func main() {
+	flag.Parse()
+	if *watchNamespace == "" {
+		slog.Error("watch-namespace must be set")
+		os.Exit(1)
+	}
+	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
+	slog.SetDefault(slog.New(logHandler))
+
+	ctx := context.Background()
+	if *stackdriverProjectID != "" && *cloudCluster == false {
+		sd, err := stackdriver.NewExporter(stackdriver.Options{
+			ProjectID: *stackdriverProjectID,
+		})
+		if err != nil {
+			slog.Error("Failed to create the Stackdriver exporter", ilog.Err(err))
+			os.Exit(1)
+		}
+		trace.RegisterExporter(sd)
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+		defer sd.Flush()
+	}
+
+	var clusterName string
+	if *cloudCluster == true {
+		clusterName = "cloud"
+		slog.Info("Starting chart-assignment-controller in cloud setup")
+	} else {
+		clusterName = os.Getenv("ROBOT_NAME")
+		slog.Info("Starting chart-assigment-controller in robot setup", slog.String("Cluster", clusterName))
+		if clusterName == "" {
+			slog.Error("expect ROBOT_NAME environment var to be set to an non-empty string")
+			os.Exit(1)
+		}
+	}
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		slog.Error("Failed to load config", ilog.Err(err))
+		os.Exit(1)
+	}
+	config.QPS = float32(*maxQPS)
+	// The default value of twice the max QPS seems to work well.
+	config.Burst = *maxQPS * 2
+
+	if err := runController(ctx, config, clusterName); err != nil {
+		slog.Error("Controller terminated", ilog.Err(err))
+		os.Exit(1)
+	}
+	slog.Info("Controller finished")
+}
+
+func runController(ctx context.Context, cfg *rest.Config, cluster string) error {
+	ctrllog.SetLogger(zap.New())
+
+	sc := runtime.NewScheme()
+	scheme.AddToScheme(sc)
+	apps.AddToScheme(sc)
+
+	mgr, err := manager.New(cfg, manager.Options{
+		Scheme:                 sc,
+		Cache:                  cache.Options{DefaultNamespaces: map[string]cache.Config{*watchNamespace: {}}},
+		WebhookServer:          webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort}),
+		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
+		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
+	})
+	if err != nil {
+		return errors.Wrap(err, "create controller manager")
+	}
+	if err := controller.Add(ctx, mgr, *cloudCluster, *watchNamespace); err != nil {
+		return errors.Wrap(err, "add ChartAssignment controller")
+	}
+	if err := mgr.AddHealthzCheck("trivial", healthz.Ping); err != nil {
+		return errors.Wrap(err, "add healthz check")
+	}
+
+	if *webhookEnabled {
+		webhook := controller.NewValidationWebhook(mgr)
+		srv := mgr.GetWebhookServer()
+		srv.Register("/chartassignment/validate", webhook)
+	}
+
+	return mgr.Start(signals.SetupSignalHandler())
+}

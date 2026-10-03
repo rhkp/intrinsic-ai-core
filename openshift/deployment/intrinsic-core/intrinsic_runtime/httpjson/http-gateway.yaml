@@ -1,0 +1,153 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-gateway
+spec:
+  selector:
+    matchLabels:
+      app: http-gateway
+  template:
+    metadata:
+      labels:
+        app: http-gateway
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: http-gateway
+          image: {{ .Values.registry }}{{ .Values.images.http_gateway_service }}
+          args:
+            - --http_port=8080
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            {{- if .Values.feature_options.enable_http_gateway_pubsub }}
+            - --enable_http_gateway_pubsub
+            - --grpc_port=8082
+            {{- end }}
+            {{- if .Values.feature_options.enable_webrtc_turn_auth_servers }}
+            - --enable_webrtc_turn_auth_servers
+            {{- end }}
+          {{- if .Values.feature_options.enable_http_gateway_pubsub }}
+          env:
+            - name: POD_IPS
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIPs
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-gateway
+  labels:
+    app: http-gateway
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: http-gateway
+    {{- if .Values.feature_options.enable_http_gateway_pubsub }}
+    - port: 8082
+      name: webpubsub
+    {{- end }}
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: http-gateway
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: http-gateway
+spec:
+  # hosts & gateways are boilerplate required for externally-reachable VirtualServices.
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    {{- if .Values.feature_options.enable_http_gateway_pubsub }}
+    - match:
+        - uri:
+            prefix: /intrinsic.httpjson.v1alpha.WebPubSub/
+      route:
+        - destination:
+            host: http-gateway
+            port:
+              number: 8082
+    {{- end }}
+    - match:
+        - uri:
+            prefix: /api/http-gateway/
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: http-gateway
+            port:
+              number: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: http-gateway-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: http-gateway
+{{- if .Values.feature_options.enable_http_gateway_pubsub }}
+---
+# Expose UDP port 32123 across all nodes of the cluster to enable direct external
+# WebRTC (ICE) UDP connections to the http-gateway service. Multiple concurrent
+# WebRTC connections share this single port via pion's UDP multiplexer.
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: http-gateway
+  name: http-gateway-ice
+spec:
+  ports:
+    - name: ice
+      port: 32123
+      protocol: UDP
+      targetPort: 32123
+      nodePort: 32123
+  selector:
+    app: http-gateway
+  type: NodePort
+---
+{{- end }}

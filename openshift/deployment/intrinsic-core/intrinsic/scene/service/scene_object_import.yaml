@@ -1,0 +1,130 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scene-object-import
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scene-object-import
+  template:
+    metadata:
+      labels:
+        app: scene-object-import
+    spec:
+      containers:
+        - name: scene-object-import
+          image: "{{ .Values.registry }}{{ .Values.images.scene_object_import}}"
+          args:
+            - intrinsic/scene/service/scene_object_import_main
+            - --undefok=enforce_kernel_ipv6_support
+            - --port=8080
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            {{ if .Values.enable_cad_import }}
+            - --cad_import_service_address=localhost:8081
+            {{ end }}
+            - --geometry_service_address=geomservice.app-intrinsic-base.svc.cluster.local:8080
+            - --asset_deployment_service_address=asset-deployment.app-intrinsic-base.svc.cluster.local:8080
+            - --workcell_cluster_service_address=workcell-cluster-service.app-intrinsic-base.svc.cluster.local:9957
+        {{ if .Values.enable_cad_import }}
+        - name: cad-import-service
+          image: "{{ .Values.registry }}{{ .Values.images.cad_import_image}}"
+          args:
+            - /app/google3/intrinsic/scene/cad/cadex_cad_import_service_main
+            - --port=8081
+            - --geometry_service_address=geomservice.app-intrinsic-base.svc.cluster.local:8080
+        {{ end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scene-object-import
+spec:
+  ports:
+    - port: 8080
+      name: grpc-scene-object-import
+    {{ if .Values.enable_cad_import }}
+    - port: 8081
+      name: grpc-cad-import
+    {{ end }}
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: scene-object-import
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: scene-object-import
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.scene_object.v1.SceneObjectInternal/
+      route:
+        - destination:
+            host: scene-object-import
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.scene_object.v1.SceneObjectImport/
+      route:
+        - destination:
+            host: scene-object-import
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.scene_object.v1.SceneObjectExport/
+      route:
+        - destination:
+            host: scene-object-import
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.scene_object.v1.SceneObjectEditService/
+      route:
+        - destination:
+            host: scene-object-import
+            port:
+              number: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: scene-object-import-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: scene-object-import

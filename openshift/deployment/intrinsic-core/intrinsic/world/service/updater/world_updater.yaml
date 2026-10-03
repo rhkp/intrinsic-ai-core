@@ -1,0 +1,112 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: world-updater
+spec:
+  selector:
+    matchLabels:
+      app: world-updater
+  template:
+    metadata:
+      labels:
+        app: world-updater
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: world-updater
+          image: {{ $.Values.registry }}{{ $.Values.images.world_updater }}
+          args:
+            - intrinsic/world/service/updater/world_updater_main
+            - --port=8080
+            - --grpc_client_connect_timeout=5m
+            - --world_address=world.app-intrinsic-base.svc.cluster.local:8080
+            - --resource_registry_address=resource-registry.app-intrinsic-base.svc.cluster.local:8080
+            - --asset_deployment_address=asset-deployment.app-intrinsic-base.svc.cluster.local:8080
+            - --opencensus_tracing
+            - --opencensus_metrics_port=9101
+          securityContext:
+            readOnlyRootFilesystem: true
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: world-updater
+  labels:
+    app: world-updater
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-world-updater
+  selector:
+    app: world-updater
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: world-updater
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.world.RobotUpdateService/
+      route:
+        - destination:
+            host: world-updater
+            port:
+              number: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: world-updater-metrics
+  labels:
+    app: world-updater-metrics
+spec:
+  clusterIP: None
+  ports:
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: world-updater
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: world-updater-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: world-updater-metrics

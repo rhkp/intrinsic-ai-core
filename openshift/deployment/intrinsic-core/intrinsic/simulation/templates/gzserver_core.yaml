@@ -1,0 +1,173 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This Deployment defines a Gazebo simulation proxy server container for IOC.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gzserver
+spec:
+  strategy:
+    type: Recreate  # On updates, delete existing pod before creating new one.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gzserver
+  template:
+    metadata:
+      labels:
+        app: gzserver
+      annotations:
+        # Force gzserver to restart every time the frontend switches apps
+        app-deployment-id: "{{ .Values.app_deployment_id }}"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: gzserver
+          image: {{ .Values.registry }}{{ .Values.images.gzserver_insrc }}
+          securityContext:
+            readOnlyRootFilesystem: true
+          args:
+            - /intrinsic/simulation/gazebo/grpc_proxy/proxy_server_main
+            - --opencensus_tracing=true
+            - --opencensus_metrics_port=9090
+            {{ if not (and .Values.app_deployment_id .Values.simulated) }}
+            - --sleep
+            {{ end }}
+          env:
+            - name: PINCH_GRIPPER_SERVICE_ADDRESS
+              value: "0.0.0.0:12393"
+            - name: CAMERA_SERVICE_ADDRESS
+              value: "0.0.0.0:15333"
+            - name: GPIO_SERVICE_ADDRESS
+              value: "0.0.0.0:12394"
+            - name: SPAWNER_SERVICE_ADDRESS
+              value: "0.0.0.0:12395"
+            - name: OUTFEED_SERVICE_ADDRESS
+              value: "0.0.0.0:12396"
+            - name: HEALTH_AGGREGATOR_SERVICE_ADDRESS
+              value: "0.0.0.0:12377"
+            - name: SET_SIMULATED_INPUTS_SERVICE_ADDRESS
+              value: "0.0.0.0:12476"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+# Services are only started if the deployment is in simulated mode.
+{{ if .Values.simulated }}
+---
+# This ClusterIP service makes gzserver reachable inside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: simulation-server
+spec:
+  # This service is made headless by setting clusterIP as None to allow internal clients such as
+  # simulation service and spawner resource to connect to undeclared ports on which various
+  # gRPC services are advertised. Solution deployment is not blocked until these ports are open.
+  clusterIP: None
+  selector:
+    app: gzserver
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camera-sim
+spec:
+  ports:
+    - port: 8080
+      targetPort: 15333
+      name: grpc-camera-server
+  selector:
+    app: gzserver
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gripper-sim
+spec:
+  ports:
+    - port: 8080
+      targetPort: 12393
+      name: grpc-gripper
+  selector:
+    app: gzserver
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpio-sim
+spec:
+  ports:
+    - port: 8080
+      name: grpc-gpio
+      targetPort: 12394
+  selector:
+    app: gzserver
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: set-simulated-inputs
+spec:
+  ports:
+    - port: 8080
+      name: set-simulated-inputs
+      targetPort: 12476
+  selector:
+    app: gzserver
+  type: ClusterIP
+---
+# This service makes gzserver's metrics accessible
+apiVersion: v1
+kind: Service
+metadata:
+  name: gzserver-metrics
+  labels:
+    app: gzserver-metrics
+spec:
+  clusterIP: None
+  ports:
+    - port: 9090
+      name: http-metrics
+  selector:
+    app: gzserver
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gzserver-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This configuration solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: gzserver-metrics
+{{ end }}  # if .Values.simulated

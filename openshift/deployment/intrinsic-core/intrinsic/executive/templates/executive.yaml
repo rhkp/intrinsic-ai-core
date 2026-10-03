@@ -1,0 +1,255 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: executive
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: executive
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: executive
+      annotations:
+        # force executive service to restart every time
+        app-deployment-id: "{{ .Values.app_deployment_id }}"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: executive
+          image: {{ .Values.registry }}{{ .Values.images.executive }}
+          securityContext:
+            readOnlyRootFilesystem: true
+          args:
+            - /intrinsic/executive/executive
+            {{ if .Values.app_deployment_id }}
+            - --deployment_id={{ .Values.app_deployment_id }}
+            - --loop_time=25ms
+            - --report_active_actions_timeout=5s
+            - --google_cloud_project={{ .Values.project }}
+            - --enable_internal_logging={{ eq .Values.project "giza-workcells" }}
+            - --skill_registry_address=skill-registry.app-intrinsic-base.svc.cluster.local:8080
+            - --resource_registry_address=resource-registry.app-intrinsic-base.svc.cluster.local:8080
+            - --installed_assets_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            {{- if .Values.feature_options.enable_python_task_node }}
+            - --code_execution_service_address=code-execution.app-intrinsic-app-chart.svc.cluster.local:8080
+            {{- end }}
+            - --world_service_address=world.app-intrinsic-base.svc.cluster.local:8080
+            - --world_updater_address=world.app-intrinsic-base.svc.cluster.local:8080
+            - --asset_info_internal_service_address=asset-info-internal.app-intrinsic-base.svc.cluster.local:8080
+            - --solution_service_address=solution-service.app-intrinsic-base.svc.cluster.local:8082
+            - --world_id=world
+            - --grpc_client_connection_timeout=5m
+            - --clips_executive_service_port=8080
+            - --clips_dirs=intrinsic/executive/clips
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            {{- if hasKey .Values "clips_init_files" }}
+            - --clips_init_files={{ join "," .Values.clips_init_files }}
+            {{- end }}
+            {{- if .Values.clips_enable_tracing }}
+            - --clips_trace_logfile=/clips-logs/clips_trace_%timestamp%.txt
+            {{- end }}
+            {{- if .Values.feature_options.enable_executive_tracing_info_in_state }}
+            - --tracing_add_info_to_state
+            {{- end }}
+            {{- if hasKey .Values "executive_flags" }}
+            - --flags_config=/flags/flags.pbtxt
+            {{- end }}
+            {{- if .Values.feature_options.enable_executive_pubsub }}
+            - --pubsub_publish
+            {{- end }}
+            {{- if .Values.feature_options.enable_executive_validate_on_create }}
+            - --validate_on_import
+            {{- else }}
+            - --novalidate_on_import
+            {{- end }}
+            {{- if .Values.feature_options.enable_preemptive_prediction }}
+            - --enable_preemptive_prediction
+            {{- end }}
+            {{- if .Values.feature_options.enable_executive_skill_conflict_default_wait }}
+            - --enable_executive_skill_conflict_default_wait
+            {{- end }}
+            # Simulation service is only started if the deployment is in simulated mode.
+            {{ if .Values.simulated }}
+            - --simulation_service_address=simulation-service.app-intrinsic-base.svc.cluster.local:8088
+            {{- end }}
+            - --conductor_service_address=world.app-intrinsic-base.svc.cluster.local:8082
+            {{- if .Values.tracing_show_internal_clips_runs_leaking_memory }}
+            - --tracing_show_internal_calls
+            - --tracing_show_internal_clips_runs_leaking_memory
+            {{- end }}
+            {{ else }}
+            # This is used to pre-download the image and avoid crash-looping when applying the chart with default values
+            # TODO(b/326921974) move to intrinsic-base or make it a resource instead.
+            - --sleep
+            {{ end }}
+          volumeMounts:
+            - name: flags-volume
+              mountPath: /flags
+            - name: clips-logs
+              mountPath: /clips-logs
+            - name: debug-logs
+              mountPath: /debug-logs/traces
+              subPath: traces
+        {{- if .Values.clips_enable_tracing }}
+        # You can access the HTTP server that provides CLIPS logs with:
+        # kubectl -n <app-namespace> port-forward service/executive 8888:8084.
+        # It will then be available locally on port 8888 (to access the page
+        # from your laptop when executing kubectl on your workstation or
+        # cloudtop you need to use additional SSH port forwarding).
+        - name: nginx-clips-trace-http-server
+          image: nginxinc/nginx-unprivileged
+          securityContext:
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: nginx-config-volume
+              mountPath: /etc/nginx/conf.d
+            - name: clips-logs
+              mountPath: /clips-logs
+        {{- end }}
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+      volumes:
+        - name: flags-volume
+          configMap:
+            name: executive-flags
+        # Only intended for writing debugging data that is explicitly enabled.
+        # Under normal use this is always empty.
+        - name: debug-logs
+          emptyDir:
+            sizeLimit: 2Gi
+        # The clips-logs mount has different uses for writing CLIPS traces:
+        # - When running with tracing enabled, write logs to a temp dir to be
+        #   served via nginx.
+        # - When running without tracing enabled, do not write logs by default,
+        #   but still mount the dir, so that tracing can be enabled
+        #   interactively.
+        # In either case, from the view of the executive there is always a
+        # clips-logs volume. nginx serves logs via HTTP server from
+        # this dir.
+        - name: clips-logs
+          emptyDir:
+            sizeLimit: 2Gi
+        {{- if .Values.clips_enable_tracing }}
+        - name: nginx-config-volume
+          configMap:
+            name: nginx-configmap
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: executive
+  labels:
+    app: executive
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-executive
+    - port: 9101
+      name: http-metrics
+    {{- if .Values.clips_enable_tracing }}
+    - port: 8084
+      name: http-clips-logs
+    {{- end }}
+  selector:
+    app: executive
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: executive
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.executive.ExecutiveService/
+        - uri:
+            prefix: /intrinsic_proto.executive.ExecutiveBlackboard/
+        {{- if .Values.executive_expose_debug_service }}
+        - uri:
+            prefix: /intrinsic_proto.executive.ExecutiveDebug/
+        {{- end }}
+      route:
+        - destination:
+            host: executive
+            port:
+              number: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: executive-flags
+data:
+  {{- if hasKey .Values "executive_flags" }}
+  flags.pbtxt: |
+    {{- range $k, $v := .Values.executive_flags }}
+    flags {
+      name: "{{ $k }}"
+      {{ kindOf $v }}_value: {{ if kindIs "string" $v }}"{{ $v }}"{{ else }}{{ $v }}{{ end }}
+    }
+    {{- end }}
+  {{- end }}
+{{- if .Values.clips_enable_tracing }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configmap
+data:
+  default.conf: |
+    server {
+      listen 8084 default_server;
+      server_name localhost;
+      location / {
+        root /clips-logs;
+        autoindex on;
+        autoindex_exact_size on;
+        autoindex_format html;
+        autoindex_localtime on;
+      }
+    }
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: executive-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: executive

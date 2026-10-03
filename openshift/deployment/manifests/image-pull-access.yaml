@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: intrinsic-runtime
+  namespace: arhkp-intrinsic
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: intrinsic-runtime-image-pull
+  namespace: arhkp-intrinsic
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:image-puller
+subjects:
+  - kind: ServiceAccount
+    name: intrinsic-runtime
+    namespace: arhkp-intrinsic
+  - kind: ServiceAccount
+    name: chartassignment-controller
+    namespace: arhkp-intrinsic
+  - kind: ServiceAccount
+    name: resource-registry
+    namespace: arhkp-intrinsic
+  - kind: ServiceAccount
+    name: skill-registry
+    namespace: arhkp-intrinsic
+  - kind: ServiceAccount
+    name: workcell-cluster-service
+    namespace: arhkp-intrinsic
+  - kind: ServiceAccount
+    name: zenoh-router-sa
+    namespace: arhkp-intrinsic

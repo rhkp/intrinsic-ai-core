@@ -1,0 +1,69 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package intrinsic_proto.data_store.v1;
+
+option go_package = "intrinsic/kubernetes/data_store/proto/filter_spec_go_proto";
+
+// Restriction that an element's `path` and `value` satisfy `op`.
+//
+// Notice I didn't model the path as a `google.protobuf.FieldMask` because we're
+// interested in one specific field and its required value. I also opted not
+// to use a `repeated string path_elements` as Firestore sometimes uses it, as
+// our documents have paths coming from Protobuf, which are stricter than paths
+// supported by Firestore (e.g. no special chars).
+message RestrictionSpec {
+  enum RelationalOperator {
+    UNKNOWN = 0;
+    EQUALS = 1;
+    GREATER_THAN = 2;
+    GREATER_THAN_OR_EQUAL_TO = 3;
+    LESS_THAN = 4;
+    LESS_THAN_OR_EQUAL_TO = 5;
+    NOT_EQUALS = 6;
+    IS_NULL = 7;
+  }
+
+  // Paths are firestore paths. Can specify fields of the protobuf document
+  // stored by taking the full field name and translating each segment to
+  // lower camelcase.
+  //
+  // For example, given
+  //
+  // message ParkingSpot {
+  //   string car = 1;
+  // }
+  // message Garage {
+  //   ParkingSpot parking_spot = 1;
+  // }
+  //
+  // the full field name `parking_spot.car`, would translate to the path
+  // `parkingSpot.car`.
+  string path = 1;
+
+  RelationalOperator op = 5;
+
+  oneof value {
+    string value_string = 2;
+    int64 value_int = 3;
+    bool value_bool = 4;
+  }
+}
+
+message FilterSpec {
+  // A conjunction of restrictions.
+  repeated RestrictionSpec conjunction = 1;
+}

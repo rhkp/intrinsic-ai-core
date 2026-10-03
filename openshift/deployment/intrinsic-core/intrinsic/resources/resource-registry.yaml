@@ -1,0 +1,159 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resource-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: resource-registry
+  template:
+    metadata:
+      labels:
+        app: resource-registry
+        platform.intrinsic.ai/resource-registry: "true"
+    spec:
+      serviceAccount: resource-registry
+      serviceAccountName: resource-registry
+      containers:
+        - name: resource-registry
+          image: {{ .Values.registry }}{{ .Values.images.resource_registry }}
+          args:
+            - intrinsic/resources/service/resource_registry_main
+            - --logtostderr
+            - --hss_service_address=hot-shared-state.app-intrinsic-base.svc.cluster.local:9777
+            - --runtime_db_service_address=runtime-db.app-intrinsic-base.svc.cluster.local:8080
+            - --port=8080
+            - --asset_info_internal_port=8081
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resource-registry
+  labels:
+    app: resource-registry
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-resource-registry
+  selector:
+    app: resource-registry
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-info-internal
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8081
+      name: grpc-asset-info-internal
+  selector:
+    app: resource-registry
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: resource-registry-metrics
+  labels:
+    app: resource-registry-metrics
+spec:
+  clusterIP: None
+  ports:
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: resource-registry
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: resource-registry-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: resource-registry-metrics
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: resource-registry
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.resources.ResourceRegistry/
+      route:
+        - destination:
+            host: resource-registry
+            port:
+              number: 8080
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: resource-registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: resource-registry
+rules:
+  # skillcomposer: read info from `skill-registry-config` configmaps
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: resource-registry
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: resource-registry
+subjects:
+  - kind: ServiceAccount
+    name: resource-registry
+    namespace: {{ .Release.Namespace }}

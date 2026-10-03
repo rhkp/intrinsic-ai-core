@@ -1,0 +1,107 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: operations
+spec:
+  selector:
+    matchLabels:
+      app: operations
+  template:
+    metadata:
+      labels:
+        app: operations
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: operations
+          image: {{ .Values.registry }}{{ .Values.images.operations }}
+          args:
+            - /intrinsic/longrunning/service/operations_service
+            - --port=8080
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            - --grpc_proxy=geomservice.app-intrinsic-base.svc.cluster.local:8080
+            - --grpc_proxy=workcell-cluster-service.app-intrinsic-base.svc.cluster.local:9957
+            - --grpc_proxy=scene-object-import.app-intrinsic-base.svc.cluster.local:8080
+            - --grpc_proxy=asset-deployment.app-intrinsic-base.svc.cluster.local:8080
+            - --grpc_proxy=asset-artifacts-v1.app-intrinsic-base.svc.cluster.local:8080
+            - --grpc_proxy=solution-deployment-v1.app-intrinsic-base.svc.cluster.local:8080
+          securityContext:
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: operations
+  labels:
+    app: operations
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-operations
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: operations
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: operations
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /google.longrunning.Operations/
+          withoutHeaders:
+            # Do not match requests targeted to an Asset instance.
+            x-resource-instance-name: {}
+        - uri:
+            prefix: /google.longrunning.Operations/
+          headers:
+            # Match requests targeted to the Intrinsic Runtime Asset instance.
+            x-resource-instance-name:
+              exact: intrinsic_runtime
+      route:
+        - destination:
+            host: operations
+            port:
+              number: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: operations-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: operations

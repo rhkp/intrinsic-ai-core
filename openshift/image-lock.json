@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "registry_prefix": "quay.io/rhkp/intrinsic",
+  "images": [
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "artifacts_service_ap6rsu7y7q2zdhlk",
+      "upstream_tarball": "intrinsic/storage/artifacts/artifacts-service-image.tar",
+      "release_list_digest": "sha256:c0949ad000678ecf7158155131122b09e23ccb29ef8602281507789d8ebcda40",
+      "quay_repository": "quay.io/rhkp/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99",
+      "chart_image_key": "artifacts_service"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "code-execution-jupyter-server",
+      "chart_image_key": "code_execution_jupyter_server",
+      "source_image": "ghcr.io/intrinsic-ai/code-execution-jupyter-server",
+      "source_image_digest": "sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c",
+      "quay_repository": "quay.io/rhkp/intrinsic/code-execution-jupyter-server",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "code_execution_service_6hgggqjr2go4jvcn",
+      "upstream_tarball": "intrinsic/executive/code/code-execution-service-image.tar",
+      "release_list_digest": "sha256:729682dc6f4643a1f62f7997ec4b70f4979eb01a983f3dd50cb515f8546c84bc",
+      "quay_repository": "quay.io/rhkp/intrinsic/code_execution_service_6hgggqjr2go4jvcn",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:406a102bb3fe34762a8cb5c260c7d132c88e3edb3feafee378e47c6b1c143b34",
+      "chart_image_key": "code_execution_service"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "executive_ohek4bkvv723fsfz",
+      "upstream_tarball": "intrinsic/executive/executive-image.tar",
+      "release_list_digest": "sha256:48010416bb3a9c15fd4a94465273cdf40fcfcd00399b97de9e4f86a8ee14dba2",
+      "quay_repository": "quay.io/rhkp/intrinsic/executive_ohek4bkvv723fsfz",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:7d6c620032fb21ed8263c8d7ab4a016da25b3da5264fe88081d92032d5dbda7b",
+      "chart_image_key": "executive"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "geometry_km7rtpds4zl7zo5j",
+      "upstream_tarball": "intrinsic/geometry/service/geometry-image.tar",
+      "release_list_digest": "sha256:517d418015745816708ef232dcf152c850450dcc85cbde0fbd060c9bb4a4459f",
+      "quay_repository": "quay.io/rhkp/intrinsic/geometry_km7rtpds4zl7zo5j",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:37b33026b61190650dccbbd8424341ba00b60b8c9ed6f8a835760b219179a205",
+      "chart_image_key": "geometry"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "gzserver_insrc_3xcbw2p75tkkh7r6",
+      "upstream_tarball": "intrinsic/simulation/docker/gzserver-proxy-oci-image.tar",
+      "release_list_digest": "sha256:54c0bdb9af4b5b9c7caaf16df44ebdacc0065a0ee5aeb60e030acae5e9b97c40",
+      "quay_repository": "quay.io/rhkp/intrinsic/gzserver_insrc_3xcbw2p75tkkh7r6",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:cd92aae49921c5d79d58cc84491ef79dc0dd84a7ad482dacd9c1872657d72346",
+      "chart_image_key": "gzserver_insrc"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "hot_shared_state_uzrlrtmm4asnccet",
+      "upstream_tarball": "intrinsic/storage/hot_shared_state/hot-shared-state-image.tar",
+      "release_list_digest": "sha256:97de2a92a41129079f2f70861701323431775f4721d4a9112a02067cd1cb9b26",
+      "quay_repository": "quay.io/rhkp/intrinsic/hot_shared_state_uzrlrtmm4asnccet",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:51dc988f1ce9ffad2841da45606b26128c8746eac86d24dff95d45f49b7c072d",
+      "chart_image_key": "hot_shared_state"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "http_gateway_service_jwhjwootqbghfz5q",
+      "upstream_tarball": "intrinsic_runtime/httpjson/http-gateway-image.tar",
+      "release_list_digest": "sha256:67e5e909246c64a0f06c3cdf8f07c159db157916488f0cd6f03158b889280160",
+      "quay_repository": "quay.io/rhkp/intrinsic/http_gateway_service_jwhjwootqbghfz5q",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba",
+      "chart_image_key": "http_gateway_service"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "kvstore_service_y6oleml6b3gf6ixg",
+      "upstream_tarball": "intrinsic/platform/pubsub/kvstore_grpc/kvservice-image.tar",
+      "release_list_digest": "sha256:2f45beb336a84ddc8c3c152043f9679cf6847134e00c6f4eeedf65deddc68ac2",
+      "quay_repository": "quay.io/rhkp/intrinsic/kvstore_service_y6oleml6b3gf6ixg",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:303bb550f5994fcc97e719147fc4a36ee5b5eff7b4812d1c52ad71ae2b157fec",
+      "chart_image_key": "kvstore_service"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "local_cas_3vzpo2cmorestvav",
+      "upstream_tarball": "intrinsic/storage/onprem_cas/local-cas-image.tar",
+      "release_list_digest": "sha256:22114309e8f06946ea032e4adf51459428288acd72f48c14001209ba867e1a4e",
+      "quay_repository": "quay.io/rhkp/intrinsic/local_cas_3vzpo2cmorestvav",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:400296a35cf86f6f9cfe604e1fc6990a3848c1c0a4701abb93e95fd621587fa9",
+      "chart_image_key": "local_cas"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "operations_5pmhvmypxuo2xwk7",
+      "upstream_tarball": "intrinsic/longrunning/service/operations-image.tar",
+      "release_list_digest": "sha256:ef4c145f73693c24557a43c5c18fc874f0708be4d950550284aa823ca8a29679",
+      "quay_repository": "quay.io/rhkp/intrinsic/operations_5pmhvmypxuo2xwk7",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:d2a47ae9e201be3a2aee76b2891b5ef4ea35096afe9c5cfb1e404be8cbf48303",
+      "chart_image_key": "operations"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "proto_builder_niq7cd56d5lw6uwm",
+      "upstream_tarball": "intrinsic_runtime/intrinsic/proto_tools/builder/proto-builder-image.tar",
+      "release_list_digest": "sha256:2d4a77831b16cbf1f8d5efa7ed58c8c13bef38b570d399a8140f8ccab856a036",
+      "quay_repository": "quay.io/rhkp/intrinsic/proto_builder_niq7cd56d5lw6uwm",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:f82cc1253d416885e10ba425d02721357bf5298d538e6439cb7c99fad46215ba",
+      "chart_image_key": "proto_builder"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "proto_registry_jcser7uxrb3niapo",
+      "upstream_tarball": "intrinsic_runtime/intrinsic/proto_tools/registry/proto-registry-image.tar",
+      "release_list_digest": "sha256:2847a5b99c7e8142f1532f2fbc913b6f1a1350b376f7ba44f9bf2b8f7f6dfdd5",
+      "quay_repository": "quay.io/rhkp/intrinsic/proto_registry_jcser7uxrb3niapo",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:07f8ff15a6088d748547d35f43ad001372a54a10762e035e98631c43b52cb21d",
+      "chart_image_key": "proto_registry"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "resource_registry_mz6oamw4xrhc5j4b",
+      "upstream_tarball": "intrinsic/resources/service/resource-registry-image.tar",
+      "release_list_digest": "sha256:2670ea0faf26164f11f9a9101b1a8fb00125d1d4e22ebb528c1bd094443c696b",
+      "quay_repository": "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:040fd55689dd52507eb3d673a85c5188def06c23b7b2794adf9bd6903d27652d",
+      "chart_image_key": "resource_registry"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "runtime_db_at5d7mz6o6apivwx",
+      "upstream_tarball": "intrinsic/resources/service/runtime-db-image.tar",
+      "release_list_digest": "sha256:dfc0ea10b2be619b262287e939f373b3256e99bb75cb782f592f01bca60e9101",
+      "quay_repository": "quay.io/rhkp/intrinsic/runtime_db_at5d7mz6o6apivwx",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:65833fd82121805e3aa41a48e78b0e4caee15175f5ece47a58c6852381dc8c15",
+      "chart_image_key": "runtime_db"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "scene_object_import_oe3dizct2ubmxapr",
+      "upstream_tarball": "intrinsic/scene/service/scene-object-import-image.tar",
+      "release_list_digest": "sha256:25f80685f26f3b76f65268ebc2e333454fac79c8598fee81680d75242f1f6cfe",
+      "quay_repository": "quay.io/rhkp/intrinsic/scene_object_import_oe3dizct2ubmxapr",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:c1e3961bd693a2987e392586aa2cfac19eaf3c4246b83d67a19bf8b019ad0544",
+      "chart_image_key": "scene_object_import"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "simulation_service_llwlbnovq62efw2u",
+      "upstream_tarball": "intrinsic/simulation/service/simulation-service-image.tar",
+      "release_list_digest": "sha256:e6ae38a515520fba47bf1bff4437035119e32ce594bcddd2ee853ad690c270f1",
+      "quay_repository": "quay.io/rhkp/intrinsic/simulation_service_llwlbnovq62efw2u",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:77ef6c0aa04c4bfb54d1c0aaa1a81a354388557fbee21c4698f5dc3bc6aba511",
+      "chart_image_key": "simulation_service"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "skill_registry_cpow57aq2s4nwxni",
+      "upstream_tarball": "intrinsic/skills/tools/skill-registry-image.tar",
+      "release_list_digest": "sha256:ff5ef9a0022e5acda2b59282ed15d3fad30d418b95c55741eda8d8dd99c0b070",
+      "quay_repository": "quay.io/rhkp/intrinsic/skill_registry_cpow57aq2s4nwxni",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:e9df495fbc6ea7c06559b0e2378e8a0465469462c69c7ecdb82005f9dedc3e4a",
+      "chart_image_key": "skill_registry"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "solution_service_migqwhm7e3sqhdie",
+      "upstream_tarball": "intrinsic/frontend/solution_service/solution-service-image.tar",
+      "release_list_digest": "sha256:a6a7f850a38b3509319d553200c60010d80f4fda7424be49103b45ad9c9736f1",
+      "quay_repository": "quay.io/rhkp/intrinsic/solution_service_migqwhm7e3sqhdie",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:a029f7a5192a3f4ec66febda67ba1440a8e6b55982c8d93805d8017f24d95988",
+      "chart_image_key": "solution_service"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "workcell_spec_service_cziekbodmacxdi73",
+      "upstream_tarball": "intrinsic/kubernetes/workcell_spec/workcell-spec-service-image.tar",
+      "release_list_digest": "sha256:df53536bf8a0fe547e3d1b1e0ae2735b8ea6b62a0dfd9da6b7fdafb458d9e940",
+      "quay_repository": "quay.io/rhkp/intrinsic/workcell_spec_service_cziekbodmacxdi73",
+      "quay_tag": "openshift-grpc-20261002-43f6c29e6e85",
+      "quay_digest": "sha256:6048b0b443a1633b819c9cf66d18ee32c910af59c95f4b158db2adfa69fe2c2f",
+      "chart_image_key": "workcell_spec_service",
+      "upstream_quay_tag": "upstream-20260922.0",
+      "upstream_quay_digest": "sha256:ddb7e6436db9e7471635b414c64c3207b740e112b31d057fe2ccee37eb11d561",
+      "adapted_build": {
+        "source_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+        "target": "//intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar",
+        "platform": "linux/amd64",
+        "archive_sha256": "43f6c29e6e85e4b3ebcd83eb49394d4a139be74bfcf651e3f153550befd4c49b",
+        "adaptation": "openshift-grpc-routing"
+      }
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "world_7tyhbfvkgecmypms",
+      "upstream_tarball": "intrinsic/world/binary/world-image.tar",
+      "release_list_digest": "sha256:6662f6edc5fd0cceb060f18effa122db72cf3c68308a942d2f7254ac1343f4c6",
+      "quay_repository": "quay.io/rhkp/intrinsic/world_7tyhbfvkgecmypms",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:5e11ac7f11f43d164ed1ed0fd5358d0082b471a2c864515c33708af4903cd231",
+      "chart_image_key": "world"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "world_updater_vaknbuiibuphd5yf",
+      "upstream_tarball": "intrinsic/world/service/updater/world-updater-image.tar",
+      "release_list_digest": "sha256:5fe677a5fca5da052d02f9da5d8b6d9877a24a88ac00f3d8014b0a98d95e4f9c",
+      "quay_repository": "quay.io/rhkp/intrinsic/world_updater_vaknbuiibuphd5yf",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:2fb0a1ce528ebe4eb053933ffa5187f7a6ea63528a7dc72210ea151da6fccbe1",
+      "chart_image_key": "world_updater"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "zenoh_introspection_jlpfqcfphwtv2sjj",
+      "upstream_tarball": "intrinsic/platform/pubsub/introspection/zenoh-introspection-image.tar",
+      "release_list_digest": "sha256:9f17041f5e72a269a61b660005d6e6f109f6d5759cc6fe35834fd5061acf2e6b",
+      "quay_repository": "quay.io/rhkp/intrinsic/zenoh_introspection_jlpfqcfphwtv2sjj",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:029202c8e8b2c9cf037a6907eeebdeced4b57ca38972af849ab6341cef446393",
+      "chart_image_key": "zenoh_introspection"
+    },
+    {
+      "upstream_release": "20260922.0",
+      "chart_repository_basename": "zenohd",
+      "chart_image_key": "zenohd",
+      "source_image": "zenohd:1.7.2",
+      "source_image_digest": "sha256:9a8195c927169365e516309d55753b9c3a7484a59825cf4fbefb9125cfbdb01d",
+      "quay_repository": "quay.io/rhkp/intrinsic/zenohd",
+      "quay_tag": "upstream-20260922.0",
+      "quay_digest": "sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
+    }
+  ]
+}

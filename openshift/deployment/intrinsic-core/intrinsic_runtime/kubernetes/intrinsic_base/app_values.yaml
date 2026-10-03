@@ -1,0 +1,108 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#################################################################################
+# Executive
+#################################################################################
+
+# If true, write files containing CLIPS traces for debugging and testing. Files are written to a
+# mounted emptyDir that can be accessed via a proxy that is started in parallel. See also
+# go/intrinsic-executive-clips-tracing#start-with-clips-tracing
+clips_enable_tracing: false
+
+# If true, expose the ExecutiveDebug gRPC service via the cluster ingress gateway.
+# Never use in production.
+executive_expose_debug_service: false
+
+use_task_planner: false
+
+executive_flags:
+  # Normally, footprints are generated through skill projection and then checked
+  # to detect conflicts between concurrent skills. When this flag is set to
+  # 'true' the projection is performed, but the actual footprint is ignored and
+  # the executive assumes that each skill locks the entire world, effectively
+  # requiring sequentialization of all skills and disabling concurrent
+  # execution. This flag is meant to unblock b/204540881, but this mode of
+  # operation is generally undesirable and concurrency will be re-enabled once
+  # footprint generation/checking is working as intended.
+  assume_all_skills_lock_world_universe: false
+
+#################################################################################
+# Skills
+#################################################################################
+
+# Whether to create the /mnt/calibration-results volume in the skills pod.
+skills_calibration_validation: false
+skills_wait_for_perception: true
+
+#################################################################################
+# Simulation
+#################################################################################
+
+# Whether to save meshes to host path /var/apps/gzserver/meshes.
+# Set this flag to true when using
+# http://intrinsic/simulation/gui_client/start_gzclient.sh
+gzserver_save_meshes_to_host: false
+
+# Setting this flag to true allows NVIDIA GPU detection to work normally in gz.
+# Setting this flag to false overrides the NVIDIA_VISIBLE_DEVICES env var with
+# an empty string in the gzserver pod. In turn, this causes the Gazebo
+# rendering engine (OGRE 2) to use a pure-software stack. This is much slower,
+# but it allows GPU memory to be used by other pods.
+gzserver_use_gpu: true
+
+# Set this flag to 1 or more to turn on verbose logging for gzserver.
+gzserver_verbosity: 0
+
+# gzserver_max_convex_hulls is used for configuring the maximum number of convex
+# hulls to generate when doing convex decomposition on a collision mesh
+gzserver_max_convex_hulls: 32
+
+# gzserver_memory limit is used for configuring the memory limit for
+# the gzserver container
+gzserver_memory_limit: "12Gi"
+
+#################################################################################
+# Motion Planning
+#################################################################################
+
+# verbose_collision_checking_logs turns on extra logging in the motion planning
+# service. This allows a user with access to absl logs to see timing and debug
+# information about collision checks being performed. Only use if you suspect
+# path planning or collision checking to be taking a long time and want to
+# investigate further.
+verbose_collision_checking_logs: false
+
+# motion_planning_object_store_cache_size_mb specifies an override for the default
+# size of the object store cache. A larger cache means we can store more computed
+# pre geometry and similar objects, which can help to speed up the path planning
+# process by avoiding duplicate pre work.
+motion_planning_object_store_cache_size_mb: 500
+
+################################################################################
+# Application-level configuration
+################################################################################
+
+# A random application deployment UUID filled in when the application is rendered. It is used to
+# enforce pod restart on application switch.
+app_deployment_id: ""
+
+################################################################################
+# Values filled by app start are listed here to satisfy the linter.
+################################################################################
+
+robot:
+  name: ""
+
+robot_authentication: false

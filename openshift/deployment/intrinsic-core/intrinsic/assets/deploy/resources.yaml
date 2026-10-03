@@ -1,0 +1,168 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# yamllint disable-file
+# This file is not valid yaml because it is a template
+
+{{- range .Values.resource_instances }}
+{{- if .spec }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rs-{{ .name }}
+  labels:
+    solution.intrinsic.ai/instance: {{ .instance_name }}
+spec:
+  selector:
+    matchLabels:
+      app: rs-{{ .name }}
+  # We add this below to silence a lint.  That might be valid, but the existing
+  # behavior seems to work, though it might have edge cases with problems.
+  # TODO: b/463722014 - Remove or update once it's clear if this should be set.
+  {{- if .test_only_disable_lint_b_463722014 }}
+  serviceName: rs-{{ .name }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app: rs-{{ .name }}
+        intrinsic.ai/platform-layer: resource
+        resource/{{ .name }}: "true"
+        solution.intrinsic.ai/instance: {{ .instance_name }}
+      annotations:
+        # The pod should be restarted if the runtime context changes (and the Service doesn't
+        # support DynamicReconfiguration).
+        context-id: {{ .context_id }}
+    spec:
+{{ .spec | indent 6 }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rc-{{ .name }}
+  labels:
+    solution.intrinsic.ai/instance: {{ .instance_name }}
+data:
+  resource_id: {{ .instance_name }}
+  handle: istio-ingressgateway.app-ingress.svc.cluster.local:80
+binaryData:
+  runtime_config.pb: {{ .runtime_context_pb_base64 }}
+---
+# This configmap (unlike the one above) provides only metadata that can be
+# used by platform services to get more information on the Service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rs-{{ .name }}
+  labels:
+    solution.intrinsic.ai/instance: {{ .instance_name }}
+    # Indicates that the annotations meet a particular schema for use
+    # by platform services. This could become a CRD in the future.
+    solution.intrinsic.ai/service-metadata-version: "1"
+  annotations:
+    {{- with .service }}
+    solution.intrinsic.ai/supports-service-state: "{{ .supports_service_state }}"
+    solution.intrinsic.ai/service-port: "{{ .port }}"
+    {{- end }}
+    {{- with .http }}
+    solution.intrinsic.ai/http-port: "{{ .port }}"
+    {{- end }}
+{{- if or .service .http }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rs-{{ .name }}
+  labels:
+    app: rs-{{ .name }}
+    solution.intrinsic.ai/instance: {{ .instance_name }}
+spec:
+  ports:
+    {{- if .service }}
+    - port: {{ .service.port }}
+      name: grpc-rs-{{ .name }}
+    {{- end }}
+    {{- if .http }}
+    - port: {{ .http.port }}
+      name: http-rs-{{ .name }}
+      protocol: TCP
+    {{- end }}
+  selector:
+    app: rs-{{ .name }}
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: rs-{{ .name }}
+  labels:
+    solution.intrinsic.ai/instance: {{ .instance_name }}
+spec:
+  # hosts & gateways are boilerplate required for externally-reachable VirtualServices.
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    {{- $instance_name := .instance_name }}
+    {{- with .service }}
+    {{- if .proto_prefixes }}
+    - match:
+        {{- range .proto_prefixes }}
+        - uri:
+            # The URI prefix is based on the proto's package & service name.
+            prefix: {{ . }}
+          headers:
+            x-resource-instance-name:
+              exact: {{ $instance_name }}
+        {{- end }}
+      route:
+        - destination:
+            host: {{ .host_name }}
+            port:
+              number: {{ .host_port }}
+    {{- end }}
+    {{- end }}
+    {{- if .http }}
+    - match:
+        # Route REST http request to the resource server. Choosing `resourceinstances` to not
+        # collide with existing onprem frontend HTTP endpoints.
+        - uri:
+            prefix: /api/resourceinstances/{{ .instance_name }}/
+        - uri:
+            exact: /api/resourceinstances/{{ .instance_name }}
+        # The HTTP route to services is not part of the "Intrinsic API" so we don't prefix it with
+        # "/api" like many other HTTP routes. We cannot currently tell services (i.e. using a
+        # service manifest) and resources (i.e. using a resource manifest) apart at this stage so we
+        # provide both routes when HTTP routing is configured in the respective manifest.
+        - uri:
+            prefix: {{ .http.path_prefix }}/
+        - uri:
+            exact: {{ .http.path_prefix }}
+      headers:
+        request:
+          set:
+            X-Forwarded-Prefix: {{ .http.path_prefix }}
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: {{ .http.host_name }}
+            port:
+              number: {{ .http.port }}
+    {{- end }}
+{{- end }}
+{{- end }}  # range .Values.resource_instances

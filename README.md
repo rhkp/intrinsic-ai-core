@@ -1,8 +1,9 @@
-# Intrinsic Core on an Ubuntu AWS VM
+# Intrinsic Core deployment notes
 
-Deployment journal for the Intrinsic Core evaluation. Connection details,
-addresses, credentials, keys, certificates, authentication codes, and raw system
-logs must stay out of this repository.
+This repository records the working Ubuntu VM baseline and the active full
+OpenShift migration pilot. Their deployment instructions are separate;
+connection details, addresses, credentials, keys, certificates, authentication
+codes, and raw system logs must stay out of this repository.
 
 ## Quick references
 
@@ -12,6 +13,8 @@ logs must stay out of this repository.
   arm motion, recovery steps, and the current full-cycle limitation.
 - [OpenShift and OpenShift AI work plan](OPENSHIFT_PLAN.md) — assessed migration
   blockers, component placement, and phased validation on a GPU-capable OpenShift cluster.
+- [Full OpenShift pilot status](openshift/README.md) — dev01 preflight, recreated
+  project, and current deployment gates.
 - [Deployment approaches](approaches/README.md) — the **VM Only** baseline and
   archived **AWS VM + RHOAI** hybrid experiment.
 

@@ -1,0 +1,12 @@
+[type.googleapis.com/intrinsic_proto.perception.v1.CameraConfig]:  {
+  identifier:  {
+    ros:  {
+      device_id:  "CPEP1630005C"
+      driver_type:  "orbbec"
+    }
+  }
+  camera_settings: {
+    name: "exposure"
+    float_value: 0.001
+  }
+}

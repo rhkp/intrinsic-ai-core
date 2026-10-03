@@ -1,0 +1,175 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: world
+spec:
+  selector:
+    matchLabels:
+      app: world
+  template:
+    metadata:
+      labels:
+        app: world
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: world
+          image: {{ .Values.registry }}{{ .Values.images.world }}
+          args:
+            - intrinsic/kubernetes/waitforservices/waitforservices
+            # Wait for the Zenoh router to be ready before starting the service. Else,
+            # conductor querying for execution_context via kv store may falsely return key_not_found error.
+            - zenoh-router.app-intrinsic-base.svc.cluster.local:7447
+            - --
+            - intrinsic/world/binary/world_binary
+            - --port=8080
+            - --cas_service_address=content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747
+            - --resource_registry_address=resource-registry.app-intrinsic-base.svc.cluster.local:8080
+            - --grpc_client_connect_timeout=5m
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            # worlds_path is used the locally save edited worlds for crash recovery.
+            - --worlds_path=/mnt/worlds
+            {{- if .Values.feature_options.enable_world_service_on_change_pubsub }}
+            - --enable_on_change_pubsub={{ .Values.feature_options.enable_world_service_on_change_pubsub }}
+            {{- else }}
+            - --enable_on_change_pubsub=false
+            {{- end }}
+            - --disable_asset_frame_edits
+            # Conductor flags
+            - --hss_service_address=hot-shared-state.app-intrinsic-base.svc.cluster.local:9777
+            - --sim_service_address=simulation-service.app-intrinsic-base.svc.cluster.local:8088
+            - --workcell_cluster_service=workcell-cluster-service.app-intrinsic-base.svc.cluster.local:9957
+            - --asset_deployment_service=asset-deployment.app-intrinsic-base.svc.cluster.local:8080
+            - --asset_instances_service=asset-instances-v1.app-intrinsic-base.svc.cluster.local:8080
+            - --runtime_db_service_address=runtime-db.app-intrinsic-base.svc.cluster.local:8080
+            - --conductor_port=8082
+            {{ if .Values.feature_options.enable_sim_pause }}
+            - --enable_sim_pause
+            {{ end }}
+          securityContext:
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: worlds
+              mountPath: /mnt/worlds
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+      volumes:
+        - name: worlds
+          persistentVolumeClaim:
+            claimName: world-storage-claim
+---
+# TODO: anyone -- We don't really need to be using a persistent volume here. The
+# goal in the future is to remove this claim and to instead use a long-running
+# K/V store. Whenever we have something like that available for the entire on-prem
+# cluster, we should use that instead.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: world-storage-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  storageClassName: local-path
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: world
+  labels:
+    app: world
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-world
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: world
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conductor
+  labels:
+    app: world
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8082
+      name: grpc-conductor
+  selector:
+    app: world
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: world
+spec:
+  # hosts & gateways are boilerplate required for externally-reachable VirtualServices.
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            # The URI prefix is based on the proto's package & service name.
+            prefix: /intrinsic_proto.world.internal.WorldService/
+        - uri:
+            prefix: /intrinsic_proto.world.ObjectWorldService/
+        - uri:
+            prefix: /intrinsic_proto.world.WorldCompatibilityService/
+        - uri:
+            prefix: /intrinsic_proto.world.WorldUpdater/
+      route:
+        - destination:
+            host: world
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.conductor.ConductorService/
+      route:
+        - destination:
+            host: conductor
+            port:
+              number: 8082
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: world-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: world

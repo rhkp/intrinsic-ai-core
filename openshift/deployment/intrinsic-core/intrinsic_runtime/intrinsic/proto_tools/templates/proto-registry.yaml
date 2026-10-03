@@ -1,0 +1,110 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proto-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: proto-registry
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: proto-registry
+      annotations:
+        # force proto registry to restart every time
+        app-deployment-id: "{{ .Values.app_deployment_id }}"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: proto-registry
+          image: {{ .Values.registry }}{{ .Values.images.proto_registry }}
+          securityContext:
+            readOnlyRootFilesystem: true
+          args:
+            - /intrinsic_runtime/intrinsic/proto_tools/registry/proto-registry
+            {{ if .Values.app_deployment_id }}
+            - --service_port=8080
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            - --skill_registry_address=skill-registry.app-intrinsic-base.svc.cluster.local:8080
+            - --installed_assets_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            {{ else }}
+            # This is used to pre-download the image and avoid crash-looping
+            # when applying the chart with default values
+            # TODO(b/326921974) move to intrinsic-base
+            - --sleep
+            {{ end }}
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: proto-registry
+  labels:
+    app: proto-registry
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-proto-registry
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: proto-registry
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: proto-registry
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.proto_registry.ProtoRegistry/
+      route:
+        - destination:
+            host: proto-registry
+            port:
+              number: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: proto-registry-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: proto-registry

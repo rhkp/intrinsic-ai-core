@@ -1,0 +1,106 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: runtime-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: runtime-db
+  template:
+    metadata:
+      labels:
+        app: runtime-db
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: runtime-db
+          image: {{ .Values.registry }}{{ .Values.images.runtime_db }}
+          args:
+            - intrinsic/resources/service/runtimedbmain
+            - --logtostderr
+            - --port=8080
+            - --opencensus_metrics_port=9101
+            - --buckets=resources,skills
+            - --path=/mnt/runtime-db/runtime.db
+          volumeMounts:
+            - name: runtime-db
+              mountPath: /mnt/runtime-db
+          securityContext:
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: runtime-db
+          persistentVolumeClaim:
+            claimName: runtime-db-claim
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: runtime-db-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  storageClassName: local-path
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: runtime-db
+  labels:
+    app: runtime-db
+spec:
+  ports:
+    - port: 8080
+      name: grpc-runtime-db
+  selector:
+    app: runtime-db
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: runtime-db-metrics
+  labels:
+    app: runtime-db-metrics
+spec:
+  clusterIP: None
+  ports:
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: runtime-db
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: runtime-db-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: runtime-db-metrics

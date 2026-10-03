@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chartassignment-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chartassignment-controller
+  template:
+    metadata:
+      labels:
+        app: chartassignment-controller
+    spec:
+      serviceAccountName: chartassignment-controller
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: controller
+          image: image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:f744faaaf1b4d4efd7c379c015dd1de78cfeb7d9964786ebff57cdca48de7662
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: intrinsic-routing-config
+                optional: true
+          args:
+            - --watch-namespace=arhkp-intrinsic
+            - --cloud-cluster=true
+            - --webhook-enabled=false
+            - --healthz-port=8080
+          ports:
+            - name: healthz
+              containerPort: 8080
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 512Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 128Mi

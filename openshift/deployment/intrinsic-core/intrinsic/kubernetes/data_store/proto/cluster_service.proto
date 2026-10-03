@@ -1,0 +1,213 @@
+// Copyright 2026 Intrinsic Innovation LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package intrinsic_proto.data_store.v1;
+
+import "intrinsic/config/proto/cluster.proto";
+import "intrinsic/kubernetes/data_store/proto/filter_spec.proto";
+
+option go_package = "intrinsic/kubernetes/data_store/proto/cluster_service_go_proto";
+
+service ClusterService {
+  // Get the cluster from the
+  // clusters collection.
+  rpc GetCluster(GetClusterRequest) returns (GetClusterResponse) {}
+
+  // List all clusters in the
+  // clusters collection.
+  // This method is unqualified by default and might return a large result.
+  rpc ListClusters(ListClustersRequest) returns (stream ListClustersResponse) {}
+
+  // Set a cluster document in the
+  // clusters collection. If no
+  // revision token is provided (see documentation for
+  // `SetClusterRequest`), then the service will
+  // treat it as a create request; otherwise, it will be treated as an update
+  // request. The cluster document is
+  // modified if and only if the return code is `OK`.
+  rpc SetCluster(SetClusterRequest) returns (SetClusterResponse) {}
+
+  // Delete cluster in the
+  // cluster collection.
+  rpc DeleteCluster(DeleteClusterRequest) returns (DeleteClusterResponse) {}
+
+  // Get a cluster from the onprem clusters collection.
+  rpc GetClusterOnprem(GetClusterRequest) returns (GetClusterResponse) {}
+  // Set a cluster in the onprem clusters collection.
+  rpc SetClusterOnprem(SetClusterRequest) returns (SetClusterResponse) {}
+}
+
+message GetClusterRequest {
+  reserved "volume";
+  reserved 1;
+
+  // Name of the requested cluster.
+  string name = 2;
+}
+
+message GetClusterResponse {
+  // The requested cluster.
+  intrinsic_proto.config.Cluster cluster = 1;
+
+  // An equality-comparable revision token that is used for optimistic
+  // concurrency control. If you want to modify/update a
+  // cluster, you need to perform a
+  // `GetCluster` call first and provide this token
+  // in the subsequent `SetCluster` request. Treat this
+  // token as an opaque string, i.e. do not rely on its length or structure,
+  // and do not modify it.
+  string revision_token = 2;
+}
+
+message ListClustersRequest {
+  reserved "volume";
+  reserved 1;
+
+  reserved "filter";
+  reserved 2;
+
+  // If not empty, list only elements that satisfy all of the provided
+  // restrictions.
+  FilterSpec filter_spec = 3;
+
+  // Upper limit for the returned page size, i.e. the service might return fewer
+  // results. Setting this field to a non-zero value enforces that the results
+  // are sorted in reverse chronological order, i.e. most recent documents
+  // first.
+  //
+  // Default behavior: If this field is unset or set to 0, return all documents.
+  int64 page_size = 4;
+
+  // If the page token is empty, up to `page_size` first elements of the
+  // collection will be returned. On subsequent requests, set the
+  // `next_page_token` obtained from the previous call to retrieve the next
+  // page.
+  string page_token = 5;
+}
+
+message ListClustersResponse {
+  intrinsic_proto.config.Cluster cluster = 1;
+
+  // An equality-comparable revision token that is used for optimistic
+  // concurrency control. If you want to modify or update a
+  // cluster, you need to perform a
+  // `GetCluster` call first and provide this token in
+  // the subsequent `SetCluster` request. Treat this
+  // token as an opaque string, i.e. do not rely on its length or structure,
+  // and do not modify it.
+  string revision_token = 2;
+
+  // Pass this token to the subsequent list requests in to obtain the next page.
+  string next_page_token = 3;
+}
+
+// This message type shall be used only for HTTP/REST calls which are unary.
+message ListClustersResponseAsArray {
+  repeated ListClustersResponse responses = 1;
+
+  // Pass this token to the subsequent list requests in to obtain the next page.
+  string next_page_token = 2;
+}
+
+message SetClusterRequest {
+  reserved "volume";
+  reserved 1;
+
+  // The cluster to set.
+  intrinsic_proto.config.Cluster cluster = 2;
+
+  // An optional revision token. Provide it if you want to update a document.
+  // There are five possible scenarios:
+  //
+  // 1. No token is provided: This call is treated as a
+  //    "Create Cluster" call.
+  //
+  //    1a. The specified document does not exist. Then, barring any other
+  //        errors, the call should succeed, create the
+  //        cluster, and return
+  //        the `OK` code.
+  //    1b. The specified document exists. Then, the call fails (cannot create
+  //        a document if it already exists) and returns the `ALREADY_EXISTS`
+  //        code.
+  //        Exception: If the `overwrite` flag is set to `true`, then the
+  //        document is updated even though the token is empty.
+  //
+  // 2. A non-empty token from a previous `GetCluster`
+  //    request is provided: This call is treated as an "Update
+  //    Cluster" call.
+  //
+  //    2a. The specified document does not exist. Then, the call fails
+  //        (the document has been deleted in the meantime) and returns the
+  //        `NOT_FOUND` code.
+  //        Exception: If the `overwrite` flag is set to `true`, then the
+  //        document is created.
+  //    2b. The document exists and its revision matches the provided token
+  //        provided. Then, barring any other errors, the call should succeed,
+  //        update the cluster, and
+  //        return the `OK` code.
+  //    2c. The document exists and its revision token differs from the
+  //        provided token: Then, the call fails (the document has been updated
+  //        in the meantime) and returns the `ABORTED` code. The client should
+  //        retry with a new token by running the
+  //        `GetCluster`-
+  //        `SetCluster` sequence again.
+  //        Exception: If the `overwrite` flag is set to `true`, then the update
+  //        is performed even though the token does not match.
+  // Also see go/canonical-codes for the return code semantics.
+  string revision_token = 3;
+
+  // If true, overwrite the contents of any existing document.
+  bool overwrite = 4;
+}
+
+message SetClusterResponse {
+  // The created or updated cluster. This proto is obtained
+  // non-atomically after the `Set` operation and might be different from
+  // the one in the request message in case of high write load!
+  intrinsic_proto.config.Cluster cluster = 1;
+
+  string revision_token = 2;
+}
+
+message DeleteClusterRequest {
+  reserved "volume";
+  reserved 1;
+
+  // Name of the requested cluster.
+  string name = 2;
+
+  // Provide the revision token it if you want to delete a document.
+  // a. The specified document does not exist. Then, the call fails
+  //    (the document has been deleted in the meantime) and returns the
+  //    `NOT_FOUND` code.
+  // b. The document exists and its revision matches the provided token
+  //    provided. Then, barring any other errors, the call should succeed,
+  //    delete the cluster,
+  //    and return the `OK` code.
+  // c. The document exists and its revision token differs from the
+  //    provided token: Then, the call fails (the document has been updated
+  //    in the meantime) and returns the `ABORTED` code. The client should
+  //    retry with a new token by running the
+  //    `GetCluster`-
+  //    `DeleteCluster`
+  //    sequence again.
+  // Also see go/canonical-codes for the return code semantics.
+  string revision_token = 3;
+}
+
+message DeleteClusterResponse {
+  // Empty, for future additions.
+}

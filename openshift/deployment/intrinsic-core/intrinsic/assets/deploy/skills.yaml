@@ -1,0 +1,169 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# yamllint disable-file
+# This file is not valid yaml because it is a template
+
+{{- range .Values.pods }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+
+spec:
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  # Don't start a new pod until the existing one has stopped.
+  strategy:
+    type: Recreate
+
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+        intrinsic.ai/platform-layer: skill
+        {{- range .containers }}
+        skill/{{ .asset }}: "true"
+        {{- end }}
+    # The spec for the Skill pod
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: {{ .service_account_name }}
+      containers:
+        {{- range .containers }}
+        - name: {{ .name }}
+          image: {{ .registry }}/{{ .image_ref }}
+          args:
+            - /skills/skill_service
+            - --logtostderr
+            - --port={{ .port }}
+            - --data_logger_grpc_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            - --world_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            - --geometry_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            - --motion_planner_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            # TODO(305062153) Remove the registry address once we don't need to support old C++ Skills.
+            - --skill_registry_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            - --skill_service_config_filename=/skills/skill_service_config.proto.bin
+            - --grpc_connect_timeout_secs=300
+            - --default_ls_watcher=null
+            - --undefok=default_ls_watcher
+            - --opencensus_metrics_port={{ .metrics_port }}
+            - --opencensus_tracing
+          env:
+            # Avoid C-ARES flakiness: b/373783242
+            - name: GRPC_DNS_RESOLVER
+              value: native
+        {{- end }}
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .name }}
+  policyTypes:
+    - Egress
+  egress:
+    # Skills need to be able to reach out to resources and a few other
+    # platform services. The simplest way to do this right now, while
+    # restricting generic outbound connections, is to allow Skills to reach out
+    # to any service that we present via the ingress gateway for the cluster.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-ingress
+          podSelector:
+            matchLabels:
+              app: istio-ingressgateway
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-base
+          podSelector:
+            matchLabels:
+              app: zenoh-router
+      ports:
+        - protocol: TCP
+          port: 7447
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow skills to send trace data to OpenCensus and OpenTelemetry.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-base
+          podSelector:
+            matchLabels:
+              app: opencensus
+      ports:
+        - protocol: TCP
+          port: 55678
+        - protocol: TCP
+          port: 4317
+{{- end }}  # range .Values.pods
+
+{{- range .Values.skills }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sc-{{ .name }}
+  labels:
+    app: skill-registry-config
+    solution.intrinsic.ai/asset: {{ .asset }}
+data:
+  id_version: {{ .skill_id_version }}
+  # LINT.IfChange(installation_origin_key)
+  installation_origin: {{ .installation_origin }}
+  # LINT.ThenChange(//intrinsic/assets/deploy/renderutil.go:skill_installation_origin_key)
+  validate_handle: dns:///{{ .name }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ .port }}
+  project_handle: dns:///{{ .name }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ .port }}
+  execute_handle: dns:///{{ .name }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ .port }}
+  skill_info_handle: dns:///{{ .name }}.{{ $.Release.Namespace }}.svc.cluster.local:{{ .port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ .name }}
+    solution.intrinsic.ai/asset: {{ .asset }}
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .port }}
+      name: grpc-{{ .name }}
+  selector:
+    app: {{ .pod_name }}
+  type: ClusterIP
+
+{{- end }}  # range .Values.skills

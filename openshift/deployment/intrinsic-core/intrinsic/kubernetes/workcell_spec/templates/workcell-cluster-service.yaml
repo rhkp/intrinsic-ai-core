@@ -1,0 +1,330 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{{- $resource_catalog_address := printf "%s:443" .Values.domain }}
+{{- if .Values.use_onprem_catalogs_for_testing_only }}
+  {{- $resource_catalog_address = "istio-ingressgateway.app-ingress.svc.cluster.local:80" }}
+{{- end }}
+{{- $asset_catalog_address := "assets.intrinsic.ai:443" }}
+{{- if .Values.use_onprem_catalogs_for_testing_only }}
+  {{- $asset_catalog_address = "istio-ingressgateway.app-ingress.svc.cluster.local:80" }}
+{{- else if .Values.feature_options.catalog_address }}
+  {{- $asset_catalog_address = .Values.feature_options.catalog_address }}
+{{- end }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: workcell-cluster-service
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workcell-cluster-service
+rules:
+  # Needed to manage application lifecycle via ChartAssignments.
+  - apiGroups:
+      - apps.cloudrobotics.com
+    resources:
+      - chartassignments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  # Read workload health and service metadata only in this project.
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  # pods: monitor health status and allow restarting.
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+  # Needed to monitor deployment status of applications.
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+  # Needed to monitor completion status of jobs in applications.
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workcell-cluster-service
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: workcell-cluster-service
+subjects:
+  - kind: ServiceAccount
+    name: workcell-cluster-service
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workcell-cluster-service
+spec:
+  selector:
+    matchLabels:
+      app: workcell-cluster-service
+  template:
+    metadata:
+      labels:
+        app: workcell-cluster-service
+    spec:
+      # Specified twice to allow safe reverts:
+      # https://chat.google.com/room/AAAA4cOY4uw/w-Jk8i20Fa4/PiJdyEJf_ns?cls=10
+      serviceAccount: workcell-cluster-service
+      serviceAccountName: workcell-cluster-service
+      containers:
+        - name: workcell-cluster-service
+          image: "{{ .Values.registry }}{{ .Values.images.workcell_spec_service }}"
+          args:
+            - /intrinsic/kubernetes/workcell_spec/workcell_cluster_service
+            - --gcp_project={{ .Values.project }}
+            - --registry={{ .Values.registry }}
+            - --cloud_ingress_address={{ .Values.domain }}:443
+            - --transfer_service_port=9957
+            - --asset_artifacts_service_port=9958
+            - --asset_deployment_service_port=8080
+            - --solution_deployment_service_port=9769
+            - --asset_instances_service_port=9832
+            - --hss_service_address=hot-shared-state.{{ .Release.Namespace }}.svc.cluster.local:9777
+            # cas_proxy_address MUST be namespaced because it's passed to other containers that are
+            # created in a different namespace.
+            - --cas_proxy_address=content-addressable-storage.{{ .Release.Namespace }}.svc.cluster.local:9747
+            - --data_logger_grpc_service_address=logger.{{ .Release.Namespace }}.svc.cluster.local:8080
+            - --runtime_db_service_address=runtime-db.{{ .Release.Namespace }}.svc.cluster.local:8080
+            - --init_resource_instance_data_files_image={{ .Values.registry }}{{ .Values.images.init_resource_instance_data_files }}
+            - --asset_catalog_address={{ $asset_catalog_address }}
+            - --resource_catalog_address={{ $resource_catalog_address }}
+            - --conductor_service_address=world.{{ .Release.Namespace }}.svc.cluster.local:8082
+            - --object_world_service_address=world.{{ .Release.Namespace }}.svc.cluster.local:8080
+            # TODO - b/447219121: Remove simulation client from ADS.
+            - --sim_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+            - --enable_cas_peer_metadata={{ .Values.feature_options.enable_cas_peer_metadata }}
+            - --num_skill_pods=10
+            {{ if .Values.feature_options.enable_security_context }}
+            - --enable_security_context=true
+            {{ end }}
+            {{ if .Values.feature_options.enable_relaxed_host_path_checks }}
+            - --enable_relaxed_host_path_checks=true
+            {{ end }}
+          env:
+            # LINT.IfChange
+            # TODO(b/326921974): Remove once default charts have been migrated to intrinsic-base.
+            # Base64 encoded //intrinsic_runtime/kubernetes/intrinsic_base:intrinsic-app-chart
+            - name: INTRINSIC_APP_CHART
+              value: {{ .Values.embed_chart.intrinsic_app_chart }}
+            # LINT.ThenChange(//intrinsic_runtime/kubernetes/intrinsic_base/BUILD)
+          securityContext:
+            readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workcell-cluster-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9957
+      name: grpc-workcell-spec
+  selector:
+    app: workcell-cluster-service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workcell-cluster-service-metrics
+  labels:
+    app: workcell-cluster-service-metrics
+spec:
+  clusterIP: None
+  ports:
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: workcell-cluster-service
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: workcell-cluster-service-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: workcell-cluster-service-metrics
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: installer
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.workcell_spec.v1.DeployService/
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.AssetConfigurationService/
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.InstalledAssets/
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.InstalledAssetsReader/
+        - uri:
+            prefix: /intrinsic_proto.data.v1.DataAssets/
+        - uri:
+            prefix: /intrinsic_proto.services.v1.SystemServiceState/
+      route:
+        - destination:
+            port:
+              number: 9957
+            host: workcell-cluster-service
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.assets.AssetDeploymentService/
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: asset-deployment
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.SolutionDeploymentService/
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: solution-deployment-v1
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.AssetInstances/
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.AssetInstancesReader/
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: asset-instances-v1
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.AssetArtifacts/
+      route:
+        - destination:
+            port:
+              number: 8080
+            host: asset-artifacts-v1
+---
+# TODO: b/448388290: Remove once no longer needed for compatibility.
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-deployment
+  labels:
+    app: asset-deployment
+spec:
+  ports:
+    - port: 8080
+      name: grpc-asset-deployment
+  selector:
+    app: workcell-cluster-service
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: solution-deployment-v1
+  labels:
+    app: solution-deployment-v1
+spec:
+  ports:
+    - port: 8080
+      targetPort: 9769
+      name: grpc-solution-deployment-v1
+  selector:
+    app: workcell-cluster-service
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-instances-v1
+  labels:
+    app: asset-instances-v1
+spec:
+  ports:
+    - port: 8080
+      targetPort: 9832
+      name: grpc-asset-instances-v1
+  selector:
+    app: workcell-cluster-service
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-artifacts-v1
+  labels:
+    app: asset-artifacts-v1
+spec:
+  ports:
+    - port: 8080
+      targetPort: 9958
+      name: grpc-asset-artifacts-v1
+  selector:
+    app: workcell-cluster-service
+  type: ClusterIP

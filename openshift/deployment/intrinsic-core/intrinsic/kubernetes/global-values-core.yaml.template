@@ -1,0 +1,33 @@
+{{/*
+Copyright 2026 Intrinsic Innovation LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/ -}}
+
+{{- /* This file contains a hardcoded set of feature options to use with intrinsic-core. */ -}}
+{{- $feature_options := dict
+    "enable_backend_sequence_list" true
+    "enable_cas_peer_metadata" true
+    "enable_executive_pubsub" true
+    "enable_executive_tracing_info_in_state" true
+    "enable_executive_validate_on_create" true
+    "enable_gzserver_asset_service" true
+    "enable_http_gateway_pubsub" true
+    "enable_line_orchestration_network" false
+    "enable_python_task_node" true
+    "enable_relaxed_host_path_checks" true
+    "enable_security_context" true
+    "enable_webrtc_turn_auth_servers" false
+    "enable_world_service_on_change_pubsub" true
+-}}
+{{- $_ := set $.Values "feature_options" $feature_options -}}

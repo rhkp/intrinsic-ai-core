@@ -1,0 +1,201 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{{- if .Values.feature_options.enable_python_task_node }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-execution
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: code-execution
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: code-execution
+      annotations:
+        # force code execution service to restart every time
+        app-deployment-id: "{{ .Values.app_deployment_id }}"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: code-execution-service
+          image: {{ .Values.registry }}{{ .Values.images.code_execution_service }}
+          args:
+            - /intrinsic/executive/code/code_execution_service
+            - --port=8080
+            - --jupyter_server_host=localhost:8888
+            - --world_service_address=world.app-intrinsic-base.svc.cluster.local:8080
+            - --geometry_service_address=geomservice.app-intrinsic-base.svc.cluster.local:8080
+            - --num_jupyter_sessions=3
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            readOnlyRootFilesystem: true
+        - name: jupyter-server
+          # Runs a jupyter server on localhost:8888 as non-root user
+          # Images from: ghcr.io/intrinsic-ai/code-execution-jupyter-server
+          # Use executive/tools/release_code_execution_image.sh to update this.
+          image: "{{ .Values.registry }}{{ .Values.images.code_execution_jupyter_server }}"
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          resources:
+            limits:
+              cpu: 2
+              memory: 2Gi
+            # Explicitly disable the lower bound since otherwise it will match the limit:
+            # https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits
+            requests:
+              cpu: 0
+              memory: 0
+          volumeMounts:
+            - name: jupyter-home
+              mountPath: /home/defaultuser
+      volumes:
+        # Jupyter stores some files locally, mainly for session management
+        - name: jupyter-home
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-execution
+  labels:
+    app: code-execution
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-code-execution
+  selector:
+    app: code-execution
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: code-execution
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.executive.CodeExecutionInfoService/
+      route:
+        - destination:
+            host: code-execution
+            port:
+              number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: code-execution
+spec:
+  podSelector:
+    matchLabels:
+      app: code-execution
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Executive can access gRPC code execution service
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-app-chart
+          podSelector:
+            matchLabels:
+              app: executive
+      ports:
+        - protocol: TCP
+          port: 8080
+    # To allow workcell-service to detect the port to be open
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-base
+          podSelector:
+            matchLabels:
+              app: workcell-cluster-service
+      ports:
+        - protocol: TCP
+          port: 8080
+    # Access to the code execution info service from the frontend or SBL (via
+    # ingresss)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-base
+          podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-ingress
+          podSelector:
+            matchLabels:
+              app: istio-ingressgateway
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Access to world and geometry service
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-base
+          podSelector:
+            matchLabels:
+              app: world
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app-intrinsic-base
+          podSelector:
+            matchLabels:
+              app: geomservice
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+# No rule to access general internet and external services!
+{{- end }}

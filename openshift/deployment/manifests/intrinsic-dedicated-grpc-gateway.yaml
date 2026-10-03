@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: intrinsic-grpc-gateway
+  namespace: arhkp-intrinsic
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intrinsic-grpc-gateway
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/name: intrinsic-grpc-gateway
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: intrinsic-grpc-gateway
+    istio: intrinsic-grpc-gateway
+  ports:
+    - name: http2
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intrinsic-grpc-gateway
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/name: intrinsic-grpc-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intrinsic-grpc-gateway
+      istio: intrinsic-grpc-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intrinsic-grpc-gateway
+        istio: intrinsic-grpc-gateway
+        sidecar.istio.io/inject: "true"
+      annotations:
+        inject.istio.io/templates: gateway
+    spec:
+      serviceAccountName: intrinsic-grpc-gateway
+      containers:
+        - name: istio-proxy
+          image: auto
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: intrinsic-grpc-internal
+  namespace: arhkp-intrinsic
+spec:
+  selector:
+    app.kubernetes.io/name: intrinsic-grpc-gateway
+    istio: intrinsic-grpc-gateway
+  servers:
+    - port:
+        number: 80
+        name: grpc-h2c
+        protocol: HTTP2
+      hosts:
+        - intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local

@@ -1,0 +1,99 @@
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geomservice
+spec:
+  selector:
+    matchLabels:
+      app: geomservice
+  template:
+    metadata:
+      labels:
+        app: geomservice
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: geomservice
+          image: {{ .Values.registry }}{{ .Values.images.geometry }}
+          args:
+            - intrinsic/geometry/service/geometry_service
+            - --port=8080
+            - --cas_service_address=content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747
+            - --geometry_cas_cache_size=1000
+            - --opencensus_metrics_port=9101
+            - --opencensus_tracing={{ .Values.opencensus_tracing }}
+          securityContext:
+            readOnlyRootFilesystem: true
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: geomservice
+  labels:
+    app: geomservice
+spec:
+  clusterIP: None
+  ports:
+    - port: 8080
+      name: grpc-geomservice
+    - port: 9101
+      name: http-metrics
+  selector:
+    app: geomservice
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: geomservice
+spec:
+  # hosts & gateways are boilerplate required for externally-reachable VirtualServices.
+  hosts:
+    - "*"
+  gateways:
+    - app-ingress/gateway
+  http:
+    - match:
+        - uri:
+            # The URI prefix is based on the proto's package & service name.
+            prefix: /intrinsic_proto.geometry.GeometryService/
+      route:
+        - destination:
+            host: geomservice
+            port:
+              number: 8080
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: geomservice-metrics
+  labels:
+    prometheus: kube-prometheus
+spec:
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 10s
+      metricRelabelings:   # This solves high cardinality labeling issue in prometheus tsdb, reach out to intrinsic-data-infra before removing
+        - action: labeldrop
+          regex: pod
+  selector:
+    matchLabels:
+      app: geomservice
