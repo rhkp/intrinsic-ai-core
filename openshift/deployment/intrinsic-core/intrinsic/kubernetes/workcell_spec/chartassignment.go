@@ -120,7 +120,7 @@ func kubeBackOff(ctx context.Context) backoff.BackOff {
 func isDeleted(ctx context.Context, clientset dynamic.Interface, name string) (bool, error) {
 	ca, err := chartAssignments(clientset).Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
-		if ca.ObjectMeta.DeletionTimestamp == nil {
+		if ca.GetDeletionTimestamp() == nil {
 			// If the chart was deleted & recreated in the meantime, the deletion timestamp
 			// switches to nil. We should stop polling then.
 			return true, nil

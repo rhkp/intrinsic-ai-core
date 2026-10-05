@@ -40,7 +40,13 @@ spec:
             - --port=8080
             - --asset_info_internal_port=8081
             - --opencensus_metrics_port=9101
+            - --configmap_watch_namespace=$(POD_NAMESPACE)
             - --opencensus_tracing={{ .Values.opencensus_tracing }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
@@ -131,7 +137,7 @@ metadata:
   name: resource-registry
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: resource-registry
 rules:
@@ -146,12 +152,12 @@ rules:
       - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: resource-registry
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: resource-registry
 subjects:
   - kind: ServiceAccount

@@ -1,16 +1,21 @@
 # Intrinsic Core full OpenShift pilot
 
-**Status:** project setup, restricted-pod and GPU smokes, a namespaced
-ChartAssignment controller smoke, an `Opaque` Secret injection smoke, and a
-dedicated internal gRPC gateway with routing configuration are verified on
-dev01. The pinned, OpenShift-adapted deployment CLI builds for Linux x86-64 and
-its registry-publisher test passes; no Intrinsic workloads have been deployed
-yet. A five-call synthetic gRPC smoke now passes through the internal gateway
-to a sidecar-injected backend under the cluster's existing STRICT mTLS policy;
-it does not yet test an Intrinsic service. The 24 required Core chart images are mirrored by digest to
-Quay; the HTTP gateway, Zenoh daemon, and Jupyter sidecar passed restricted-SCC
-startup smokes. This is
-the active full-OpenShift track. See the
+**Status (2026-10-05):** project setup, restricted-pod and GPU smokes, a
+namespaced ChartAssignment controller smoke, an `Opaque` Secret injection
+smoke, and a dedicated internal gRPC gateway are verified on dev01. All five
+PVCs are Bound and all 22 Deployments are Ready. The registry and Workcell
+informer fixes are built, digest-pinned, and enforced by the ChartAssignment
+adapter on reconciliation. The code-execution Jupyter sidecar now uses its
+existing bounded writable home, starts three kernels, and binds its
+unauthenticated API to pod loopback. Both live ChartAssignments rendered all
+20 Core Deployment image sets identically to the pre-rollout snapshot. The
+Workcell RBAC escalation gate is resolved with a separately provisioned
+project Role; the controller's own RBAC remains unchanged. The 24 upstream
+Core chart images are mirrored by digest to Quay; the HTTP gateway and Zenoh
+daemon passed restricted-SCC startup smokes. The five-call synthetic gRPC
+smoke through the internal gateway does not test an Intrinsic service. This is
+the active full-OpenShift track. See
+the
 [migration plan](../OPENSHIFT_PLAN.md) for architecture, blockers, and acceptance
 gates. The [secret adaptation assessment](SECRETS_ADAPTATION.md) records the
 private-pull and `.env`-to-Secret smokes, plus the remaining app-specific key
@@ -82,6 +87,87 @@ description **Project-scoped resources for the Intrinsic Core full OpenShift
 deployment pilot**. The RHOAI dashboard marker was then added. This did not
 change kubeconfig or create a quota.
 
+## ChartAssignment reconciliation and informer RBAC repair — 2026-10-05
+
+The server-side dry run passed before `intrinsic-base` was applied. The
+ChartAssignment created 91 resources; the controller reported two failed RBAC
+objects. All five PVCs bound, 15 Deployments became Ready, and `world` entered
+CrashLoopBackOff. Its log showed a gRPC connection failure to `resource-registry`.
+
+The registry startup sequence creates a cluster-wide ConfigMap informer and
+waits for its cache before opening the gRPC listener. The project-only
+`resource-registry` Role could not list ConfigMaps at cluster scope. The
+Workcell service also created cluster-wide Pod and ConfigMap informers, which
+its project-only Role could not use. The source patches
+[`patches/resource-registry-namespace-configmaps.patch`](deployment/patches/resource-registry-namespace-configmaps.patch)
+adds the registry's namespace flag and project Role; the
+[`Workcell informer patch`](deployment/patches/workcell-namespace-informers.patch)
+scopes its Pod and ConfigMap informers to the pilot namespace. The Workcell
+image also carries the namespaced dynamic ChartAssignment client and its
+required Bazel dependencies. Both images were built on the pinned x86-64 VM,
+published to Quay, and verified by anonymous digest pull; the digests are in
+[`image-lock.json`](image-lock.json).
+
+A manual registry image update initially restored service, but the next
+`intrinsic-base` reconciliation used its stale inline upstream chart and
+reverted that Deployment. The controller now applies a durable OpenShift
+adapter before Synk writes rendered resources: it pins the registry and
+Workcell images and ensures exactly one
+`--configmap_watch_namespace=arhkp-intrinsic` argument. The controller was
+rebuilt and rolled out by immutable digest. Its fresh reconciliation left
+`intrinsic-base` Ready and `intrinsic-base.v3` Settled. Registry, Workcell,
+`world-updater`, and `scene-object-import` are each Ready 1/1; their current
+logs show restored gRPC connections and zero informer `Forbidden` errors. The
+Jupyter's writable-home and loopback repair is recorded in the current
+ChartAssignment adapter notes below.
+
+## ChartAssignment RBAC escalation repair — 2026-10-05
+
+The controller's project Role correctly lacks `pods/delete` and
+ChartAssignment `create`/`delete`. The upstream Workcell service Role grants
+those verbs to the `workcell-cluster-service` service account, so the API server
+rejects the controller's attempt to create it under RBAC escalation protection;
+its following RoleBinding then fails because the Role does not exist. The
+repair keeps controller authority unchanged: the exact upstream permissions are
+adapted to a namespaced Role and RoleBinding in
+[`deployment/manifests/workcell-cluster-service-rbac.yaml`](deployment/manifests/workcell-cluster-service-rbac.yaml),
+and applied separately. The controller still validates the rendered Workcell
+RBAC against its allowlist, then omits only those two objects from its
+ChartAssignment-managed ResourceSet. The reviewed manifest passed dev01's
+server-side dry run and was applied. The controller was rebuilt and rolled out
+with an immutable image digest, triggering a fresh reconciliation of the
+existing base ChartAssignment. `intrinsic-base` is Ready and its latest
+ResourceSet is Settled. The informer repair restored the registry, Workcell,
+`world-updater`, and `scene-object-import` to 1/1. The code-execution Jupyter
+sidecar recovery is recorded below. The Workcell Role exactly matches the
+reviewed project-only verbs and its RoleBinding targets only the Workcell
+service account. Both objects have no ResourceSet owner reference, and checks
+confirm the controller Role still lacks `pods/delete` and ChartAssignment
+create/delete. All 22 Deployments are now Ready. See the
+[`controller deployment notes`](deployment/chartassignment-controller/deploy/README.md)
+for the command sequence.
+
+## Code-execution Jupyter OpenShift adaptation — 2026-10-05
+
+The pinned Jupyter image resolved its home to `/` when run with OpenShift's
+assigned UID. Its read-only root filesystem then blocked creation of
+`/.local/share/jupyter/runtime`. The Deployment already provides a 2 GiB
+`emptyDir` mounted at `/home/defaultuser`; the durable ChartAssignment adapter
+now sets `HOME` and `JUPYTER_RUNTIME_DIR` under that mount and rejects renders
+where the writable mount is missing or read-only.
+
+The image entrypoint also binds Jupyter to `0.0.0.0` and disables token
+authentication. Because mesh network policies can admit traffic on ports beyond
+the code-execution gRPC port, the adapter replaces that entrypoint with the
+same required Jupyter settings bound to `::1`. The colocated worker connects to
+`localhost:8888`; live inspection confirmed Jupyter listens only on `::1`. All
+three workers created kernels and completed their startup requests. The
+controller BuildConfig build #11 uses digest
+`sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1`.
+Both ChartAssignments are Ready with Settled ResourceSets, all 22 Deployments
+are Ready, and all 20 Core Deployment image sets match the pre-rollout
+snapshot.
+
 ## First deployment gate
 
 On 2026-10-02, a temporary, namespace-scoped UBI minimal pod successfully pulled
@@ -137,8 +223,9 @@ may retain cluster-scoped Image metadata records after deleting a stream. No
 global prune was run. The project CA ConfigMap remains and contains public CA
 material only. The copied renderer now wires resource and skill pods to this
 ServiceAccount, rejects inline registry credentials, and omits generated pull
-Secrets. A local Helm-template smoke passes; no Intrinsic workload has used
-this wiring yet.
+Secrets. The Core base slice is deployed with 22 of 22 Deployments Ready; the
+resource/skill chart image-pull path still needs validation with generated
+runtime workloads.
 
 ## Workload image policy
 
@@ -340,4 +427,7 @@ python3 openshift/validate_source_manifest.py
 
 Keep credentials, tokens, kubeconfigs, API addresses, private registry/object
 storage endpoints, and certificates outside Git. `.env` files are ignored by
-the repository; commit only reviewed placeholders in `.env.sample` files.
+the repository; commit only reviewed placeholders in `.env.sample` files. The
+routing sample uses a `project-name` placeholder; replace it in the ignored
+`.env` with the target project's internal Service and Gateway references before
+running the routing helper.

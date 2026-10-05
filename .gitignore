@@ -34,3 +34,6 @@ secrets/
 *.token
 *.secret
 *.credentials
+
+# Local bearer token file referenced by the ignored RHOAI environment.
+/approaches/tried-not-feasible-aws-vm-with-rhoai/~/.config/intrinsic/rhoai-token

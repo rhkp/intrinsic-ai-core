@@ -816,7 +816,9 @@
       "source_path": "intrinsic/kubernetes/workcell_spec/BUILD",
       "destination_path": "intrinsic-core/intrinsic/kubernetes/workcell_spec/BUILD",
       "source_sha256": "4ed3b4bae2e910135463815de84a5ea7b7f6aefdd25248931d2cfc953f2ff90d",
-      "transformations": [],
+      "transformations": [
+        "Add the direct Bazel dependencies needed by the Workcell namespace-scoped client code."
+      ],
       "baseline_sha256": "4ed3b4bae2e910135463815de84a5ea7b7f6aefdd25248931d2cfc953f2ff90d",
       "current_sha256": "ae0b88100e5b76d3c1e6bb97532578ad057a0a16c8c85cfac4481fb5decc9a93"
     },
@@ -838,9 +840,11 @@
       "source_path": "intrinsic/kubernetes/workcell_spec/chartassignment.go",
       "destination_path": "intrinsic-core/intrinsic/kubernetes/workcell_spec/chartassignment.go",
       "source_sha256": "b949d2af946422a1b7b10aa5eeafe1cfdca8ce4c64174d13937a8a5a4e13aa4f",
-      "transformations": [],
+      "transformations": [
+        "OpenShift: scope ChartAssignment operations to the pilot namespace and use the unstructured deletion-timestamp accessor."
+      ],
       "baseline_sha256": "b949d2af946422a1b7b10aa5eeafe1cfdca8ce4c64174d13937a8a5a4e13aa4f",
-      "current_sha256": "cb4051dfbb32949d0b29471f017e27f0b6d33fc6f1aebe49ba29213be9e17647"
+      "current_sha256": "d79fc9f877ed422b4f24b99f8fd48da2f2bcdbc3af21cd5d0c2a0f98826f7244"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1016,9 +1020,11 @@
       "source_path": "intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go",
       "destination_path": "intrinsic-core/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go",
       "source_sha256": "640e86e84d589287d60379c80aeead285838fd27413f13ac232f3fcde28dcd93",
-      "transformations": [],
+      "transformations": [
+        "OpenShift: scope Workcell Pod and ConfigMap informers to the pilot namespace."
+      ],
       "baseline_sha256": "640e86e84d589287d60379c80aeead285838fd27413f13ac232f3fcde28dcd93",
-      "current_sha256": "0018a303c110764cb796b9e4c45be7d3d90e07e870ab731fe2b831b61f66162a"
+      "current_sha256": "2025c7b1fad13e1b79b8aa6ccc017fa253ac15c09406f6cc7ef54af87c7af1be"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1154,9 +1160,11 @@
       "source_path": "intrinsic/resources/resource-registry.yaml",
       "destination_path": "intrinsic-core/intrinsic/resources/resource-registry.yaml",
       "source_sha256": "a4ff65890da27b8a007c4426b5c3588f613cfcb63ae328e80cc9562b8bc41e28",
-      "transformations": [],
+      "transformations": [
+        "OpenShift namespace-scoped ConfigMap informer and Role/RoleBinding"
+      ],
       "baseline_sha256": "a4ff65890da27b8a007c4426b5c3588f613cfcb63ae328e80cc9562b8bc41e28",
-      "current_sha256": "a4ff65890da27b8a007c4426b5c3588f613cfcb63ae328e80cc9562b8bc41e28"
+      "current_sha256": "9fbe287c393a1e3a8edeefbdc7b0a0b92dcacdd3c23f9607c14fd9ae6c0753a9"
     },
     {
       "upstream_repository": "intrinsic-core",

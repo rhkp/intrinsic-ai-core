@@ -533,7 +533,9 @@ func main() {
 
 	log.InfoContextf(ctx, "Starting SystemServiceState service at %d", *transferServicePort)
 
-	factory := informers.NewSharedInformerFactory(coreClient, 10*time.Minute)
+	// The OpenShift Workcell ServiceAccount has project-scoped Pod and ConfigMap
+	// permissions only, so its informer cache must not list resources cluster-wide.
+	factory := informers.NewFilteredSharedInformerFactory(coreClient, 10*time.Minute, chartassignment.Namespace, nil)
 
 	stopOptionalClusterMonitoring := startOptionalClusterMonitoring(ctx, factory, crcClient)
 	defer stopOptionalClusterMonitoring()

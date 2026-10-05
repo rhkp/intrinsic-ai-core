@@ -138,9 +138,11 @@
       "upstream_tarball": "intrinsic/resources/service/resource-registry-image.tar",
       "release_list_digest": "sha256:2670ea0faf26164f11f9a9101b1a8fb00125d1d4e22ebb528c1bd094443c696b",
       "quay_repository": "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b",
-      "quay_tag": "upstream-20260922.0",
-      "quay_digest": "sha256:040fd55689dd52507eb3d673a85c5188def06c23b7b2794adf9bd6903d27652d",
-      "chart_image_key": "resource_registry"
+      "quay_tag": "openshift-ns-configmaps-20261005",
+      "quay_digest": "sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512",
+      "chart_image_key": "resource_registry",
+      "built_from_upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "adaptation_patch": "deployment/patches/resource-registry-namespace-configmaps.patch"
     },
     {
       "upstream_release": "20260922.0",
@@ -198,8 +200,8 @@
       "upstream_tarball": "intrinsic/kubernetes/workcell_spec/workcell-spec-service-image.tar",
       "release_list_digest": "sha256:df53536bf8a0fe547e3d1b1e0ae2735b8ea6b62a0dfd9da6b7fdafb458d9e940",
       "quay_repository": "quay.io/rhkp/intrinsic/workcell_spec_service_cziekbodmacxdi73",
-      "quay_tag": "openshift-grpc-20261002-43f6c29e6e85",
-      "quay_digest": "sha256:6048b0b443a1633b819c9cf66d18ee32c910af59c95f4b158db2adfa69fe2c2f",
+      "quay_tag": "openshift-ns-informers-20261005-a1892dc13373",
+      "quay_digest": "sha256:8b87d30b0d47bfe8da52be3647076790b2793ca7ce928301379d5cd9752eae0c",
       "chart_image_key": "workcell_spec_service",
       "upstream_quay_tag": "upstream-20260922.0",
       "upstream_quay_digest": "sha256:ddb7e6436db9e7471635b414c64c3207b740e112b31d057fe2ccee37eb11d561",
@@ -207,8 +209,8 @@
         "source_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
         "target": "//intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar",
         "platform": "linux/amd64",
-        "archive_sha256": "43f6c29e6e85e4b3ebcd83eb49394d4a139be74bfcf651e3f153550befd4c49b",
-        "adaptation": "openshift-grpc-routing"
+        "archive_sha256": "a1892dc13373f4dbf6a8f4b962f5bc6d481191254afada54d60cd087de81af49",
+        "adaptation": "openshift-grpc-routing+namespace-scoped-informers+namespace-scoped-chartassignments"
       }
     },
     {

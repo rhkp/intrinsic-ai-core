@@ -84,6 +84,64 @@ def walk(value: Any):
             yield from walk(nested)
 
 
+def validate_label_selector(selector: Any, name: str, field: str) -> None:
+    if not isinstance(selector, dict) or set(selector) - {"matchLabels", "matchExpressions"}:
+        raise ValidationError(f"NetworkPolicy/{name} has a malformed {field} LabelSelector")
+    labels = selector.get("matchLabels", {})
+    if not isinstance(labels, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in labels.items()
+    ):
+        raise ValidationError(f"NetworkPolicy/{name} has malformed labels in {field}")
+    expressions = selector.get("matchExpressions", [])
+    if not isinstance(expressions, list):
+        raise ValidationError(f"NetworkPolicy/{name} has malformed matchExpressions in {field}")
+    for expression in expressions:
+        if not isinstance(expression, dict) or set(expression) - {"key", "operator", "values"}:
+            raise ValidationError(f"NetworkPolicy/{name} has a malformed expression in {field}")
+        if not isinstance(expression.get("key"), str) or expression.get("operator") not in {
+            "In", "NotIn", "Exists", "DoesNotExist"
+        }:
+            raise ValidationError(f"NetworkPolicy/{name} has an invalid expression in {field}")
+        values = expression.get("values", [])
+        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+            raise ValidationError(f"NetworkPolicy/{name} has invalid expression values in {field}")
+        if expression["operator"] in {"In", "NotIn"} and not values:
+            raise ValidationError(f"NetworkPolicy/{name} has empty set-based expression values in {field}")
+        if expression["operator"] in {"Exists", "DoesNotExist"} and values:
+            raise ValidationError(f"NetworkPolicy/{name} has values for a presence expression in {field}")
+
+
+def validate_network_policy(document: dict[str, Any], name: str) -> None:
+    spec = document.get("spec")
+    if not isinstance(spec, dict):
+        raise ValidationError(f"NetworkPolicy/{name} has no spec")
+    validate_label_selector(spec.get("podSelector"), name, "spec.podSelector")
+    for direction, peer_field in (("ingress", "from"), ("egress", "to")):
+        rules = spec.get(direction, [])
+        if not isinstance(rules, list):
+            raise ValidationError(f"NetworkPolicy/{name} has malformed {direction} rules")
+        for rule in rules:
+            if not isinstance(rule, dict):
+                raise ValidationError(f"NetworkPolicy/{name} has a malformed {direction} rule")
+            peers = rule.get(peer_field)
+            if not isinstance(peers, list) or not peers:
+                raise ValidationError(f"NetworkPolicy/{name} has an unrestricted {direction} rule")
+            for peer in peers:
+                if not isinstance(peer, dict) or set(peer) - {"ipBlock", "namespaceSelector", "podSelector"}:
+                    raise ValidationError(f"NetworkPolicy/{name} has a malformed {direction} peer")
+                if "namespaceSelector" in peer:
+                    validate_label_selector(peer["namespaceSelector"], name, f"{direction}.{peer_field}.namespaceSelector")
+                if "podSelector" in peer:
+                    validate_label_selector(peer["podSelector"], name, f"{direction}.{peer_field}.podSelector")
+                if "ipBlock" in peer:
+                    block = peer["ipBlock"]
+                    if not isinstance(block, dict) or not isinstance(block.get("cidr"), str):
+                        raise ValidationError(f"NetworkPolicy/{name} has a malformed ipBlock")
+                    if "namespaceSelector" in peer or "podSelector" in peer:
+                        raise ValidationError(f"NetworkPolicy/{name} combines ipBlock and selectors")
+
+
 def validate_virtual_service(document: dict[str, Any], namespace: str, name: str) -> None:
     if not str(document.get("apiVersion", "")).startswith("networking.istio.io/"):
         raise ValidationError(f"VirtualService/{name} has an unexpected API group")
@@ -97,7 +155,9 @@ def validate_virtual_service(document: dict[str, Any], namespace: str, name: str
     if len(gateway_parts) != 2 or not all(gateway_parts):
         raise ValidationError(f"VirtualService/{name} Gateway reference is not namespaced")
     exported = spec.get("exportTo")
-    if not isinstance(exported, list) or "." not in exported or gateway_parts[0] not in exported:
+    if not isinstance(exported, list) or "." not in exported or (
+        gateway_parts[0] != namespace and gateway_parts[0] not in exported
+    ):
         raise ValidationError(f"VirtualService/{name} is not scoped to its project and mesh Gateway")
     routes = spec.get("http")
     if not isinstance(routes, list):
@@ -148,6 +208,8 @@ def validate_documents(documents: list[dict[str, Any]], namespace: str, locked: 
 
         if kind == "VirtualService":
             validate_virtual_service(document, namespace, name)
+        if kind == "NetworkPolicy":
+            validate_network_policy(document, name)
 
         for key, value in walk(document):
             if key in {"hostPath", "hostPort", "runAsUser", "runAsGroup"}:

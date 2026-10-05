@@ -1,0 +1,57 @@
+diff --git a/intrinsic/resources/service/resource_registry_main.go b/intrinsic/resources/service/resource_registry_main.go
+--- a/intrinsic/resources/service/resource_registry_main.go
++++ b/intrinsic/resources/service/resource_registry_main.go
+@@ -56,3 +56,4 @@
+ 	prometheusPort          = flag.Int64("opencensus_metrics_port", 9101, "Which port to serve the prometheus scraper on.")
+ 	opencensusTracing       = flag.Bool("opencensus_tracing", false, "Whether to send traces to opencensus.")
++	configMapWatchNamespace = flag.String("configmap_watch_namespace", "", "Namespace to watch for skill ConfigMaps; empty watches all namespaces.")
+ )
+@@ -114,2 +115,8 @@
+-	factory := informers.NewSharedInformerFactory(clientSet(), 10*time.Minute)
++	clientset := clientSet()
++	var factory informers.SharedInformerFactory
++	if *configMapWatchNamespace == "" {
++		factory = informers.NewSharedInformerFactory(clientset, 10*time.Minute)
++	} else {
++		factory = informers.NewFilteredSharedInformerFactory(clientset, 10*time.Minute, *configMapWatchNamespace, nil)
++	}
+ 	composerClient := skillcomposer.NewClient(resourceTypeRuntimeClient, factory)
+
+diff --git a/intrinsic/resources/resource-registry.yaml b/intrinsic/resources/resource-registry.yaml
+--- a/intrinsic/resources/resource-registry.yaml
++++ b/intrinsic/resources/resource-registry.yaml
+@@ -40,7 +40,13 @@
+             - --port=8080
+             - --asset_info_internal_port=8081
+             - --opencensus_metrics_port=9101
++            - --configmap_watch_namespace=$(POD_NAMESPACE)
+             - --opencensus_tracing={{ .Values.opencensus_tracing }}
++          env:
++            - name: POD_NAMESPACE
++              valueFrom:
++                fieldRef:
++                  fieldPath: metadata.namespace
+       securityContext:
+         runAsUser: 65532
+         runAsGroup: 65532
+@@ -137,5 +143,5 @@
+ apiVersion: rbac.authorization.k8s.io/v1
+-kind: ClusterRole
++kind: Role
+ metadata:
+   name: resource-registry
+ rules:
+@@ -151,11 +157,11 @@
+ ---
+ apiVersion: rbac.authorization.k8s.io/v1
+-kind: ClusterRoleBinding
++kind: RoleBinding
+ metadata:
+   name: resource-registry
+ roleRef:
+   apiGroup: rbac.authorization.k8s.io
+-  kind: ClusterRole
++  kind: Role
+   name: resource-registry
+ subjects:
+   - kind: ServiceAccount

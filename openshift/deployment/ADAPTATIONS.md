@@ -176,15 +176,17 @@ through the Gateway and header-matched VirtualService to a sidecar-injected
 backend. The sidecar was required by dev01's existing mesh-wide `STRICT`
 mTLS policy; no mesh policy was changed. All temporary smoke resources were
 removed and verified absent. This proves generic gateway routing, not a live
-Intrinsic application RPC; no Core workload has been applied yet. The repeatable
-smoke is [`../grpc_gateway_smoke.py`](../grpc_gateway_smoke.py).
+Intrinsic application RPC. The Core base slice has since deployed and is
+Ready; generated application VirtualServices and a real Core RPC remain
+untested. The repeatable smoke is [`../grpc_gateway_smoke.py`](../grpc_gateway_smoke.py).
 
-The pinned Bazel graph packages the workcell-cluster-service binary, asset
-deployment service, and resource/skill templates together in
-`//intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar`. That is
-the only upstream application image identified so far whose source must be
-rebuilt for this routing change; the remaining mirrored application images
-stay pinned upstream unless their own compatibility tests require changes.
+The pinned Bazel graph packages the Workcell service binary, asset deployment
+service, and resource/skill templates together in
+`//intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar`. This
+Workcell image is rebuilt for OpenShift gRPC routing and namespace-filtered Pod
+and ConfigMap informers. The Resource Registry is a separate adapted image for
+its namespace-scoped ConfigMap informer. Other mirrored application images
+stay pinned upstream unless their compatibility checks require changes.
 
 The updated controller Go tests and offline manifest-validator tests pass. The
 modified Core resource-renderer package compiled on the x86 build VM at the
@@ -200,11 +202,90 @@ scan. It is published to the existing Quay image repository under a new
 checksum-based tag; the immutable registry digest and upstream digest are
 both recorded in [`../image-lock.json`](../image-lock.json). An anonymous
 digest-pinned pull succeeded. The project-scoped controller was rebuilt from
-the updated source, rolled out by immutable digest, and verified Ready. No
-Intrinsic workload has been applied. The dedicated gateway and project routing
+the updated source, rolled out by immutable digest, and verified Ready. The
+Core base slice is now deployed; the dedicated gateway and project routing
 ConfigMap are live, but no application `VirtualService` has been deployed, so
-the generic gRPC gateway path now passes a five-call smoke, but no Intrinsic
+the generic gRPC gateway path passes a five-call smoke while no Intrinsic
 application RPC has been tested. Remaining gates are to render and review
-dynamic charts, deploy a minimal Core slice, smoke a real Core gRPC method
-through the dedicated Service, then test resource and skill lifecycle plus
-cleanup.
+runtime-generated charts, smoke a real Core gRPC method through the dedicated
+Service, test resource and skill lifecycle plus cleanup, and verify the full
+simulation demo and robot movement.
+
+## Workcell Role/RoleBinding escalation boundary
+
+The base ChartAssignment's `workcell-cluster-service` Role grants
+project-scoped `pods/delete` and ChartAssignment create/delete permissions to
+the Workcell service account. Kubernetes correctly rejects the ChartAssignment
+controller's attempt to grant permissions it does not itself hold. Keep the
+controller Role unchanged. The OpenShift adapter continues validating these
+rules against its explicit allowlist, then omits only this Role and its
+RoleBinding from the Synk ResourceSet. The exact upstream project permissions
+are provisioned from
+[`manifests/workcell-cluster-service-rbac.yaml`](manifests/workcell-cluster-service-rbac.yaml)
+as a separate project-scoped prerequisite. This leaves the Workcell service
+with its required namespaced permissions while preserving the controller's
+least-privilege boundary.
+
+Validation: all ChartAssignment controller Go tests pass, including a check
+that rejects unapproved Workcell verbs. The static manifest passed dev01's
+server-side dry run and was applied. The controller was rebuilt and rolled out
+with an immutable image digest; the fresh reconciliation moved
+`intrinsic-base` to Ready and its latest ResourceSet to Settled. The Workcell
+Role and RoleBinding were verified to match the project-scoped manifest and
+have no ResourceSet owner references. The controller Role still lacks
+`pods/delete` and ChartAssignment create/delete. All 22 Deployments are now
+Ready. The registry, Workcell service, `world-updater`, `scene-object-import`,
+and the repaired `code-execution` Jupyter sidecar are healthy.
+
+## Durable ChartAssignment image and informer adaptation
+
+The first namespace-scoped Resource Registry fix was applied directly to its
+Deployment. A later `intrinsic-base` reconciliation used the stale inline
+upstream chart and restored the old registry image and arguments. The Workcell
+service also used cluster-wide Pod and ConfigMap informers despite having only
+project-scoped RBAC. The resulting failures cascaded to `world-updater` and
+`scene-object-import`.
+
+The controller now applies the OpenShift adapter before Synk writes each
+ChartAssignment render. It pins the registry and Workcell service images by
+digest and normalizes the registry's
+`--configmap_watch_namespace=arhkp-intrinsic` argument to exactly one entry.
+The Workcell image uses namespace-filtered Pod and ConfigMap informers and a
+namespace-scoped dynamic ChartAssignment client. The source patches and image
+provenance are recorded in [`ADAPTATIONS.json`](ADAPTATIONS.json),
+[`SOURCE_MANIFEST.json`](SOURCE_MANIFEST.json), and
+[`image-lock.json`](../image-lock.json). The controller Role remains unchanged.
+
+Validation: focused controller Go tests pass, including stale-image,
+namespace-argument deduplication, and idempotence coverage. The Workcell image
+build passed on the pinned Linux/amd64 VM, and Quay allowed an anonymous
+digest-pinned pull. The controller BuildConfig completed and the Deployment
+rolled out by immutable digest. A fresh base ChartAssignment reconciliation
+left `intrinsic-base` Ready with its latest ResourceSet Settled. The registry,
+Workcell service, `world-updater`, and `scene-object-import` are Ready 1/1;
+their logs show zero current informer `Forbidden` errors and restored gRPC
+connections. The Jupyter sidecar fix is recorded below.
+
+## Jupyter writable-home and loopback adaptation
+
+On dev01, the pinned Jupyter image initially failed because its process
+resolved its home to `/` while the root filesystem was read-only. The upstream
+pod already mounts a bounded 2 GiB `emptyDir` at `/home/defaultuser`. The
+ChartAssignment adapter now sets `HOME=/home/defaultuser` and
+`JUPYTER_RUNTIME_DIR=/home/defaultuser/.local/share/jupyter/runtime`, and fails
+closed unless that path remains a writable mount backed by an `emptyDir`.
+
+The image entrypoint binds the unauthenticated server to `0.0.0.0`. Since
+mesh-managed NetworkPolicies can allow mesh traffic on otherwise unlisted
+ports, the adapter replaces the image entrypoint with an explicit invocation
+that preserves the required port, token-disabled sidecar behavior, XSRF
+setting, and notebook directory while binding to `::1`. The code-execution
+worker uses `localhost:8888`; live inspection confirmed the only listener on
+port 8888 is `::1`, and all three workers created kernels and passed their
+startup requests.
+
+Controller BuildConfig build #11 is pinned at
+`image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1`.
+Both Core ChartAssignments are Ready with Settled ResourceSets. The deployment
+is 22/22 Ready, and a before/after comparison found no changes in the 20 Core
+Deployment image references across the two live ChartAssignments.

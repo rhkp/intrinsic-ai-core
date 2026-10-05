@@ -1,0 +1,77 @@
+# Project-scoped RBAC adapted from the pinned upstream
+# intrinsic/kubernetes/workcell_spec/templates/workcell-cluster-service.yaml.
+# This Role is applied out of band because Kubernetes RBAC escalation checks
+# correctly prevent the ChartAssignment controller from granting permissions
+# that it intentionally does not hold itself.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: workcell-cluster-service
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/part-of: intrinsic-core
+    app.kubernetes.io/managed-by: openshift-overlay
+rules:
+  - apiGroups:
+      - apps.cloudrobotics.com
+    resources:
+      - chartassignments
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+      - delete
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: workcell-cluster-service
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/part-of: intrinsic-core
+    app.kubernetes.io/managed-by: openshift-overlay
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: workcell-cluster-service
+subjects:
+  - kind: ServiceAccount
+    name: workcell-cluster-service
+    namespace: arhkp-intrinsic

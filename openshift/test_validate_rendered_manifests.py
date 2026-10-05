@@ -71,6 +71,62 @@ class RenderedManifestValidationTest(unittest.TestCase):
         self.assertEqual(kinds["VirtualService"], 1)
         self.assertEqual(image_count, 1)
 
+    def test_accepts_virtual_service_with_gateway_in_same_project(self):
+        virtual_service = {
+            "apiVersion": "networking.istio.io/v1beta1",
+            "kind": "VirtualService",
+            "metadata": {"name": "resource-route", "namespace": self.namespace},
+            "spec": {
+                "hosts": ["*"],
+                "gateways": [f"{self.namespace}/intrinsic-grpc-internal"],
+                "exportTo": ["."],
+                "http": [
+                    {
+                        "match": [{"uri": {"prefix": "/demo.v1.Service/"}}],
+                        "route": [{"destination": {"host": "demo-service", "port": {"number": 8080}}}],
+                    }
+                ],
+            },
+        }
+        kinds, _ = validate_documents(
+            [self.deployment(), virtual_service], self.namespace, {self.image}
+        )
+        self.assertEqual(kinds["VirtualService"], 1)
+
+    def test_accepts_network_policy_with_valid_scoped_label_selectors(self):
+        network_policy = {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "NetworkPolicy",
+            "metadata": {"name": "skill-egress", "namespace": self.namespace},
+            "spec": {
+                "podSelector": {"matchLabels": {"app": "skill"}},
+                "policyTypes": ["Egress"],
+                "egress": [{
+                    "to": [{
+                        "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": self.namespace}},
+                        "podSelector": {"matchLabels": {"app.kubernetes.io/name": "intrinsic-grpc-gateway"}},
+                    }],
+                    "ports": [{"protocol": "TCP", "port": 8080}],
+                }],
+            },
+        }
+        kinds, _ = validate_documents([self.deployment(), network_policy], self.namespace, {self.image})
+        self.assertEqual(kinds["NetworkPolicy"], 1)
+
+    def test_rejects_network_policy_with_flat_pod_selector_labels(self):
+        network_policy = {
+            "apiVersion": "networking.k8s.io/v1",
+            "kind": "NetworkPolicy",
+            "metadata": {"name": "invalid-egress", "namespace": self.namespace},
+            "spec": {
+                "podSelector": {"matchLabels": {"app": "skill"}},
+                "policyTypes": ["Egress"],
+                "egress": [{"to": [{"podSelector": {"app": "intrinsic-grpc-gateway"}}]}],
+            },
+        }
+        with self.assertRaises(ValidationError):
+            validate_documents([self.deployment(), network_policy], self.namespace, {self.image})
+
     def test_rejects_external_mesh_virtual_service_destination(self):
         virtual_service = {
             "apiVersion": "networking.istio.io/v1beta1",

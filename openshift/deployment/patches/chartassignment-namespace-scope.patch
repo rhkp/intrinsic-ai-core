@@ -1,0 +1,327 @@
+diff --git a/intrinsic/kubernetes/workcell_spec/chartassignment.go b/intrinsic/kubernetes/workcell_spec/chartassignment.go
+--- a/intrinsic/kubernetes/workcell_spec/chartassignment.go
++++ b/intrinsic/kubernetes/workcell_spec/chartassignment.go
+@@ -36,23 +36,76 @@
+ 	log "github.com/golang/glog"
+ 	"github.com/google/safearchive/tar"
+ 	"github.com/googlecloudrobotics/core/src/go/pkg/apis/apps/v1alpha1"
+-	"github.com/googlecloudrobotics/core/src/go/pkg/client/versioned"
+ 	"github.com/pkg/errors"
+ 	"go.opencensus.io/trace"
+ 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+ 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
++	"k8s.io/apimachinery/pkg/runtime"
++	"k8s.io/apimachinery/pkg/runtime/schema"
+ 	"k8s.io/apimachinery/pkg/util/wait"
+-	"k8s.io/client-go/kubernetes"
++	"k8s.io/client-go/dynamic"
+ 	kubeyaml "sigs.k8s.io/yaml"
+ 
+ 	apipb "intrinsic/kubernetes/workcell_spec/proto/transfer_go_proto"
+ )
+ 
+ const (
++	// Namespace is the single project used by the OpenShift pilot.
++	Namespace = "arhkp-intrinsic"
++
+ 	// PartOfAppLabel is the name of the label containing the app name that a chart belongs to.
+ 	PartOfAppLabel    = "app.kubernetes.io/part-of"
+ 	traceIDAnnotation = "cloudrobotics.com/trace-id"
+ )
++
++var chartAssignmentGVR = schema.GroupVersionResource{Group: "apps.cloudrobotics.com", Version: "v1alpha1", Resource: "chartassignments"}
++
++func chartAssignments(client dynamic.Interface) dynamic.ResourceInterface {
++	return client.Resource(chartAssignmentGVR).Namespace(Namespace)
++}
++
++func toUnstructured(ca *v1alpha1.ChartAssignment) (*unstructured.Unstructured, error) {
++	obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(ca)
++	if err != nil {
++		return nil, err
++	}
++	u := &unstructured.Unstructured{Object: obj}
++	u.SetAPIVersion("apps.cloudrobotics.com/v1alpha1")
++	u.SetKind("ChartAssignment")
++	u.SetNamespace(Namespace)
++	return u, nil
++}
++
++func fromUnstructured(u *unstructured.Unstructured) (*v1alpha1.ChartAssignment, error) {
++	ca := new(v1alpha1.ChartAssignment)
++	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, ca); err != nil {
++		return nil, err
++	}
++	return ca, nil
++}
++
++// List returns ChartAssignments only from the pilot namespace.
++func List(ctx context.Context, client dynamic.Interface, selector string) ([]v1alpha1.ChartAssignment, error) {
++	items, err := chartAssignments(client).List(ctx, metav1.ListOptions{LabelSelector: selector})
++	if err != nil {
++		return nil, err
++	}
++	out := make([]v1alpha1.ChartAssignment, 0, len(items.Items))
++	for i := range items.Items {
++		ca, err := fromUnstructured(&items.Items[i])
++		if err != nil {
++			return nil, err
++		}
++		out = append(out, *ca)
++	}
++	return out, nil
++}
++
++// DeleteAssignment removes one ChartAssignment from the pilot namespace.
++func DeleteAssignment(ctx context.Context, client dynamic.Interface, name string) error {
++	return chartAssignments(client).Delete(ctx, name, metav1.DeleteOptions{})
++}
+ 
+ // ErrStatusUpdateTimeout is returned when the status update of the chart assignment timed out.
+ var ErrStatusUpdateTimeout = errors.New("chart assignment status update timed out")
+@@ -64,10 +117,10 @@
+ 	return backoff.WithContext(b, ctx)
+ }
+ 
+-func isDeleted(ctx context.Context, clientset versioned.Interface, kubernetes kubernetes.Interface, name string) (bool, error) {
+-	ca, err := clientset.AppsV1alpha1().ChartAssignments().Get(ctx, name, metav1.GetOptions{})
++func isDeleted(ctx context.Context, clientset dynamic.Interface, name string) (bool, error) {
++	ca, err := chartAssignments(clientset).Get(ctx, name, metav1.GetOptions{})
+ 	if err == nil {
+-		if ca.ObjectMeta.DeletionTimestamp == nil {
++		if ca.GetDeletionTimestamp() == nil {
+ 			// If the chart was deleted & recreated in the meantime, the deletion timestamp
+ 			// switches to nil. We should stop polling then.
+ 			return true, nil
+@@ -78,16 +131,7 @@
+ 		// There was some error in communicating with K8s, return the error.
+ 		return true, err
+ 	}
+-	// Workaround for b/194763373: After the chartassignment has been deleted, additionally do a
+-	// sync wait for all resources that need to be deleted.
+-	_, err = kubernetes.CoreV1().Namespaces().Get(ctx, "app-"+name, metav1.GetOptions{})
+-	if err == nil {
+-		return false, nil
+-	}
+-	if k8serrors.IsNotFound(err) {
+-		return true, nil
+-	}
+-	return true, err
++	return true, nil
+ }
+ 
+ func isTransient(err error) bool {
+@@ -105,20 +149,20 @@
+ }
+ 
+ // Delete deletes chart assignments and optionally waits on their finalizer
+-func Delete(ctx context.Context, clientset versioned.Interface, kubernetes kubernetes.Interface, name string, waitForFinalizer bool) error {
++func Delete(ctx context.Context, clientset dynamic.Interface, name string, waitForFinalizer bool) error {
+ 	// Since there are finalizers on chart assignments, "Delete" will set a deletion
+ 	// timestamp but not actually delete the resource.
+-	err := clientset.AppsV1alpha1().ChartAssignments().Delete(ctx, name, metav1.DeleteOptions{})
++	err := chartAssignments(clientset).Delete(ctx, name, metav1.DeleteOptions{})
+ 	if err != nil {
+ 		return err
+ 	}
+ 	// Remove all extra charts.
+-	caList, err := clientset.AppsV1alpha1().ChartAssignments().List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", PartOfAppLabel, name)})
++	caList, err := chartAssignments(clientset).List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", PartOfAppLabel, name)})
+ 	if err != nil {
+ 		return err
+ 	}
+ 	for _, ca := range caList.Items {
+-		if err := clientset.AppsV1alpha1().ChartAssignments().Delete(ctx, ca.GetName(), metav1.DeleteOptions{}); err != nil {
++		if err := chartAssignments(clientset).Delete(ctx, ca.GetName(), metav1.DeleteOptions{}); err != nil {
+ 			// Ignore NotFound errors. This can race with ownerReferences.
+ 			// TODO(b/277549810): Remove when replacing custom part-of label with ownerReferences.
+ 			if !k8serrors.IsNotFound(err) {
+@@ -139,7 +183,7 @@
+ 	}
+ 	for _, cn := range chartNames {
+ 		err = wait.PollImmediate(25*time.Millisecond, 300*time.Second, func() (bool, error) {
+-			return isDeleted(ctx, clientset, kubernetes, cn)
++			return isDeleted(ctx, clientset, cn)
+ 		})
+ 		if err != nil {
+ 			return errors.Wrap(err, "chart post-delete poll")
+@@ -149,28 +193,33 @@
+ }
+ 
+ // DeleteAndWait deletes chart assignments and waits on their finalizer
+-func DeleteAndWait(ctx context.Context, clientset versioned.Interface, kubernetes kubernetes.Interface, name string) error {
+-	return Delete(ctx, clientset, kubernetes, name, true)
++func DeleteAndWait(ctx context.Context, clientset dynamic.Interface, name string) error {
++	return Delete(ctx, clientset, name, true)
+ }
+ 
+ // CreateOrUpdate creates a new chart assignment or updates an existing one
+ // When updating an existing resource, optimistic locking means we may need to retry.
+-func CreateOrUpdate(ctx context.Context, clientset versioned.Interface, ca *v1alpha1.ChartAssignment) (*v1alpha1.ChartAssignment, error) {
++func CreateOrUpdate(ctx context.Context, clientset dynamic.Interface, ca *v1alpha1.ChartAssignment) (*v1alpha1.ChartAssignment, error) {
+ 	ctx, span := trace.StartSpan(ctx, "chartassignment.CreateOrUpdate")
+ 	defer span.End()
+ 
+ 	SetAnnotation(ca, traceIDAnnotation, trace.FromContext(ctx).SpanContext().TraceID.String())
+ 
+ 	// TODO(rodrigoq): Can server-side apply make this simpler?
+-	caClient := clientset.AppsV1alpha1().ChartAssignments()
++	ca.Spec.NamespaceName = Namespace
++	caClient := chartAssignments(clientset)
+ 	retryFunc := func() (*v1alpha1.ChartAssignment, error) {
+ 		existing, err := caClient.Get(ctx, ca.GetName(), metav1.GetOptions{})
+ 		if k8serrors.IsNotFound(err) {
+-			ca, err := caClient.Create(ctx, ca, metav1.CreateOptions{})
++			u, convErr := toUnstructured(ca)
++			if convErr != nil {
++				return nil, backoff.Permanent(convErr)
++			}
++			created, err := caClient.Create(ctx, u, metav1.CreateOptions{})
+ 			if err != nil {
+ 				return nil, backoff.Permanent(err)
+ 			}
+-			return ca, nil
++			return fromUnstructured(created)
+ 		}
+ 		if err != nil {
+ 			// An error other than not found is permanent.
+@@ -179,14 +228,19 @@
+ 		// We want to completely overwrite the target, but we need to apply the update
+ 		// to a specific resource version.
+ 		ca.SetResourceVersion(existing.GetResourceVersion())
+-		ca, err := caClient.Update(ctx, ca, metav1.UpdateOptions{})
++		ca.SetFinalizers(existing.GetFinalizers())
++		u, convErr := toUnstructured(ca)
++		if convErr != nil {
++			return nil, backoff.Permanent(convErr)
++		}
++		updated, err := caClient.Update(ctx, u, metav1.UpdateOptions{})
+ 		if k8serrors.IsConflict(err) {
+ 			// Optimistic locking failed, so we need to retry.
+ 			return nil, err
+ 		} else if err != nil {
+ 			return nil, backoff.Permanent(err)
+ 		}
+-		return ca, nil
++		return fromUnstructured(updated)
+ 	}
+ 	var returnCA *v1alpha1.ChartAssignment
+ 	err := backoff.Retry(func() error {
+@@ -201,7 +255,7 @@
+ // always checks if the chart-assignment controller has applied objects.
+ // Additionally it will run diagnostics on those objects if a contextName is
+ // provided and skipAppstat is not set.
+-func WaitForHealthy(ctx context.Context, clientset versioned.Interface, name string, clients appstat.KubeInterface, updates io.Writer) error {
++func WaitForHealthy(ctx context.Context, clientset dynamic.Interface, name string, clients appstat.KubeInterface, updates io.Writer) error {
+ 	// TODO(b/249235890): Replace this waitForChartAssignment mechanism by a version based
+ 	// on the deploy service to get a pure gRPC based system.
+ 	ctx, span := trace.StartSpan(ctx, "waitForChartAssignment")
+@@ -219,7 +273,7 @@
+ 		case <-ticker.C:
+ 		}
+ 
+-		ca, err := clientset.AppsV1alpha1().ChartAssignments().Get(ctx, name, metav1.GetOptions{})
++		u, err := chartAssignments(clientset).Get(ctx, name, metav1.GetOptions{})
+ 		if err != nil {
+ 			if isTransient(err) && nErrors < 10 {
+ 				nErrors = nErrors + 1
+@@ -227,7 +281,11 @@
+ 			}
+ 			return errors.Wrap(err, "getting ChartAssignment")
+ 		}
+-		namespaceName = ca.Spec.NamespaceName
++		ca, err := fromUnstructured(u)
++		if err != nil {
++			return errors.Wrap(err, "decode ChartAssignment")
++		}
++		namespaceName = Namespace
+ 
+ 		msg, updated := getStatus(ca)
+ 		clearPrintedLines(updates, numPrintedLines)
+@@ -311,11 +369,12 @@
+ }
+ 
+ // Install installs the given chart assignment in the target cluster.
+-func Install(ctx context.Context, clusterName, installUser string, ca *v1alpha1.ChartAssignment, values v1alpha1.ConfigValues, appsCS versioned.Interface, dryRun bool) error {
++func Install(ctx context.Context, clusterName, installUser string, ca *v1alpha1.ChartAssignment, values v1alpha1.ConfigValues, appsCS dynamic.Interface, dryRun bool) error {
+ 	// TODO(mikhailpak): Pass user as a parameter.
+ 	ca.GetLabels()["installed-by"] = installUser
+ 	ca.GetAnnotations()["cloudrobotics.com/trace-id"] = trace.FromContext(ctx).SpanContext().TraceID.String()
+ 	ca.Spec.ClusterName = clusterName
++	ca.Spec.NamespaceName = Namespace
+ 	// Merge values from the released chart assignment (contains feature options) with runtime based values.
+ 	if err := mergo.Merge(&ca.Spec.Chart.Values, values, mergo.WithOverride); err != nil {
+ 		return errors.Wrapf(err, "merging values.yaml with %s chart.Spec.Chart.Values", ca.Name)
+@@ -324,7 +383,7 @@
+ 	// If the chart doesn't exist in the cluster, create it.
+ 	// If it does, update it if has a different version.
+ 	// When updating an existing resource, optimistic locking means we may need to retry.
+-	caClient := appsCS.AppsV1alpha1().ChartAssignments()
++	caClient := chartAssignments(appsCS)
+ 	return backoff.Retry(func() error {
+ 		existing, err := caClient.Get(ctx, ca.GetName(), metav1.GetOptions{})
+ 		if k8serrors.IsNotFound(err) {
+@@ -333,7 +392,11 @@
+ 				log.InfoContextf(ctx, "DRY RUN: Not creating chart %s on %s", ca.Name, clusterName)
+ 				return nil
+ 			}
+-			if _, err := caClient.Create(ctx, ca, metav1.CreateOptions{}); err != nil {
++			u, err := toUnstructured(ca)
++			if err != nil {
++				return backoff.Permanent(err)
++			}
++			if _, err := caClient.Create(ctx, u, metav1.CreateOptions{}); err != nil {
+ 				return checkInstallationError(err)
+ 			}
+ 			return nil
+@@ -343,19 +406,24 @@
+ 			return backoff.Permanent(err)
+ 		}
+ 
+-		if ca.ObjectMeta.DeletionTimestamp != nil {
++		if existing.GetDeletionTimestamp() != nil {
+ 			log.InfoContextf(ctx, "Waiting for %q to be fully deleted.", ca.Name)
+-			return fmt.Errorf("saw deletion timestamp %v on %q", ca.ObjectMeta.DeletionTimestamp, ca.Name)
++			return fmt.Errorf("saw deletion timestamp %v on %q", existing.GetDeletionTimestamp(), ca.Name)
+ 		}
+ 		log.InfoContextf(ctx, "Updating to a new version of %q.", ca.Name)
+ 		// We want to completely overwrite the target, but we need to apply the update
+ 		// to a specific resource version.
+ 		ca.SetResourceVersion(existing.GetResourceVersion())
++		ca.SetFinalizers(existing.GetFinalizers())
+ 		if dryRun {
+ 			log.InfoContextf(ctx, "DRY RUN: Not installing chart %s to %s", ca.Name, clusterName)
+ 			return nil
+ 		}
+-		if _, err := caClient.Update(ctx, ca, metav1.UpdateOptions{}); k8serrors.IsConflict(err) {
++		u, err := toUnstructured(ca)
++		if err != nil {
++			return backoff.Permanent(err)
++		}
++		if _, err := caClient.Update(ctx, u, metav1.UpdateOptions{}); k8serrors.IsConflict(err) {
+ 			// Optimistic locking failed, so we need to retry.
+ 			log.Infof("optimistic locking failed, retrying: %v", err)
+ 			return err
+@@ -390,14 +458,18 @@
+ // ChartName extracts the name of the chart for the given workcell spec target
+ // by querying for all chart assignments in the current context and inspecting
+ // their annotations.
+-func ChartName(ctx context.Context, cs versioned.Interface, target string) (string, error) {
+-	cas, err := cs.AppsV1alpha1().ChartAssignments().List(ctx, metav1.ListOptions{})
++func ChartName(ctx context.Context, cs dynamic.Interface, target string) (string, error) {
++	cas, err := chartAssignments(cs).List(ctx, metav1.ListOptions{})
+ 	if err != nil {
+ 		return "", errors.Wrap(err, "list chart assignments")
+ 	}
+ 	normalizedTargetName := NormalizedTargetName(target)
+ 	var allTargets []string
+-	for _, ca := range cas.Items {
++	for _, item := range cas.Items {
++		ca, err := fromUnstructured(&item)
++		if err != nil {
++			return "", errors.Wrap(err, "decode ChartAssignment")
++		}
+ 		wst := ca.Annotations["workcell-spec-target"]
+ 		if wst == normalizedTargetName {
+ 			return ca.Name, nil

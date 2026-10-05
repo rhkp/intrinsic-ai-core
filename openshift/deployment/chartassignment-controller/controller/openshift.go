@@ -16,11 +16,25 @@ const (
 	openshiftImagePullServiceAccount = "intrinsic-runtime"
 	openshiftStorageClass            = "gp3-csi"
 	dataStorePVC                     = "intrinsic-data-store"
+	quayResourceRegistryImage        = "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b@sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512"
+	quayWorkcellServiceImage         = "quay.io/rhkp/intrinsic/workcell_spec_service_cziekbodmacxdi73@sha256:8b87d30b0d47bfe8da52be3647076790b2793ca7ce928301379d5cd9752eae0c"
+	quayZenohdImage                  = "quay.io/rhkp/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
+	quayJupyterServerImage           = "quay.io/rhkp/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
+	jupyterHomeDir                   = "/home/defaultuser"
+	jupyterRuntimeDir                = jupyterHomeDir + "/.local/share/jupyter/runtime"
 	upstreamIngressAddress           = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
 	ingressAddressEnv                = "INTRINSIC_INGRESS_ADDRESS"
 	ingressGatewayEnv                = "INTRINSIC_INGRESS_GATEWAY"
 	ingressSelectorEnv               = "INTRINSIC_INGRESS_POD_SELECTOR"
 )
+
+// These upstream charts pin two images directly in templates instead of using
+// their image abstraction values. Keep the destinations synchronized with
+// openshift/image-lock.json; the rendered-manifest validator checks the lock.
+var openshiftImageOverrides = map[string]string{
+	"us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2":                                            quayZenohdImage,
+	"ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c": quayJupyterServerImage,
+}
 
 type openshiftRoutingConfig struct {
 	address          string
@@ -117,6 +131,12 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		if kind == "PersistentVolume" {
 			continue
 		}
+		if kind == "VirtualService" && name == "zenoh-router" {
+			// Upstream exposes the Zenoh router's TCP port for external robot/host
+			// clients. The OpenShift pilot keeps the project-local ClusterIP path
+			// used by Core services and does not expose this TCP ingress route.
+			continue
+		}
 		if kind == "Namespace" {
 			return nil, fmt.Errorf("chart %q attempts to manage Namespace %q; projects are pre-provisioned", resource.GetAPIVersion(), name)
 		}
@@ -185,6 +205,14 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 				return nil, fmt.Errorf("adapt Service %q: %w", name, err)
 			}
 		}
+		// Kubernetes RBAC escalation protection rejects this Role when the
+		// controller tries to create it: the Role grants permissions that the
+		// controller itself intentionally does not hold. The exact rules are
+		// still validated above, but the project-owned Role and RoleBinding are
+		// provisioned separately from manifests/workcell-cluster-service-rbac.yaml.
+		if isPreprovisionedWorkcellRBAC(resource.GetKind(), name) {
+			continue
+		}
 
 		if !isProjectScopedKind(resource.GetKind()) {
 			return nil, fmt.Errorf("chart rendered unsupported or cluster-scoped resource %s/%s", resource.GetKind(), name)
@@ -244,6 +272,10 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		}})
 	}
 	return adapted, nil
+}
+
+func isPreprovisionedWorkcellRBAC(kind, name string) bool {
+	return name == "workcell-cluster-service" && (kind == "Role" || kind == "RoleBinding")
 }
 
 func isPilotRole(name string) bool {
@@ -516,9 +548,17 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 			return fmt.Errorf("%s is not supported", field)
 		}
 	}
+	if err := adaptDeploymentForOpenShift(resource, podSpec, namespace); err != nil {
+		return err
+	}
 
 	containers := append(sliceMaps(podSpec["containers"]), sliceMaps(podSpec["initContainers"])...)
 	for _, container := range containers {
+		if image, ok := container["image"].(string); ok {
+			if lockedImage, found := openshiftImageOverrides[image]; found {
+				container["image"] = lockedImage
+			}
+		}
 		if routing.address != "" {
 			if err := setContainerEnv(container, ingressAddressEnv, routing.address); err != nil {
 				return err
@@ -538,6 +578,185 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 	return unstructured.SetNestedMap(resource.Object, podSpec, path...)
 }
 
+func adaptDeploymentForOpenShift(resource *unstructured.Unstructured, podSpec map[string]interface{}, namespace string) error {
+	if resource.GetKind() != "Deployment" {
+		return nil
+	}
+
+	containerName := ""
+	image := ""
+	watchConfigMaps := false
+	configureJupyter := false
+	switch resource.GetName() {
+	case "resource-registry":
+		containerName = "resource-registry"
+		image = quayResourceRegistryImage
+		watchConfigMaps = true
+	case "workcell-cluster-service":
+		containerName = "workcell-cluster-service"
+		image = quayWorkcellServiceImage
+	case "code-execution":
+		containerName = "jupyter-server"
+		configureJupyter = true
+	default:
+		return nil
+	}
+
+	containers, found, err := unstructured.NestedSlice(podSpec, "containers")
+	if err != nil {
+		return fmt.Errorf("read containers: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("expected container %q is missing", containerName)
+	}
+	matched := 0
+	for _, item := range containers {
+		container, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("malformed container")
+		}
+		if container["name"] != containerName {
+			continue
+		}
+		matched++
+		if image != "" {
+			container["image"] = image
+		}
+		if watchConfigMaps {
+			if err := setContainerStringArg(container, "--configmap_watch_namespace", namespace); err != nil {
+				return err
+			}
+		}
+		if configureJupyter {
+			if err := requireWritableEmptyDirMount(podSpec, container, jupyterHomeDir); err != nil {
+				return fmt.Errorf("configure Jupyter home: %w", err)
+			}
+			// The pinned image puts its full invocation in Entrypoint, including a
+			// wildcard bind and disabled authentication. Replace it so the API is
+			// loopback-only while preserving the colocated worker's expected setup.
+			if err := unstructured.SetNestedStringSlice(container, []string{"jupyter", "server"}, "command"); err != nil {
+				return fmt.Errorf("set Jupyter command: %w", err)
+			}
+			if err := unstructured.SetNestedStringSlice(container, []string{
+				"--ip=::1",
+				"--port=8888",
+				"--IdentityProvider.token=''",
+				"--ServerApp.disable_check_xsrf=True",
+				"--notebook-dir=" + jupyterHomeDir,
+			}, "args"); err != nil {
+				return fmt.Errorf("set Jupyter arguments: %w", err)
+			}
+			if err := setContainerEnv(container, "HOME", jupyterHomeDir); err != nil {
+				return fmt.Errorf("set Jupyter HOME: %w", err)
+			}
+			if err := setContainerEnv(container, "JUPYTER_RUNTIME_DIR", jupyterRuntimeDir); err != nil {
+				return fmt.Errorf("set Jupyter runtime directory: %w", err)
+			}
+		}
+	}
+	if matched != 1 {
+		return fmt.Errorf("expected exactly one container %q, found %d", containerName, matched)
+	}
+	return unstructured.SetNestedSlice(podSpec, containers, "containers")
+}
+
+func requireWritableEmptyDirMount(podSpec, container map[string]interface{}, mountPath string) error {
+	volumeMounts, found, err := unstructured.NestedSlice(container, "volumeMounts")
+	if err != nil {
+		return fmt.Errorf("read volume mounts: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("expected writable emptyDir mount at %q", mountPath)
+	}
+
+	volumeName := ""
+	for _, item := range volumeMounts {
+		mount, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("malformed volume mount")
+		}
+		if mount["mountPath"] != mountPath {
+			continue
+		}
+		readOnly, _, err := unstructured.NestedBool(mount, "readOnly")
+		if err != nil {
+			return fmt.Errorf("read-only setting for mount %q is malformed: %w", mountPath, err)
+		}
+		if readOnly {
+			return fmt.Errorf("mount %q is read-only", mountPath)
+		}
+		name, ok := mount["name"].(string)
+		if !ok || name == "" {
+			return fmt.Errorf("mount %q has no volume name", mountPath)
+		}
+		volumeName = name
+		break
+	}
+	if volumeName == "" {
+		return fmt.Errorf("expected writable emptyDir mount at %q", mountPath)
+	}
+
+	volumes, found, err := unstructured.NestedSlice(podSpec, "volumes")
+	if err != nil {
+		return fmt.Errorf("read pod volumes: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("volume %q for mount %q is missing", volumeName, mountPath)
+	}
+	for _, item := range volumes {
+		volume, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("malformed pod volume")
+		}
+		if volume["name"] != volumeName {
+			continue
+		}
+		if _, ok := volume["emptyDir"]; !ok {
+			return fmt.Errorf("volume %q for mount %q must be an emptyDir", volumeName, mountPath)
+		}
+		return nil
+	}
+	return fmt.Errorf("volume %q for mount %q is missing", volumeName, mountPath)
+}
+
+func setContainerStringArg(container map[string]interface{}, name, value string) error {
+	args, found, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil {
+		return fmt.Errorf("container args are malformed: %w", err)
+	}
+	if !found {
+		args = nil
+	}
+	updated := make([]string, 0, len(args)+1)
+	replacement := name + "=" + value
+	replaced := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == name {
+			if !replaced {
+				updated = append(updated, replacement)
+				replaced = true
+			}
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				i++
+			}
+			continue
+		}
+		if strings.HasPrefix(arg, name+"=") {
+			if !replaced {
+				updated = append(updated, replacement)
+				replaced = true
+			}
+			continue
+		}
+		updated = append(updated, arg)
+	}
+	if !replaced {
+		updated = append(updated, replacement)
+	}
+	return unstructured.SetNestedStringSlice(container, updated, "args")
+}
+
 func setContainerEnv(container map[string]interface{}, name, value string) error {
 	env, found, err := unstructured.NestedSlice(container, "env")
 	if err != nil {
@@ -546,18 +765,26 @@ func setContainerEnv(container map[string]interface{}, name, value string) error
 	if !found {
 		env = []interface{}{}
 	}
-	for i, item := range env {
+	updated := make([]interface{}, 0, len(env)+1)
+	replaced := false
+	for _, item := range env {
 		entry, ok := item.(map[string]interface{})
 		if !ok {
 			return fmt.Errorf("container environment entry is malformed")
 		}
 		if entry["name"] == name {
-			env[i] = map[string]interface{}{"name": name, "value": value}
-			return unstructured.SetNestedSlice(container, env, "env")
+			if !replaced {
+				updated = append(updated, map[string]interface{}{"name": name, "value": value})
+				replaced = true
+			}
+			continue
 		}
+		updated = append(updated, item)
 	}
-	env = append(env, map[string]interface{}{"name": name, "value": value})
-	return unstructured.SetNestedSlice(container, env, "env")
+	if !replaced {
+		updated = append(updated, map[string]interface{}{"name": name, "value": value})
+	}
+	return unstructured.SetNestedSlice(container, updated, "env")
 }
 
 func sliceMaps(value interface{}) []map[string]interface{} {
@@ -805,7 +1032,8 @@ func adaptNetworkPolicy(resource *unstructured.Unstructured, routing openshiftRo
 						if len(routing.serviceSelector) == 0 {
 							return fmt.Errorf("verified Service Mesh ingress pod selector is required")
 						}
-						if err := unstructured.SetNestedMap(peer, routing.serviceSelector, "podSelector"); err != nil {
+						podSelector := map[string]interface{}{"matchLabels": routing.serviceSelector}
+						if err := unstructured.SetNestedMap(peer, podSelector, "podSelector"); err != nil {
 							return fmt.Errorf("set ingress pod selector: %w", err)
 						}
 					case "app-intrinsic-base", "app-intrinsic-app-chart":

@@ -15,8 +15,47 @@ project workload permissions and denied Secrets and cluster-scoped resources.
 Synk also rejects chart-supplied CRDs and cluster-scoped resources. Re-review
 this Role when the rendered runtime resource/skill chart inventory is added.
 
-The Core `workcell-cluster-service` has a separate project-scoped Role in its
-Helm template and is not part of the controller smoke test.
+The Core `workcell-cluster-service` Role is separate from the controller's
+Role. It grants project-scoped lifecycle permissions to the Workcell service
+account and is provisioned from
+[`../../manifests/workcell-cluster-service-rbac.yaml`](../../manifests/workcell-cluster-service-rbac.yaml)
+before the Core base ChartAssignment. The ChartAssignment adapter validates the
+upstream RBAC rules but omits that Role and RoleBinding from Synk, because the
+controller must not be allowed to grant the Workcell account permissions that
+the controller itself does not hold.
+
+## Workcell RBAC prerequisite for the Core base ChartAssignment
+
+Apply this project-only Role and RoleBinding before applying or reconciling
+`intrinsic-base`:
+
+```bash
+oc -n arhkp-intrinsic apply \
+  -f openshift/deployment/manifests/workcell-cluster-service-rbac.yaml
+oc -n arhkp-intrinsic start-build chartassignment-controller \
+  --from-dir=openshift/deployment/chartassignment-controller --follow
+oc -n arhkp-intrinsic get istag chartassignment-controller:pilot \
+  -o jsonpath='{.image.dockerImageReference}'
+# Pin the immutable @sha256: reference from the previous command in
+# deploy/controller-deployment.yaml, then apply and wait for the rollout.
+oc -n arhkp-intrinsic apply -f \
+  openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml
+oc -n arhkp-intrinsic rollout status deployment/chartassignment-controller \
+  --timeout=180s
+oc -n arhkp-intrinsic get chartassignment intrinsic-base \
+  -o jsonpath='{.status.phase}{"\n"}'
+oc -n arhkp-intrinsic get resourcesets -l name=intrinsic-base \
+  -o custom-columns=NAME:.metadata.name,PHASE:.status.phase
+```
+
+The manifest contains only the verbs from the pinned upstream Workcell Role,
+scoped to `arhkp-intrinsic`. Do not add these verbs to the
+`chartassignment-controller` Role. After rebuilding and rolling out the
+adapted controller, its fresh reconciliation of the existing base
+ChartAssignment reapplies the project workload, omits only the externally
+provisioned Role and RoleBinding, and settles a new ResourceSet. Verify
+`intrinsic-base` is Ready and `workcell-cluster-service` remains a namespaced
+Role/RoleBinding bound only to the Workcell service account.
 
 ## Dev01 smoke procedure
 
@@ -93,3 +132,40 @@ OpenShift Route was created. The project-only routing helper verified the
 dedicated Service and exact HTTP/2 listener, then applied
 `intrinsic-routing-config`. The controller was restarted and is Ready with the
 configuration. No Core workload or live gRPC request has been run yet.
+
+## Durable Core adapter rollout — 2026-10-05
+
+The initial registry image update was reverted when `intrinsic-base` was
+reconciled from its stale inline upstream chart. The OpenShift controller
+adapter now pins the namespace-scoped Resource Registry and Workcell images
+and normalizes the registry watch argument on every render. The adapted
+Workcell image and source patches are recorded in
+[`../../../image-lock.json`](../../../image-lock.json) and
+[`../../ADAPTATIONS.json`](../../ADAPTATIONS.json).
+
+After changing the controller adapter, validate and rebuild it from the repo
+root:
+
+```bash
+cd openshift/deployment/chartassignment-controller
+go test ./controller
+cd ../../..
+oc -n arhkp-intrinsic start-build chartassignment-controller \
+  --from-dir=openshift/deployment/chartassignment-controller
+```
+
+Read the `chartassignment-controller:pilot` ImageStream tag, pin its immutable
+digest in `controller-deployment.yaml`, apply that manifest, and wait for the
+single-replica rollout. The 2026-10-05 rollout uses digest
+`sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1`.
+The adapter gives the code-execution Jupyter sidecar a writable `HOME` and
+runtime directory under its existing `/home/defaultuser` `emptyDir`, verifies
+that mount during rendering, and replaces the image entrypoint to bind its
+unauthenticated API only to `::1` for the colocated worker. On dev01, all three
+workers created kernels and completed startup requests; `code-execution` is
+2/2 Ready with zero restarts. Both `intrinsic-base` and `intrinsic-app-chart`
+ChartAssignments are Ready with Settled ResourceSets; all 22 Deployments are
+Ready. A before/after comparison of all 20 Core Deployment image sets found no
+changes, including `world-*` workloads. Registry and Workcell images and the
+`--configmap_watch_namespace=arhkp-intrinsic` argument remain verified, with
+no current cluster-scope RBAC denials in their logs.

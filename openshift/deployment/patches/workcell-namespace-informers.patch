@@ -1,0 +1,103 @@
+diff --git a/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go b/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go
+--- a/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go
++++ b/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go
+@@ -64,7 +64,7 @@
+ 	"google.golang.org/grpc/credentials"
+ 	"google.golang.org/grpc/credentials/insecure"
+ 	"google.golang.org/grpc/reflection"
+-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/client-go/dynamic"
+ 	"k8s.io/client-go/informers"
+ 	"k8s.io/client-go/kubernetes"
+ 	"k8s.io/client-go/rest"
+@@ -161,7 +161,7 @@
+ 	}
+ }
+ 
+-func makeKubeClients() (versioned.Interface, kubernetes.Interface) {
++func makeKubeClients() (versioned.Interface, dynamic.Interface, kubernetes.Interface) {
+ 	cfg, err := rest.InClusterConfig()
+ 	if err != nil {
+ 		log.Fatalf("rest.InClusterConfig() failed: %v", err)
+@@ -174,11 +174,15 @@
+ 	if err != nil {
+ 		log.Fatalf("versioned.NewForConfig() failed: %v", err)
+ 	}
++	chartAssignmentClient, err := dynamic.NewForConfig(cfg)
++	if err != nil {
++		log.Fatalf("dynamic.NewForConfig() failed: %v", err)
++	}
+ 	coreClient, err := kubernetes.NewForConfig(cfg)
+ 	if err != nil {
+ 		log.Fatalf("kubernetes.NewForConfig() failed: %v", err)
+ 	}
+-	return crcClient, coreClient
++	return crcClient, chartAssignmentClient, coreClient
+ }
+ 
+ func makeCloudClients() (idbcsgrpcpb.ClusterServiceClient, svsgrpcpb.SolutionVersionServiceClient, func()) {
+@@ -324,7 +328,7 @@
+ // defaultWorkcellSpec creates a workcell spec from the embedded app chart in
+ // combination with the values with which intrinsic-base was started.
+ // TODO(b/326921974): Remove once default charts have been migrated to intrinsic-base.
+-func defaultWorkcellSpec(ctx context.Context, crcClient versioned.Interface) (*transferpb.WorkcellSpec, error) {
++func defaultWorkcellSpec(ctx context.Context, chartAssignmentClient dynamic.Interface) (*transferpb.WorkcellSpec, error) {
+ 	appChartEncoded := os.Getenv("INTRINSIC_APP_CHART")
+ 	if appChartEncoded == "" {
+ 		return nil, fmt.Errorf("no default app chart provided via INTRINSIC_APP_CHART environment variable")
+@@ -345,14 +349,14 @@
+ 		},
+ 	}
+ 
+-	list, err := crcClient.AppsV1alpha1().ChartAssignments().List(ctx, metav1.ListOptions{LabelSelector: "app=intrinsic-base"})
++	list, err := chartassignment.List(ctx, chartAssignmentClient, "app=intrinsic-base")
+ 	if err != nil {
+ 		return nil, fmt.Errorf("unable to fetch chart assignments resources for app=intrinsic-base: %w", err)
+ 	}
+-	if got := len(list.Items); got != 1 {
++	if got := len(list); got != 1 {
+ 		return nil, fmt.Errorf("unexpected number of chart assignments for app=intrinsic-base: %d, want: 1", got)
+ 	}
+-	values := list.Items[0].Spec.Chart.Values
++	values := list[0].Spec.Chart.Values
+ 	// Remove values specific to the chart creation.  We'll use these values to
+ 	// override intrinsic-app-chart, but don't want to touch these.
+ 	for _, k := range []string{
+@@ -398,7 +402,7 @@
+ 	)
+ 	defer telem.Shutdown(ctx)
+ 
+-	crcClient, coreClient := makeKubeClients()
++	crcClient, chartAssignmentClient, coreClient := makeKubeClients()
+ 	cloudClusterClient, solutionVersionServiceClient, stop := makeCloudClients()
+ 	defer stop()
+ 	resourceCatalogClient, stop := makeResourceCatalogInternalClient()
+@@ -419,7 +423,7 @@
+ 	defer stop()
+ 
+ 	clusterInfo := getClusterInfo(ctx, crcClient)
+-	transferService := transfersvc.NewServiceWithClients(crcClient, coreClient, clusterInfo)
++	transferService := transfersvc.NewServiceWithClients(chartAssignmentClient, coreClient, clusterInfo)
+ 	resourceTypeRuntimeClient := resourcetyperuntime.CreateCachedClient(runtimeDBClient)
+ 	skillRuntimeClient := skillruntime.CreateClient(runtimeDBClient)
+ 
+@@ -468,7 +472,7 @@
+ 		OnSolutionUpdate:              onSolutionUpdate,
+ 		Validator:                     validator,
+ 		DefaultWorkcellSpec: func(ctx context.Context) (*transferpb.WorkcellSpec, error) {
+-			return defaultWorkcellSpec(ctx, crcClient)
++			return defaultWorkcellSpec(ctx, chartAssignmentClient)
+ 		},
+ 		SolutionVersionServiceClient: solutionVersionServiceClient,
+ 		ClusterParams:                clusterParams,
+@@ -529,7 +533,9 @@
+ 
+ 	log.InfoContextf(ctx, "Starting SystemServiceState service at %d", *transferServicePort)
+ 
+-	factory := informers.NewSharedInformerFactory(coreClient, 10*time.Minute)
++	// The OpenShift Workcell ServiceAccount has project-scoped Pod and ConfigMap
++	// permissions only, so its informer cache must not list resources cluster-wide.
++	factory := informers.NewFilteredSharedInformerFactory(coreClient, 10*time.Minute, chartassignment.Namespace, nil)
+ 
+ 	stopOptionalClusterMonitoring := startOptionalClusterMonitoring(ctx, factory, crcClient)
+ 	defer stopOptionalClusterMonitoring()

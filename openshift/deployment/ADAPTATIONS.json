@@ -76,7 +76,7 @@
         "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
         "copied_tree_unit_tests": "not run",
         "full_upstream_bazel_build": "not run; complete Core/OMTS deployment build remains pending",
-        "live_intrinsic_deployment": "not run"
+        "live_intrinsic_deployment": "Core base slice deployed; runtime-generated resource/skill image-pull templates remain to be tested"
       }
     },
     {
@@ -125,11 +125,11 @@
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "85cc60fc45b91eeebc1faa7be58c4ae53692d633417163bef154b6f954a60191"
+          "sha256": "967b666d5031f9327e5963e6eb5b38ef33e5cfd7ff9ea3004530891cf4d6ed40"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "f0d72d00ac09125895d0a16e5fb0133c176f879eeaa035ffc94124b59a393e1d"
+          "sha256": "4bd2ba4fe1c2d1021e63cb39efaebd70d5826561d41c1f6f8a050d09740f9eaf"
         },
         {
           "path": "openshift/render_quay_image_values.py",
@@ -178,11 +178,11 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "ca4b21997c8d9e0ee03628eb2ad2677219248eab98118eb9a204f82dcd9b5c1a"
+          "sha256": "b3aea76a62b9352764e90fd6927c23b488ca0046e7da64c98f805b1ebfb1c729"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "864e1552f29ba666605e3c3e4bed53497cc4f03cb0f6f908e56db6d54d4e6129"
+          "sha256": "231b933c48560efb33932fc95c749375f45c2d769b448516f6ccf58d9a8c2ea1"
         },
         {
           "path": "openshift/configure_routing.py",
@@ -194,7 +194,7 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "31f6f9cb64b09ff95b58036a83fdb4e5bdd1bb159127f443e7ede4b3dfe75535"
+          "sha256": "a620f47cbffb5a2f0a1c77c8c99a6ac2c18c6564455d1780bc0437afd24fa44d"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-rbac.yaml",
@@ -206,7 +206,7 @@
         },
         {
           "path": "openshift/.env.sample",
-          "sha256": "7610131d9b5b04f7a1c5b73a8f5a6bf25776df0219ee3b75a153970541e9ea36"
+          "sha256": "aa3c6db6970b465c59cc5c1972288351e19f032f48bcaebbb5b16694b62215ce"
         },
         {
           "path": "openshift/deployment/manifests/servicemesh-member.yaml",
@@ -222,11 +222,11 @@
         "offline_manifest_and_routing_tests": "passed (14 tests)",
         "core_renderer_bazel_target": "passed on x86 build host; 2,217 actions; 665.204 seconds",
         "live_mesh_routing": "passed; dedicated injected Gateway, exact-host HTTP/2 listener, internal endpoint, and project routing ConfigMap verified",
-        "live_grpc_smoke": "not run; no Core workload or generated VirtualServices have been deployed",
+        "live_grpc_smoke": "generic gateway smoke passed; Core base is Ready, but no generated application VirtualService or real Intrinsic RPC has been tested",
         "assetdeploymentservice_and_chart_cli": "passed on x86 build host; 4,051 actions; 397.196 seconds",
         "workcell_spec_service_image": "passed on x86 build host; //intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar; 194 actions; 21.208 seconds",
         "full_upstream_bazel_build": "not run",
-        "live_intrinsic_deployment": "not run; no Core workload applied",
+        "live_intrinsic_deployment": "Core base slice deployed; full simulation/application deployment remains pending",
         "image_secret_marker_scan": "passed; no secret environment names, sensitive-path matches, private-key markers, or AWS-key markers",
         "quay_publish": "passed; adapted Linux/amd64 image published under a unique tag and recorded by digest in openshift/image-lock.json",
         "anonymous_digest_pull": "passed on x86 build host",
@@ -240,6 +240,154 @@
         "shared_gateway_or_control_plane_change": "none; the shared ingress gateway and ServiceMeshControlPlane were not changed",
         "controller_routing_config_rollout": "passed; controller restarted and one replica Ready with the routing configuration",
         "mesh_network_policy": "mesh-managed policy permits ingress from enrolled mesh namespaces; project-specific workload identity authorization not configured"
+      }
+    },
+    {
+      "id": "resource-registry-namespace-configmap-watch",
+      "status": "durable ChartAssignment override deployed; registry, world-updater, and scene-object-import recovered on dev01",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "openshift/deployment/patches/resource-registry-namespace-configmaps.patch",
+      "patch_sha256": "dc1cfeffaac0e807903c497639eabbaef584b29f71ef5b3140579d155dcef7fb",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/resources/resource-registry.yaml",
+          "current_sha256": "9fbe287c393a1e3a8edeefbdc7b0a0b92dcacdd3c23f9607c14fd9ae6c0753a9"
+        }
+      ],
+      "validation": {
+        "pinned_upstream_source_build_linux_amd64": "passed on AWS build VM",
+        "configmap_watch_namespace_flag": "verified in image help output",
+        "quay_publish": "passed; immutable digest recorded in openshift/image-lock.json",
+        "dev01_rollout": "durable controller adapter now reapplies the immutable registry image and namespace flag after every base ChartAssignment reconciliation",
+        "world_readiness": "passed; world-updater 1/1 and logs confirm its gRPC connection to resource-registry",
+        "dev01_registry_rollout": "passed; 1/1 ready on locked adapted digest",
+        "dev01_in_project_http2_probe": "passed from a restricted, token-disabled temporary pod; cleanup verified",
+        "world_registry_grpc_connection": "passed; current world logs report successful connection and Deployment is 1/1 ready",
+        "base_chartassignment": "Ready; intrinsic-base.v6 ResourceSet Settled after the adapted controller re-render",
+        "dependent_scene_object_import": "passed; scene-object-import 1/1 and current logs confirm its gRPC connection to asset-deployment",
+        "dev01_deployment_snapshot": "22/22 Deployments Ready; registry, Workcell, world-updater, scene-object-import, and code-execution are Ready; Jupyter binds only to pod loopback and all three workers initialized",
+        "informer_rbac_denials": "zero current Forbidden log lines from resource-registry and workcell-cluster-service"
+      }
+    },
+    {
+      "id": "workcell-project-rbac-escalation-boundary",
+      "status": "project-scoped Workcell RBAC applied; controller rebuilt and rolled out; intrinsic-base Ready",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "upstream_reference": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/templates/workcell-cluster-service.yaml",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/deployment/manifests/workcell-cluster-service-rbac.yaml",
+          "sha256": "78ba78b1b63788e95e7b6fbd216559faa4bca920095aae970a249508a55796e8"
+        }
+      ],
+      "validation": {
+        "chartassignment_controller_go_tests": "passed",
+        "manifest_scope_structure": "passed; one Role and one RoleBinding, both limited to arhkp-intrinsic and the workcell-cluster-service ServiceAccount",
+        "dev01_server_side_dry_run": "passed",
+        "dev01_role_and_binding_apply": "passed",
+        "controller_rebuild_and_rollout": "passed; immutable image digest pinned and rollout Ready",
+        "base_chartassignment_reconciliation": "passed; intrinsic-base Ready and latest ResourceSet Settled",
+        "controller_role_unchanged": "passed; controller still lacks pods/delete and ChartAssignment create/delete",
+        "external_rbac_ownership": "passed; Role and RoleBinding have no ResourceSet owner references",
+        "dev01_full_slice": "22/22 Deployments Ready; world-updater, scene-object-import, and code-execution are Ready; the Jupyter sidecar starts all three worker kernels"
+      }
+    },
+    {
+      "id": "workcell-namespace-scoped-informers",
+      "status": "source-built image published by immutable digest and deployed; Workcell informer RBAC denials cleared",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "openshift/deployment/patches/workcell-namespace-informers.patch",
+      "patch_sha256": "f0608c26d6635bb5cea739abf64cafa81ae7f387e9d79193a250a94f6bf1ad91",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go",
+          "current_sha256": "2025c7b1fad13e1b79b8aa6ccc017fa253ac15c09406f6cc7ef54af87c7af1be"
+        }
+      ],
+      "validation": {
+        "namespace_informer_source": "passed; both Pod and ConfigMap informers use the pilot namespace",
+        "linux_amd64_image_build": "passed on pinned x86 build VM; target //intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar; archive sha256 a1892dc13373f4dbf6a8f4b962f5bc6d481191254afada54d60cd087de81af49",
+        "quay_image": "quay.io/rhkp/intrinsic/workcell_spec_service_cziekbodmacxdi73@sha256:8b87d30b0d47bfe8da52be3647076790b2793ca7ce928301379d5cd9752eae0c",
+        "anonymous_digest_pull": "passed; linux/amd64",
+        "dev01_rollout": "passed; Workcell Deployment uses adapted digest and is Ready 1/1",
+        "workcell_rbac_logs": "zero current cluster-scope Forbidden lines"
+      }
+    },
+    {
+      "id": "workcell-bazel-strict-dependencies",
+      "status": "pinned Workcell image target now builds from the repository source copy",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "openshift/deployment/patches/workcell-bazel-strict-deps.patch",
+      "patch_sha256": "8845e04bddb292b43adbb7d6633840b63b309752062b73a29bcb967d7528045e",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/BUILD",
+          "current_sha256": "ae0b88100e5b76d3c1e6bb97532578ad057a0a16c8c85cfac4481fb5decc9a93"
+        }
+      ],
+      "validation": {
+        "linux_amd64_workcell_image_build": "passed after adding direct client-go dependencies used by the namespaced Workcell client code"
+      }
+    },
+    {
+      "id": "chartassignment-namespaced-dynamic-client",
+      "status": "namespace-scoped Core ChartAssignment client compiled into the deployed Workcell image",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "openshift/deployment/patches/chartassignment-namespace-scope.patch",
+      "patch_sha256": "2d3c259c0d43cd59656b2c2e9b995ab9ac5f70322690ccf91a2afcec7aa0d603",
+      "applied_tree": "openshift/deployment/intrinsic-core",
+      "changed_upstream_files": [
+        {
+          "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/chartassignment.go",
+          "current_sha256": "d79fc9f877ed422b4f24b99f8fd48da2f2bcdbc3af21cd5d0c2a0f98826f7244"
+        }
+      ],
+      "validation": {
+        "linux_amd64_workcell_image_build": "passed; unstructured ChartAssignment deletion timestamp uses GetDeletionTimestamp()"
+      }
+    },
+    {
+      "id": "durable-chartassignment-deployment-adapter",
+      "status": "deployed on dev01; both Core ChartAssignments reconcile with adapted images, namespace-scoped registry watch, and Jupyter loopback settings",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
+          "sha256": "b3aea76a62b9352764e90fd6927c23b488ca0046e7da64c98f805b1ebfb1c729"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
+          "sha256": "231b933c48560efb33932fc95c749375f45c2d769b448516f6ccf58d9a8c2ea1"
+        },
+        {
+          "path": "openshift/image-lock.json",
+          "sha256": "967b666d5031f9327e5963e6eb5b38ef33e5cfd7ff9ea3004530891cf4d6ed40"
+        },
+        {
+          "path": "openshift/deployment/quay-image-values.yaml",
+          "sha256": "4bd2ba4fe1c2d1021e63cb39efaebd70d5826561d41c1f6f8a050d09740f9eaf"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
+          "sha256": "a620f47cbffb5a2f0a1c77c8c99a6ac2c18c6564455d1780bc0437afd24fa44d"
+        }
+      ],
+      "validation": {
+        "controller_go_tests": "passed; full controller module test suite covers image overrides, namespace flag normalization, Jupyter writable-home validation, loopback binding, and idempotence",
+        "controller_build": "dev01 Binary BuildConfig chartassignment-controller-11 completed",
+        "controller_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1",
+        "controller_rollout": "passed; single replica Ready on immutable build #11 digest",
+        "base_chartassignment": "intrinsic-base.v6 Ready; latest ResourceSet Settled",
+        "registry_deployment": "adapted Quay digest and --configmap_watch_namespace=arhkp-intrinsic verified",
+        "workcell_deployment": "adapted Quay digest verified",
+        "dependent_workloads": "resource-registry, workcell-cluster-service, world-updater, scene-object-import, and code-execution Ready; 22/22 Deployments Ready",
+        "current_core_snapshot": "22/22 Deployments Ready; both ChartAssignments Ready with Settled ResourceSets; zero Core Deployment image-set changes in the before/after comparison",
+        "app_chartassignment": "intrinsic-app-chart.v4 Ready; latest ResourceSet Settled",
+        "jupyter_open_shift_adaptation": "HOME and JUPYTER_RUNTIME_DIR use the verified writable /home/defaultuser emptyDir; image entrypoint replaced to bind unauthenticated API to ::1; all three workers created kernels and completed startup requests; 2/2 pod containers Ready with zero restarts",
+        "core_image_comparison": "rendered both ChartAssignments before rollout and compared all 20 Core Deployment image sets to live Deployments; repeated live comparison after rollout against pre-fix snapshot; zero image changes, including world-*"
       }
     }
   ]

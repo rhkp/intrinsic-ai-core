@@ -22,16 +22,16 @@ func object(kind, name string, fields map[string]interface{}) *unstructured.Unst
 }
 
 func TestAdaptOpenShiftResourcesScopesRBAC(t *testing.T) {
-	role := object("ClusterRole", "workcell-cluster-service", map[string]interface{}{
+	role := object("ClusterRole", "resource-registry", map[string]interface{}{
 		"rules": []interface{}{
 			map[string]interface{}{
-				"apiGroups": []interface{}{"apps.cloudrobotics.com"},
-				"resources": []interface{}{"chartassignments"},
+				"apiGroups": []interface{}{""},
+				"resources": []interface{}{"configmaps"},
 				"verbs":     []interface{}{"get", "list", "watch"},
 			},
 			map[string]interface{}{
 				"apiGroups": []interface{}{""},
-				"resources": []interface{}{"namespaces", "services"},
+				"resources": []interface{}{"namespaces"},
 				"verbs":     []interface{}{"get", "list", "watch"},
 			},
 			map[string]interface{}{
@@ -41,9 +41,9 @@ func TestAdaptOpenShiftResourcesScopesRBAC(t *testing.T) {
 			},
 		},
 	})
-	binding := object("ClusterRoleBinding", "workcell-cluster-service", map[string]interface{}{
-		"roleRef":  map[string]interface{}{"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "workcell-cluster-service"},
-		"subjects": []interface{}{map[string]interface{}{"kind": "ServiceAccount", "name": "workcell-cluster-service", "namespace": "default"}},
+	binding := object("ClusterRoleBinding", "resource-registry", map[string]interface{}{
+		"roleRef":  map[string]interface{}{"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "resource-registry"},
+		"subjects": []interface{}{map[string]interface{}{"kind": "ServiceAccount", "name": "resource-registry", "namespace": "default"}},
 	})
 	got, err := adaptOpenShiftResources([]*unstructured.Unstructured{role, binding}, pilotNamespace)
 	if err != nil {
@@ -56,16 +56,12 @@ func TestAdaptOpenShiftResourcesScopesRBAC(t *testing.T) {
 		t.Fatalf("role scope = %s/%s, want Role/%s", got[0].GetKind(), got[0].GetNamespace(), pilotNamespace)
 	}
 	rules, _, _ := unstructured.NestedSlice(got[0].Object, "rules")
-	if len(rules) != 2 {
-		t.Fatalf("got %d rules, want the project-scoped ChartAssignment and Service rules", len(rules))
+	if len(rules) != 1 {
+		t.Fatalf("got %d rules, want only the project-scoped ConfigMap rule", len(rules))
 	}
 	resources, _, _ := unstructured.NestedStringSlice(rules[0].(map[string]interface{}), "resources")
-	if len(resources) != 1 || resources[0] != "chartassignments" {
+	if len(resources) != 1 || resources[0] != "configmaps" {
 		t.Fatalf("remaining role resources = %v", resources)
-	}
-	namespaceRuleResources, _, _ := unstructured.NestedStringSlice(rules[1].(map[string]interface{}), "resources")
-	if len(namespaceRuleResources) != 1 || namespaceRuleResources[0] != "services" {
-		t.Fatalf("cluster-scoped namespace permission was not removed: %v", namespaceRuleResources)
 	}
 	if got[1].GetKind() != "RoleBinding" || got[1].GetNamespace() != pilotNamespace {
 		t.Fatalf("binding scope = %s/%s, want RoleBinding/%s", got[1].GetKind(), got[1].GetNamespace(), pilotNamespace)
@@ -78,6 +74,68 @@ func TestAdaptOpenShiftResourcesScopesRBAC(t *testing.T) {
 	subjectNS, _, _ := unstructured.NestedString(subjects[0].(map[string]interface{}), "namespace")
 	if subjectNS != pilotNamespace {
 		t.Fatalf("ServiceAccount subject namespace = %q", subjectNS)
+	}
+}
+
+func TestAdaptOpenShiftResourcesPreprovisionsWorkcellRBAC(t *testing.T) {
+	rules := []interface{}{
+		map[string]interface{}{
+			"apiGroups": []interface{}{"apps.cloudrobotics.com"},
+			"resources": []interface{}{"chartassignments"},
+			"verbs":     []interface{}{"get", "list", "watch", "create", "update", "patch", "delete"},
+		},
+		map[string]interface{}{
+			"apiGroups": []interface{}{""},
+			"resources": []interface{}{"services", "configmaps"},
+			"verbs":     []interface{}{"get", "list", "watch"},
+		},
+		map[string]interface{}{
+			"apiGroups": []interface{}{""},
+			"resources": []interface{}{"pods"},
+			"verbs":     []interface{}{"get", "list", "watch", "delete"},
+		},
+		map[string]interface{}{
+			"apiGroups": []interface{}{"apps"},
+			"resources": []interface{}{"deployments"},
+			"verbs":     []interface{}{"get", "list", "watch"},
+		},
+		map[string]interface{}{
+			"apiGroups": []interface{}{"batch"},
+			"resources": []interface{}{"jobs"},
+			"verbs":     []interface{}{"get", "list", "watch"},
+		},
+	}
+	clusterRole := object("ClusterRole", "workcell-cluster-service", map[string]interface{}{"rules": rules})
+	clusterRoleBinding := object("ClusterRoleBinding", "workcell-cluster-service", map[string]interface{}{
+		"roleRef":  map[string]interface{}{"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "workcell-cluster-service"},
+		"subjects": []interface{}{map[string]interface{}{"kind": "ServiceAccount", "name": "workcell-cluster-service", "namespace": "default"}},
+	})
+	projectRole := object("Role", "workcell-cluster-service", map[string]interface{}{"rules": rules})
+	projectRoleBinding := object("RoleBinding", "workcell-cluster-service", map[string]interface{}{
+		"roleRef":  map[string]interface{}{"apiGroup": "rbac.authorization.k8s.io", "kind": "Role", "name": "workcell-cluster-service"},
+		"subjects": []interface{}{map[string]interface{}{"kind": "ServiceAccount", "name": "workcell-cluster-service", "namespace": "default"}},
+	})
+	keep := object("ConfigMap", "unrelated-resource", map[string]interface{}{})
+
+	got, err := adaptOpenShiftResources([]*unstructured.Unstructured{clusterRole, clusterRoleBinding, projectRole, projectRoleBinding, keep}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].GetKind() != "ConfigMap" || got[0].GetName() != "unrelated-resource" {
+		t.Fatalf("adapted resources = %v, want only unrelated ConfigMap", kinds(got))
+	}
+}
+
+func TestAdaptOpenShiftResourcesRejectsUnapprovedPreprovisionedWorkcellRBAC(t *testing.T) {
+	role := object("Role", "workcell-cluster-service", map[string]interface{}{
+		"rules": []interface{}{map[string]interface{}{
+			"apiGroups": []interface{}{""},
+			"resources": []interface{}{"pods"},
+			"verbs":     []interface{}{"create"},
+		}},
+	})
+	if _, err := adaptOpenShiftResources([]*unstructured.Unstructured{role}, pilotNamespace); err == nil {
+		t.Fatal("unapproved Workcell RBAC rule was accepted")
 	}
 }
 
@@ -144,12 +202,290 @@ func TestAdaptOpenShiftResourcesReplacesK3sDataStore(t *testing.T) {
 	}
 }
 
+func TestAdaptOpenShiftResourcesRewritesDirectImagesToLockedQuayDigests(t *testing.T) {
+	deployment := object("Deployment", "direct-image-check", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{
+					"name":  "zenohd",
+					"image": "us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2",
+				},
+				map[string]interface{}{
+					"name":  "jupyter-server",
+					"image": "ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c",
+				},
+			},
+		}}},
+	})
+	got, err := adaptOpenShiftResources([]*unstructured.Unstructured{deployment}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	containers, _, _ := unstructured.NestedSlice(got[0].Object, "spec", "template", "spec", "containers")
+	for i, want := range []string{quayZenohdImage, quayJupyterServerImage} {
+		image, _, _ := unstructured.NestedString(containers[i].(map[string]interface{}), "image")
+		if image != want {
+			t.Errorf("container %d image = %q, want locked Quay digest %q", i, image, want)
+		}
+	}
+}
+
+func TestAdaptOpenShiftResourcesPinsNamespaceScopedServiceImages(t *testing.T) {
+	registry := object("Deployment", "resource-registry", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name":  "resource-registry",
+				"image": "upstream.example/resource-registry:stale",
+				"args": []interface{}{
+					"--port=8080",
+					"--configmap_watch_namespace", "$(POD_NAMESPACE)",
+					"--configmap_watch_namespace=stale",
+				},
+			}},
+		}}},
+	})
+	workcell := object("Deployment", "workcell-cluster-service", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name":  "workcell-cluster-service",
+				"image": "upstream.example/workcell-service:stale",
+			}},
+		}}},
+	})
+
+	assertAdapted := func(resources []*unstructured.Unstructured) {
+		t.Helper()
+		for _, test := range []struct {
+			name      string
+			image     string
+			watchFlag bool
+		}{
+			{name: "resource-registry", image: quayResourceRegistryImage, watchFlag: true},
+			{name: "workcell-cluster-service", image: quayWorkcellServiceImage},
+		} {
+			var deployment *unstructured.Unstructured
+			for _, resource := range resources {
+				if resource.GetName() == test.name {
+					deployment = resource
+					break
+				}
+			}
+			if deployment == nil {
+				t.Fatalf("Deployment %q is missing", test.name)
+			}
+			containers, found, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+			if err != nil || !found || len(containers) != 1 {
+				t.Fatalf("Deployment %q containers = %#v, found = %t, err = %v", test.name, containers, found, err)
+			}
+			container := containers[0].(map[string]interface{})
+			image, _, _ := unstructured.NestedString(container, "image")
+			if image != test.image {
+				t.Errorf("Deployment %q image = %q, want %q", test.name, image, test.image)
+			}
+			if test.watchFlag {
+				args, _, err := unstructured.NestedStringSlice(container, "args")
+				if err != nil {
+					t.Fatalf("Deployment %q args: %v", test.name, err)
+				}
+				count := 0
+				for _, arg := range args {
+					if strings.HasPrefix(arg, "--configmap_watch_namespace") {
+						count++
+						if arg != "--configmap_watch_namespace="+pilotNamespace {
+							t.Errorf("unexpected ConfigMap watch argument %q", arg)
+						}
+					}
+				}
+				if count != 1 {
+					t.Errorf("ConfigMap namespace argument count = %d, want exactly 1; args = %v", count, args)
+				}
+			}
+		}
+	}
+
+	adapted, err := adaptOpenShiftResources([]*unstructured.Unstructured{registry, workcell}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertAdapted(adapted)
+
+	adaptedAgain, err := adaptOpenShiftResources(adapted, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertAdapted(adaptedAgain)
+}
+
+func TestAdaptOpenShiftResourcesConfiguresJupyterWritableHome(t *testing.T) {
+	jupyter := object("Deployment", "code-execution", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{
+				map[string]interface{}{"name": "code-execution-service", "image": "example.invalid/code-execution"},
+				map[string]interface{}{
+					"name":  "jupyter-server",
+					"image": "example.invalid/jupyter",
+					"command": []interface{}{
+						"jupyter", "server", "--ip=0.0.0.0",
+					},
+					"args": []interface{}{
+						"--ip=0.0.0.0",
+						"--port=8888",
+						"--ip", "0.0.0.0",
+					},
+					"env": []interface{}{
+						map[string]interface{}{"name": "HOME", "value": "/"},
+						map[string]interface{}{"name": "PATH", "value": "/usr/bin"},
+						map[string]interface{}{"name": "HOME", "value": "/root"},
+						map[string]interface{}{"name": "JUPYTER_RUNTIME_DIR", "value": "/.local/share/jupyter/runtime"},
+					},
+					"volumeMounts": []interface{}{map[string]interface{}{
+						"name":      "jupyter-home",
+						"mountPath": jupyterHomeDir,
+					}},
+				},
+			},
+			"volumes": []interface{}{map[string]interface{}{
+				"name":     "jupyter-home",
+				"emptyDir": map[string]interface{}{"sizeLimit": "2Gi"},
+			}},
+		}}},
+	})
+
+	assertJupyterHome := func(resources []*unstructured.Unstructured) {
+		t.Helper()
+		var deployment *unstructured.Unstructured
+		for _, resource := range resources {
+			if resource.GetKind() == "Deployment" && resource.GetName() == "code-execution" {
+				deployment = resource
+				break
+			}
+		}
+		if deployment == nil {
+			t.Fatal("code-execution Deployment is missing")
+		}
+		containers, found, err := unstructured.NestedSlice(deployment.Object, "spec", "template", "spec", "containers")
+		if err != nil || !found || len(containers) != 2 {
+			t.Fatalf("code-execution containers = %#v, found = %t, err = %v", containers, found, err)
+		}
+		var jupyterContainer map[string]interface{}
+		for _, item := range containers {
+			container := item.(map[string]interface{})
+			if container["name"] == "jupyter-server" {
+				jupyterContainer = container
+			}
+		}
+		if jupyterContainer == nil {
+			t.Fatal("jupyter-server container is missing")
+		}
+		command, found, err := unstructured.NestedStringSlice(jupyterContainer, "command")
+		if err != nil || !found || strings.Join(command, " ") != "jupyter server" {
+			t.Fatalf("Jupyter command = %#v, found = %t, err = %v; want [jupyter server]", command, found, err)
+		}
+		args, found, err := unstructured.NestedStringSlice(jupyterContainer, "args")
+		if err != nil || !found {
+			t.Fatalf("Jupyter arguments = %#v, found = %t, err = %v", args, found, err)
+		}
+		wantArgs := []string{
+			"--ip=::1",
+			"--port=8888",
+			"--IdentityProvider.token=''",
+			"--ServerApp.disable_check_xsrf=True",
+			"--notebook-dir=" + jupyterHomeDir,
+		}
+		if strings.Join(args, "\x00") != strings.Join(wantArgs, "\x00") {
+			t.Errorf("Jupyter args = %v, want %v", args, wantArgs)
+		}
+		env, found, err := unstructured.NestedSlice(jupyterContainer, "env")
+		if err != nil || !found {
+			t.Fatalf("Jupyter environment = %#v, found = %t, err = %v", env, found, err)
+		}
+		wantEnv := map[string]string{"HOME": jupyterHomeDir, "JUPYTER_RUNTIME_DIR": jupyterRuntimeDir, "PATH": "/usr/bin"}
+		counts := make(map[string]int)
+		for _, item := range env {
+			entry := item.(map[string]interface{})
+			name, _ := entry["name"].(string)
+			counts[name]++
+			if want, ok := wantEnv[name]; ok && entry["value"] != want {
+				t.Errorf("Jupyter env %s = %v, want %q", name, entry["value"], want)
+			}
+		}
+		for name := range wantEnv {
+			if counts[name] != 1 {
+				t.Errorf("Jupyter env %s appears %d times, want exactly once", name, counts[name])
+			}
+		}
+
+		mounts, found, err := unstructured.NestedSlice(jupyterContainer, "volumeMounts")
+		if err != nil || !found || len(mounts) != 1 || mounts[0].(map[string]interface{})["mountPath"] != jupyterHomeDir {
+			t.Fatalf("Jupyter home mount = %#v, found = %t, err = %v", mounts, found, err)
+		}
+	}
+
+	adapted, err := adaptOpenShiftResources([]*unstructured.Unstructured{jupyter}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJupyterHome(adapted)
+
+	adaptedAgain, err := adaptOpenShiftResources(adapted, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertJupyterHome(adaptedAgain)
+}
+
+func TestAdaptOpenShiftResourcesRequiresWritableJupyterHome(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		mountPath  string
+		readOnly   bool
+		wantErrMsg string
+	}{
+		{name: "missing home mount", mountPath: "/home/other", wantErrMsg: "expected writable emptyDir mount"},
+		{name: "read-only home mount", mountPath: jupyterHomeDir, readOnly: true, wantErrMsg: "is read-only"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			jupyter := object("Deployment", "code-execution", map[string]interface{}{
+				"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+					"containers": []interface{}{map[string]interface{}{
+						"name": "jupyter-server",
+						"volumeMounts": []interface{}{map[string]interface{}{
+							"name":      "jupyter-home",
+							"mountPath": test.mountPath,
+							"readOnly":  test.readOnly,
+						}},
+					}},
+					"volumes": []interface{}{map[string]interface{}{
+						"name":     "jupyter-home",
+						"emptyDir": map[string]interface{}{},
+					}},
+				}}},
+			})
+			_, err := adaptOpenShiftResources([]*unstructured.Unstructured{jupyter}, pilotNamespace)
+			if err == nil || !strings.Contains(err.Error(), test.wantErrMsg) {
+				t.Fatalf("adaptOpenShiftResources() error = %v, want substring %q", err, test.wantErrMsg)
+			}
+		})
+	}
+}
+
 func TestAdaptOpenShiftResourcesRetargetsVirtualServiceAndRemovesK3sOnlyObjects(t *testing.T) {
 	routing := testRoutingConfig()
 	resources := []*unstructured.Unstructured{
 		object("Deployment", "artifacts-deployment", nil),
 		object("Service", "artifacts-deployment", nil),
 		object("ServiceMonitor", "artifacts-deployment-metrics", nil),
+		object("Service", "zenoh-router", map[string]interface{}{"spec": map[string]interface{}{
+			"type": "ClusterIP",
+		}}),
+		object("VirtualService", "zenoh-router", map[string]interface{}{"spec": map[string]interface{}{
+			"hosts":    []interface{}{"*"},
+			"gateways": []interface{}{"app-ingress/gateway"},
+			"tcp": []interface{}{map[string]interface{}{
+				"match": []interface{}{map[string]interface{}{"port": int64(7447)}},
+				"route": []interface{}{map[string]interface{}{"destination": map[string]interface{}{"host": "zenoh-router"}}},
+			}},
+		}}),
 		object("VirtualService", "internal-api", map[string]interface{}{"spec": map[string]interface{}{
 			"hosts":    []interface{}{"*"},
 			"gateways": []interface{}{"app-ingress/gateway"},
@@ -164,14 +500,14 @@ func TestAdaptOpenShiftResourcesRetargetsVirtualServiceAndRemovesK3sOnlyObjects(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].GetKind() != "VirtualService" {
-		t.Fatalf("adapted objects = %v, want only the project-scoped VirtualService", kinds(got))
+	if len(got) != 2 || got[0].GetKind() != "Service" || got[0].GetName() != "zenoh-router" || got[1].GetKind() != "VirtualService" {
+		t.Fatalf("adapted objects = %v, want the in-project Zenoh Service and project-scoped VirtualService", kinds(got))
 	}
-	gateways, _, _ := unstructured.NestedStringSlice(got[0].Object, "spec", "gateways")
+	gateways, _, _ := unstructured.NestedStringSlice(got[1].Object, "spec", "gateways")
 	if len(gateways) != 1 || gateways[0] != routing.gateway {
 		t.Fatalf("gateways = %v, want %q", gateways, routing.gateway)
 	}
-	exportTo, _, _ := unstructured.NestedStringSlice(got[0].Object, "spec", "exportTo")
+	exportTo, _, _ := unstructured.NestedStringSlice(got[1].Object, "spec", "exportTo")
 	if len(exportTo) != 2 || exportTo[0] != "." || exportTo[1] != "mesh-system" {
 		t.Fatalf("exportTo = %v, want project and ingress-Gateway namespaces", exportTo)
 	}
@@ -273,9 +609,13 @@ func TestAdaptOpenShiftResourcesRewritesNamespacesAndInternalizesServices(t *tes
 func TestAdaptOpenShiftResourcesRewritesIngressAndNetworkPolicyReferences(t *testing.T) {
 	workcell := object("Deployment", "workcell-cluster-service", map[string]interface{}{
 		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
-			"containers": []interface{}{map[string]interface{}{"name": "service", "args": []interface{}{
-				"--sim_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80",
-			}}},
+			"containers": []interface{}{map[string]interface{}{
+				"name":  "workcell-cluster-service",
+				"image": "upstream.example/workcell-service:stale",
+				"args": []interface{}{
+					"--sim_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80",
+				},
+			}},
 		}}},
 	})
 	solution := object("Deployment", "solution-service", map[string]interface{}{
@@ -364,7 +704,8 @@ func TestAdaptNetworkPolicyRetargetsIngressPeerWithoutOpeningTraffic(t *testing.
 	from, _, _ := unstructured.NestedSlice(ingress[0].(map[string]interface{}), "from")
 	peer := from[0].(map[string]interface{})
 	namespaceName, _, _ := unstructured.NestedString(peer, "namespaceSelector", "matchLabels", "kubernetes.io/metadata.name")
-	if namespaceName != "mesh-system" || !containsStringValue(peer, "istio-ingressgateway") {
+	podSelector, found, _ := unstructured.NestedMap(peer, "podSelector", "matchLabels")
+	if namespaceName != "mesh-system" || !found || podSelector["app"] != "istio-ingressgateway" {
 		t.Fatalf("gateway peer is not correctly restricted: %#v", peer)
 	}
 }
