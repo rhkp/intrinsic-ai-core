@@ -154,8 +154,10 @@ var startOptionalClusterMonitoring = func(ctx context.Context, factory informers
 var getClusterInfo = func(ctx context.Context, crcClient versioned.Interface) transfersvc.ClusterInfo {
 	return transfersvc.ClusterInfo{
 		Name:                   "local",
-		CanDoPhysicalExecution: true,
-		HasGpu:                 false,
+		// This OpenShift pilot is simulation-only and must never enable physical execution.
+		CanDoPhysicalExecution: false,
+		// Report the cluster's GPU capability; normal scheduling still enforces available capacity.
+		HasGpu:                 true,
 		GCPProject:             "none",
 		Registry:               "gcr.io/local",
 	}

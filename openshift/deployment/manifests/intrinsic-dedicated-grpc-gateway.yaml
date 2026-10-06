@@ -17,10 +17,16 @@ spec:
     app.kubernetes.io/name: intrinsic-grpc-gateway
     istio: intrinsic-grpc-gateway
   ports:
-    - name: http2
+    - name: grpc-core
       protocol: TCP
       port: 80
-      targetPort: 8080
+      # Core clients keep using port 80; the mesh sidecar originates ISTIO_MUTUAL
+      # to the Gateway's TLS listener on target port 443.
+      targetPort: 443
+    - name: grpc-mtls
+      protocol: TCP
+      port: 443
+      targetPort: 443
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -67,8 +73,11 @@ spec:
     istio: intrinsic-grpc-gateway
   servers:
     - port:
-        number: 80
-        name: grpc-h2c
-        protocol: HTTP2
+        number: 443
+        name: grpc-mtls
+        protocol: HTTPS
       hosts:
         - intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local
+        - "*"
+      tls:
+        mode: ISTIO_MUTUAL

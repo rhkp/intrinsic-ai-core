@@ -1,0 +1,9 @@
+diff --git a/gmodule/BUILD.bazel b/gmodule/BUILD.bazel
+--- a/gmodule/BUILD.bazel
++++ b/gmodule/BUILD.bazel
+@@ -51,4 +51,5 @@
+     hdrs = [
++        "gmodule.h",
+         ":gmodule-visibility_h",
+         ":public_hdr_gmodule.h",
+     ],

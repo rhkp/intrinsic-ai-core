@@ -1,0 +1,11 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -15,5 +15,7 @@ cmake(
+     name = "libzmq",
+     cache_entries = {
++        # Match the static library path declared by out_static_libs below.
++        "CMAKE_INSTALL_LIBDIR": "lib",
+         # Perftools fail to link on some Linux distributions and turning off
+         # shared library build also disables perftools from building.
+         "BUILD_SHARED": "OFF",

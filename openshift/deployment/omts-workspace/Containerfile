@@ -1,0 +1,70 @@
+FROM registry.access.redhat.com/ubi10/ubi-minimal@sha256:ab0348d8ef0435d8c069792602b7943a97affab6ef5789d8bd9cc492f7756782
+
+LABEL org.opencontainers.image.title="Intrinsic OMTS OpenShift build workspace" \
+      org.opencontainers.image.version="20260922.0" \
+      org.opencontainers.image.source="https://github.com/intrinsic-ai/intrinsic-omts" \
+      org.opencontainers.image.revision="8253cdfdd173da9d5b7c9bb7b8cee817f66902ae"
+
+USER 0
+RUN microdnf install -y \
+      bash \
+      binutils \
+      ca-certificates \
+      curl \
+      diffutils \
+      findutils \
+      gcc \
+      gcc-c++ \
+      git \
+      git-lfs \
+      gzip \
+      make \
+      patch \
+      python3 \
+      tar \
+      unzip \
+      xz \
+      zstd \
+    && microdnf clean all \
+    && git lfs install --system
+
+RUN set -eux; \
+    curl --fail --location --silent --show-error \
+      --output /tmp/bazelisk-amd64.deb \
+      https://github.com/bazelbuild/bazelisk/releases/download/v1.29.0/bazelisk-amd64.deb; \
+    echo '186d78a20e1a64f59ba08987791a989892d142c9d3a9f9cc0c5c35e201f53924  /tmp/bazelisk-amd64.deb' | sha256sum --check -; \
+    data_member="$(ar t /tmp/bazelisk-amd64.deb | awk '/^data[.]tar([.]|$)/ { print; exit }')"; \
+    case "${data_member}" in \
+      data.tar) ar p /tmp/bazelisk-amd64.deb "${data_member}" | tar -xf - -C /tmp ;; \
+      data.tar.xz) ar p /tmp/bazelisk-amd64.deb "${data_member}" | tar -xJf - -C /tmp ;; \
+      data.tar.zst) ar p /tmp/bazelisk-amd64.deb "${data_member}" | tar --zstd -xf - -C /tmp ;; \
+      data.tar.gz) ar p /tmp/bazelisk-amd64.deb "${data_member}" | tar -xzf - -C /tmp ;; \
+      *) echo "unsupported Bazelisk Debian archive member: ${data_member}" >&2; exit 1 ;; \
+    esac; \
+    install -m 0755 /tmp/usr/bin/bazelisk /usr/local/bin/bazel; \
+    rm -rf /tmp/bazelisk-amd64.deb /tmp/usr
+
+COPY openshift/deployment/omts-runner/ /opt/intrinsic/repo/openshift/deployment/omts-runner/
+COPY openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml
+COPY patches/ /opt/intrinsic/repo/patches/
+RUN chmod 0555 \
+      /opt/intrinsic/repo/openshift/deployment/omts-runner/build-solution-cli.sh \
+      /opt/intrinsic/repo/openshift/deployment/omts-runner/deploy-simulation.sh \
+      /opt/intrinsic/repo/openshift/deployment/omts-runner/prepare-omts-source.sh \
+      /opt/intrinsic/repo/openshift/deployment/omts-runner/prepare-internal-registry-auth.py \
+      /opt/intrinsic/repo/openshift/deployment/omts-runner/audit_solution_artifacts.py
+
+ENV HOME=/workspace/home \
+    TMPDIR=/workspace/tmp \
+    BAZELISK_HOME=/workspace/home/.cache/bazelisk \
+    INTRINSIC_OMTS_SRC=/workspace/source/intrinsic-omts \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN mkdir -p /opt/intrinsic/repo \
+    && chown -R 1001:0 /opt/intrinsic \
+    && chmod -R g+rwX /opt/intrinsic
+
+USER 1001:0
+WORKDIR /workspace
+CMD ["sleep", "infinity"]

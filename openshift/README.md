@@ -1,6 +1,6 @@
 # Intrinsic Core full OpenShift pilot
 
-**Status (2026-10-05):** project setup, restricted-pod and GPU smokes, a
+**Status (2026-10-06):** project setup, restricted-pod and GPU smokes, a
 namespaced ChartAssignment controller smoke, an `Opaque` Secret injection
 smoke, and a dedicated internal gRPC gateway are verified on dev01. All five
 PVCs are Bound and all 22 Deployments are Ready. The registry and Workcell
@@ -13,15 +13,23 @@ Workcell RBAC escalation gate is resolved with a separately provisioned
 project Role; the controller's own RBAC remains unchanged. The 24 upstream
 Core chart images are mirrored by digest to Quay; the HTTP gateway and Zenoh
 daemon passed restricted-SCC startup smokes. The five-call synthetic gRPC
-smoke through the internal gateway does not test an Intrinsic service. This is
-the active full-OpenShift track. See
+smoke through the internal gateway does not test an Intrinsic service. On
+2026-10-06, `INTRINSIC_INGRESS_ADDRESS` was corrected to internal Service port
+80, controller build 22 was rolled out by digest, and the base/app charts were
+reconciled; all 22 Deployments are Ready and `simulation-service` is 2/2. A
+previous OMTS `StartSolution` call failed with gRPC `UNAVAILABLE`; the active
+simulation, generated resource/skill lifecycle, and viewer are not yet
+verified. OMTS Build 13 failed during CycloneDDS compilation and needs focused
+log diagnosis before another full build. This is the active full-OpenShift
+track. See
 the
 [migration plan](../OPENSHIFT_PLAN.md) for architecture, blockers, and acceptance
 gates. The [secret adaptation assessment](SECRETS_ADAPTATION.md) records the
 private-pull and `.env`-to-Secret smokes, plus the remaining app-specific key
 mapping. The AWS VM remains the known-good comparison
-environment; its K3s service and workload pods are intentionally stopped to
-free resources. Restart K3s only when the VM comparison demo is needed again.
+environment. Treat it as optional historical context only: the OpenShift demo,
+solution deployment, and viewer access must work without starting or connecting
+to that VM.
 
 ## Verified target snapshot — 2026-10-02
 

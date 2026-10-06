@@ -35,5 +35,22 @@ secrets/
 *.secret
 *.credentials
 
+# Local CLI and registry credential stores.
+.aws/
+.docker/
+.kube/
+.ssh/
+**/.config/containers/auth.json
+**/.config/intrinsic/rhoai-token
+.netrc
+.npmrc
+.pypirc
+*.env
+id_dsa
+id_ecdsa
+id_ed25519
+id_rsa
+**/credentials.json
+
 # Local bearer token file referenced by the ignored RHOAI environment.
 /approaches/tried-not-feasible-aws-vm-with-rhoai/~/.config/intrinsic/rhoai-token

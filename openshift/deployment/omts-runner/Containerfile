@@ -1,0 +1,25 @@
+FROM registry.access.redhat.com/ubi9/python-311@sha256:7b6cb58d3ff034df7b300800bd89a469d9bd2f739d43250d76b9c9e805307ab5
+
+LABEL org.opencontainers.image.title="Intrinsic OMTS OpenShift demo runner" \
+      org.opencontainers.image.version="20260922.0" \
+      org.opencontainers.image.source="https://github.com/intrinsic-ai/intrinsic-omts" \
+      org.opencontainers.image.revision="8253cdfdd173da9d5b7c9bb7b8cee817f66902ae"
+
+ENV HOME=/tmp \
+    TMPDIR=/tmp \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /opt/intrinsic
+
+COPY --chmod=0444 omts_app.zip /opt/intrinsic/omts_app.zip
+COPY --chmod=0444 register_using_train_service.zip /opt/intrinsic/register_using_train_service.zip
+COPY --chmod=0444 app_config.yaml /etc/intrinsic/lab_bb_01/app_config.yaml
+COPY --chmod=0444 LICENSE /licenses/LICENSE.omts
+COPY --chmod=0444 TRADEMARK.md /licenses/TRADEMARK.omts.md
+COPY --chmod=0555 omts-runner /usr/local/bin/omts-runner
+
+USER 1001:0
+
+ENTRYPOINT ["/usr/local/bin/omts-runner"]
+CMD ["serve"]

@@ -1,0 +1,43 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: omts-demo-tools
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/name: intrinsic-omts-demo
+    app.kubernetes.io/component: build-tools
+    app.kubernetes.io/part-of: intrinsic-openshift-demo
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: omts-demo-tools
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/name: intrinsic-omts-demo
+    app.kubernetes.io/component: build-tools
+    app.kubernetes.io/part-of: intrinsic-openshift-demo
+spec:
+  runPolicy: Serial
+  resources:
+    requests:
+      cpu: "4"
+      memory: 12Gi
+      ephemeral-storage: 20Gi
+    limits:
+      cpu: "8"
+      memory: 24Gi
+      ephemeral-storage: 60Gi
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: openshift/deployment/omts-runner/Containerfile.toolchain
+      env:
+        - name: OMTS_BUILD_JOBS
+          value: "4"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: omts-demo-tools:20260922.0

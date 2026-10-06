@@ -168,11 +168,13 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
     selector = safe_selector(spec.get("selector"))
     if any(selector.get(key) != value for key, value in GATEWAY_SELECTOR.items()):
         raise PilotError("The ingress Service selector must target only the dedicated gateway workload.")
-    if spec.get("type", "ClusterIP") != "ClusterIP" or not any(
-        port.get("port") == 80 and port.get("protocol", "TCP") == "TCP"
+    service_ports = {
+        port.get("port")
         for port in spec.get("ports", [])
-    ):
-        raise PilotError("The configured ingress Service must be internal and expose port 80.")
+        if port.get("protocol", "TCP") == "TCP"
+    }
+    if spec.get("type", "ClusterIP") != "ClusterIP" or not {80, 443}.issubset(service_ports):
+        raise PilotError("The configured internal Gateway Service must expose both the tunnel and mesh ports.")
 
     endpoints = get_json(access, "get", "endpoints", service_name, "--namespace", namespace)
     endpoint_names = {
@@ -203,16 +205,23 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
     gateway_selector = safe_selector(gateway_spec.get("selector"))
     if gateway_selector != selector:
         raise PilotError("The Gateway selector must exactly match the dedicated ingress Service selector.")
-    listeners = [
-        server
-        for server in gateway_spec.get("servers", [])
-        if server.get("port", {}).get("number") == 80
-        and server.get("port", {}).get("protocol") in {"HTTP2", "GRPC"}
+    listeners = gateway_spec.get("servers", [])
+    tunnel_listener = any(
+        server.get("port", {}).get("number") == 80
+        and server.get("port", {}).get("protocol") == "HTTP2"
         and service_host in server.get("hosts", [])
         and not server.get("tls")
-    ]
-    if not listeners:
-        raise PilotError("The dedicated Gateway must accept the exact internal service host over HTTP/2 on port 80 without TLS.")
+        for server in listeners
+    )
+    mesh_listener = any(
+        server.get("port", {}).get("number") == 443
+        and server.get("port", {}).get("protocol") == "HTTPS"
+        and {service_host, "*"}.issubset(set(server.get("hosts", [])))
+        and server.get("tls") == {"mode": "ISTIO_MUTUAL"}
+        for server in listeners
+    )
+    if not tunnel_listener or not mesh_listener:
+        raise PilotError("The dedicated Gateway must expose its loopback-tunnel HTTP/2 listener and Istio mTLS mesh listener.")
 
     pods = ready_pods(access, PROJECT, gateway_selector)
     matched = {

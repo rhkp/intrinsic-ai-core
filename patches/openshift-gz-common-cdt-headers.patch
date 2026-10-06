@@ -1,0 +1,23 @@
+diff --git a/graphics/BUILD.bazel b/graphics/BUILD.bazel
+--- a/graphics/BUILD.bazel
++++ b/graphics/BUILD.bazel
+@@ -21,9 +21,11 @@ tiny_obj_loader_header = ["src/tiny_obj_loader.h"]
+ stb_headers = [
+     "src/STB/stb_image.h",
+     "src/STB/stb_image_write.h",
+     "src/STB/stb_image_resize2.h",
+ ]
+ 
++cdt_headers = glob(["src/CDT/*.h", "src/CDT/*.hpp"])
++
+ sources = glob(
+     ["src/*.cc"],
+     exclude = ["src/*_TEST.cc"],
+@@ -45,5 +47,6 @@ cc_library(
+ cc_library(
+     name = "graphics",
+-    srcs = sources + vhacd_header + tiny_obj_loader_header + stb_headers,
++    srcs = sources + vhacd_header + tiny_obj_loader_header + stb_headers,
+     hdrs = public_headers,
++    textual_hdrs = cdt_headers,
+     copts = [

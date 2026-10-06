@@ -1,0 +1,63 @@
+#!/bin/sh
+set -eu
+
+command_name=${1:-help}
+
+case "$command_name" in
+  serve)
+    # Keep the injected mesh proxy alive while an operator invokes a command
+    # with oc exec. The app itself is never run automatically on pod startup.
+    exec /bin/sh -c 'while :; do sleep 86400; done'
+    ;;
+  app-help)
+    exec python3 /opt/intrinsic/omts_app.zip --help
+    ;;
+  register-help)
+    exec python3 /opt/intrinsic/register_using_train_service.zip --help
+    ;;
+  register-pose)
+    if [ "$#" -ne 1 ]; then
+      echo "usage: omts-runner register-pose" >&2
+      exit 64
+    fi
+    : "${INTRINSIC_GRPC_ADDRESS:?set the internal Gateway address}"
+    exec python3 /opt/intrinsic/register_using_train_service.zip \
+      --address="$INTRINSIC_GRPC_ADDRESS" \
+      --scene_object_id=ai.intrinsic.raw_stock_2x3x5 \
+      --pose_estimator_id=ai.intrinsic.raw_stock_2x3x5_estimator \
+      --refinement_iters=6 \
+      --confidence_threshold=0.6 \
+      --visibility_threshold=0.6
+    ;;
+  run-once)
+    if [ "$#" -ne 1 ]; then
+      echo "usage: omts-runner run-once" >&2
+      exit 64
+    fi
+    if [ "${INTRINSIC_SIMULATION_CONFIRMED:-}" != "true" ]; then
+      echo "refusing to run: confirm the deployed Core slice is simulation-only first" >&2
+      exit 77
+    fi
+    : "${INTRINSIC_GRPC_ADDRESS:?set the internal Gateway address}"
+    exec python3 /opt/intrinsic/omts_app.zip \
+      --address="$INTRINSIC_GRPC_ADDRESS" \
+      --config=/etc/intrinsic/lab_bb_01/app_config.yaml \
+      --num_cycles=1
+    ;;
+  help|--help|-h)
+    cat <<'USAGE'
+Usage: omts-runner COMMAND
+
+Commands:
+  serve          Keep the mesh-injected runner pod available for oc exec.
+  app-help       Show the pinned OMTS app flags without contacting Core.
+  register-help  Show pose-registration flags without contacting Core.
+  register-pose  Register the pinned lab_bb_01 pose estimator with Core.
+  run-once       Run one cycle; requires INTRINSIC_SIMULATION_CONFIRMED=true.
+USAGE
+    ;;
+  *)
+    echo "unknown command: $command_name" >&2
+    exit 64
+    ;;
+esac

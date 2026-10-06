@@ -13,19 +13,34 @@ import (
 )
 
 const (
-	openshiftImagePullServiceAccount = "intrinsic-runtime"
-	openshiftStorageClass            = "gp3-csi"
-	dataStorePVC                     = "intrinsic-data-store"
-	quayResourceRegistryImage        = "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b@sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512"
-	quayWorkcellServiceImage         = "quay.io/rhkp/intrinsic/workcell_spec_service_cziekbodmacxdi73@sha256:8b87d30b0d47bfe8da52be3647076790b2793ca7ce928301379d5cd9752eae0c"
-	quayZenohdImage                  = "quay.io/rhkp/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
-	quayJupyterServerImage           = "quay.io/rhkp/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
-	jupyterHomeDir                   = "/home/defaultuser"
-	jupyterRuntimeDir                = jupyterHomeDir + "/.local/share/jupyter/runtime"
-	upstreamIngressAddress           = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
-	ingressAddressEnv                = "INTRINSIC_INGRESS_ADDRESS"
-	ingressGatewayEnv                = "INTRINSIC_INGRESS_GATEWAY"
-	ingressSelectorEnv               = "INTRINSIC_INGRESS_POD_SELECTOR"
+	openshiftImagePullServiceAccount   = "intrinsic-runtime"
+	intrinsicSimRealtimeServiceAccount = "intrinsic-sim-realtime"
+	openshiftStorageClass              = "gp3-csi"
+	dataStorePVC                       = "intrinsic-data-store"
+	intrinsicIconPVC                   = "intrinsic-icon-data"
+	gazeboMeshesPVC                    = "intrinsic-gazebo-meshes"
+	openshiftSharedStorageClass        = "ocs-storagecluster-cephfs"
+	quayResourceRegistryImage          = "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b@sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6"
+	workcellServiceImage               = "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/workcell-cluster-service@sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3"
+	quayZenohdImage                    = "quay.io/rhkp/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
+	quayJupyterServerImage             = "quay.io/rhkp/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
+	jupyterHomeDir                     = "/home/defaultuser"
+	jupyterRuntimeDir                  = jupyterHomeDir + "/.local/share/jupyter/runtime"
+	upstreamIngressAddress             = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
+	istioSidecarInjectAnnotation       = "sidecar.istio.io/inject"
+	serviceMeshControlPlaneNamespace   = "istio-system"
+	serviceMeshControlPlaneRevision    = "data-science-smcp"
+	serviceMeshControlPlanePort        = int64(15012)
+	openshiftDNSNamespace              = "openshift-dns"
+	openshiftDNSPodLabel               = "dns.operator.openshift.io/daemonset-dns"
+	openshiftDNSPodValue               = "default"
+	openshiftDNSUDPPortName            = "dns"
+	openshiftDNSTCPPortName            = "dns-tcp"
+	upstreamDNSPodLabel                = "k8s-app"
+	upstreamDNSPodValue                = "kube-dns"
+	ingressAddressEnv                  = "INTRINSIC_INGRESS_ADDRESS"
+	ingressGatewayEnv                  = "INTRINSIC_INGRESS_GATEWAY"
+	ingressSelectorEnv                 = "INTRINSIC_INGRESS_POD_SELECTOR"
 )
 
 // These upstream charts pin two images directly in templates instead of using
@@ -68,7 +83,7 @@ func (c *openshiftRoutingConfig) validate() error {
 	}
 	port, err := strconv.Atoi(portText)
 	if err != nil || port != 80 {
-		return fmt.Errorf("%s must use the internal plaintext HTTP/2 Service port 80", ingressAddressEnv)
+		return fmt.Errorf("%s must use the internal HTTP/2 Gateway Service port 80", ingressAddressEnv)
 	}
 	c.serviceNamespace = labels[1]
 	parts := strings.Split(c.gateway, "/")
@@ -110,9 +125,15 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 			return nil, err
 		}
 	}
+	routedWorkloads, err := workloadsBehindGatewayRoutes(resources)
+	if err != nil {
+		return nil, fmt.Errorf("identify Service Mesh gateway backends: %w", err)
+	}
 
 	adapted := make([]*unstructured.Unstructured, 0, len(resources)+1)
 	needsDataStorePVC := false
+	needsIntrinsicIconPVC := false
+	needsGazeboMeshesPVC := false
 	for _, original := range resources {
 		if original == nil {
 			return nil, fmt.Errorf("chart rendered a nil resource")
@@ -242,10 +263,24 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 			return nil, fmt.Errorf("validate project references for %s/%s: %w", resource.GetKind(), name, err)
 		}
 
-		if err := adaptPodSpec(resource, namespace, &needsDataStorePVC, routing); err != nil {
+		if err := adaptPodSpec(resource, namespace, &needsDataStorePVC, &needsIntrinsicIconPVC, &needsGazeboMeshesPVC, routing); err != nil {
 			return nil, fmt.Errorf("adapt %s/%s: %w", kind, name, err)
 		}
-		if err := adaptSecurityContexts(resource.Object); err != nil {
+		if err := adaptPersistentDeploymentStrategy(resource); err != nil {
+			return nil, fmt.Errorf("adapt rollout strategy for %s/%s: %w", kind, name, err)
+		}
+		_, isGatewayBackend := routedWorkloads[kind+"/"+name]
+		// runtime-db is not a Gateway backend, but the Gateway-routed
+		// workcell-cluster-service calls it over gRPC. The cluster's strict
+		// ISTIO_MUTUAL policy requires the runtime DB server to join the mesh;
+		// keep that policy intact instead of opting this connection out of TLS.
+		needsSidecar := isGatewayBackend || kind == "Deployment" && name == "runtime-db"
+		if needsSidecar {
+			if err := enableIstioSidecar(resource); err != nil {
+				return nil, fmt.Errorf("enable Service Mesh sidecar for %s/%s: %w", kind, name, err)
+			}
+		}
+		if err := adaptSecurityContexts(resource); err != nil {
 			return nil, fmt.Errorf("adapt security context for %s/%s: %w", resource.GetKind(), name, err)
 		}
 		adapted = append(adapted, resource)
@@ -271,7 +306,226 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 			},
 		}})
 	}
+	if needsIntrinsicIconPVC {
+		adapted = append(adapted, sharedStoragePVC(intrinsicIconPVC, namespace, "1Gi"))
+	}
+	if needsGazeboMeshesPVC {
+		adapted = append(adapted, sharedStoragePVC(gazeboMeshesPVC, namespace, "5Gi"))
+	}
 	return adapted, nil
+}
+
+func sharedStoragePVC(name, namespace, size string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "PersistentVolumeClaim",
+		"metadata": map[string]interface{}{
+			"name":      name,
+			"namespace": namespace,
+			"labels": map[string]interface{}{
+				"app.kubernetes.io/part-of":    "intrinsic-core",
+				"app.kubernetes.io/managed-by": "openshift-overlay",
+			},
+		},
+		"spec": map[string]interface{}{
+			"accessModes": []interface{}{"ReadWriteMany"},
+			"resources": map[string]interface{}{
+				"requests": map[string]interface{}{"storage": size},
+			},
+			"storageClassName": openshiftSharedStorageClass,
+		},
+	}}
+}
+
+// adaptPersistentDeploymentStrategy prevents a RollingUpdate from starting a
+// second pod while the old pod still holds a ReadWriteOnce claim. On CSI
+// storage this can leave the replacement Pending with a Multi-Attach error;
+// Recreate releases the old attachment before scheduling the replacement.
+func adaptPersistentDeploymentStrategy(resource *unstructured.Unstructured) error {
+	if resource.GetKind() != "Deployment" {
+		return nil
+	}
+	volumes, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "volumes")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return nil
+	}
+	usesPVC := false
+	for _, value := range volumes {
+		volume, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("pod template contains a malformed volume")
+		}
+		if _, ok := volume["persistentVolumeClaim"]; ok {
+			usesPVC = true
+			break
+		}
+	}
+	if !usesPVC {
+		return nil
+	}
+	if err := unstructured.SetNestedField(resource.Object, "Recreate", "spec", "strategy", "type"); err != nil {
+		return err
+	}
+	unstructured.RemoveNestedField(resource.Object, "spec", "strategy", "rollingUpdate")
+	return nil
+}
+
+// workloadsBehindGatewayRoutes finds project workloads selected by Services
+// that receive traffic from an adapted VirtualService, plus workloads that
+// call the upstream ingress address which is rewritten to the dedicated
+// gateway. The mesh uses STRICT mTLS, so both sides of those connections need
+// an injected sidecar. Unrelated workloads keep their existing pod networking.
+func workloadsBehindGatewayRoutes(resources []*unstructured.Unstructured) (map[string]struct{}, error) {
+	routedServices := make(map[string]struct{})
+	serviceSelectors := make(map[string]map[string]string)
+	for _, resource := range resources {
+		if resource == nil {
+			continue
+		}
+		switch resource.GetKind() {
+		case "Service":
+			selector, found, err := unstructured.NestedStringMap(resource.Object, "spec", "selector")
+			if err != nil {
+				return nil, fmt.Errorf("Service %q selector is malformed: %w", resource.GetName(), err)
+			}
+			if found && len(selector) != 0 {
+				serviceSelectors[resource.GetName()] = selector
+			}
+		case "VirtualService":
+			if resource.GetName() == "zenoh-router" {
+				continue
+			}
+			routes, found, err := unstructured.NestedSlice(resource.Object, "spec", "http")
+			if err != nil {
+				return nil, fmt.Errorf("VirtualService %q HTTP routes are malformed: %w", resource.GetName(), err)
+			}
+			if !found {
+				continue // adaptVirtualService reports the missing route later.
+			}
+			for _, route := range routes {
+				if err := collectVirtualServiceDestinations(route, routedServices); err != nil {
+					return nil, fmt.Errorf("VirtualService %q: %w", resource.GetName(), err)
+				}
+			}
+		}
+	}
+
+	routedWorkloads := make(map[string]struct{})
+	for _, resource := range resources {
+		if resource == nil {
+			continue
+		}
+		labels, found, err := workloadPodLabels(resource)
+		if err != nil {
+			return nil, fmt.Errorf("%s/%s pod labels are malformed: %w", resource.GetKind(), resource.GetName(), err)
+		}
+		if isWorkloadKind(resource.GetKind()) && containsStringValue(resource.Object, upstreamIngressAddress) {
+			routedWorkloads[resource.GetKind()+"/"+resource.GetName()] = struct{}{}
+		}
+		if !found {
+			continue
+		}
+		for serviceName := range routedServices {
+			selector, ok := serviceSelectors[serviceName]
+			if ok && selectorMatches(labels, selector) {
+				routedWorkloads[resource.GetKind()+"/"+resource.GetName()] = struct{}{}
+				break
+			}
+		}
+	}
+	return routedWorkloads, nil
+}
+
+func isWorkloadKind(kind string) bool {
+	switch kind {
+	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Pod", "Job", "CronJob":
+		return true
+	default:
+		return false
+	}
+}
+
+func collectVirtualServiceDestinations(value interface{}, destinations map[string]struct{}) error {
+	switch item := value.(type) {
+	case map[string]interface{}:
+		for key, nested := range item {
+			if key == "destination" || key == "mirror" {
+				destination, ok := nested.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("%s is malformed", key)
+				}
+				host, ok := destination["host"].(string)
+				if !ok || host == "" {
+					return fmt.Errorf("%s host is missing", key)
+				}
+				destinations[strings.SplitN(host, ".", 2)[0]] = struct{}{}
+			}
+			if err := collectVirtualServiceDestinations(nested, destinations); err != nil {
+				return err
+			}
+		}
+	case []interface{}:
+		for _, nested := range item {
+			if err := collectVirtualServiceDestinations(nested, destinations); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func workloadPodLabels(resource *unstructured.Unstructured) (map[string]string, bool, error) {
+	var path []string
+	switch resource.GetKind() {
+	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job":
+		path = []string{"spec", "template", "metadata", "labels"}
+	case "CronJob":
+		path = []string{"spec", "jobTemplate", "spec", "template", "metadata", "labels"}
+	case "Pod":
+		path = []string{"metadata", "labels"}
+	default:
+		return nil, false, nil
+	}
+	labels, found, err := unstructured.NestedStringMap(resource.Object, path...)
+	return labels, found, err
+}
+
+func selectorMatches(labels, selector map[string]string) bool {
+	if len(selector) == 0 {
+		return false
+	}
+	for key, expected := range selector {
+		if labels[key] != expected {
+			return false
+		}
+	}
+	return true
+}
+
+func enableIstioSidecar(resource *unstructured.Unstructured) error {
+	var path []string
+	switch resource.GetKind() {
+	case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job":
+		path = []string{"spec", "template", "metadata", "annotations"}
+	case "CronJob":
+		path = []string{"spec", "jobTemplate", "spec", "template", "metadata", "annotations"}
+	case "Pod":
+		path = []string{"metadata", "annotations"}
+	default:
+		return fmt.Errorf("pod template is unsupported")
+	}
+	annotations, found, err := unstructured.NestedStringMap(resource.Object, path...)
+	if err != nil {
+		return err
+	}
+	if !found {
+		annotations = make(map[string]string)
+	}
+	annotations[istioSidecarInjectAnnotation] = "true"
+	return unstructured.SetNestedStringMap(resource.Object, annotations, path...)
 }
 
 func isPreprovisionedWorkcellRBAC(kind, name string) bool {
@@ -460,6 +714,11 @@ func adaptPVC(resource *unstructured.Unstructured) error {
 }
 
 func adaptService(resource *unstructured.Unstructured) error {
+	if resource.GetName() == "world" {
+		if err := exposeWorldConductorGRPCPort(resource); err != nil {
+			return fmt.Errorf("expose World Conductor gRPC port: %w", err)
+		}
+	}
 	if externalIPs, found, err := unstructured.NestedStringSlice(resource.Object, "spec", "externalIPs"); err != nil {
 		return err
 	} else if found && len(externalIPs) != 0 {
@@ -489,7 +748,66 @@ func adaptService(resource *unstructured.Unstructured) error {
 	return nil
 }
 
-func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDataStorePVC *bool, routing openshiftRoutingConfig) error {
+// exposeWorldConductorGRPCPort publishes the World pod's Conductor listener
+// through the project Service. The upstream Workcell chart calls world:8082,
+// while the rendered World Service otherwise exposed only its separate
+// world-service listener on 8080.
+func exposeWorldConductorGRPCPort(resource *unstructured.Unstructured) error {
+	ports, found, err := unstructured.NestedSlice(resource.Object, "spec", "ports")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("World Service has no ports")
+	}
+	hasWorldGRPCPort := false
+	hasConductorGRPCPort := false
+	for i, item := range ports {
+		port, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("World Service port %d is not an object", i)
+		}
+		name, _ := port["name"].(string)
+		portNumber, portFound, err := unstructured.NestedInt64(port, "port")
+		if err != nil || !portFound {
+			return fmt.Errorf("World Service port %d has no numeric port", i)
+		}
+		targetPort, targetFound, err := unstructured.NestedInt64(port, "targetPort")
+		if err != nil {
+			return fmt.Errorf("World Service port %d has invalid targetPort: %w", i, err)
+		}
+		if !targetFound {
+			targetPort = portNumber
+		}
+		if name == "grpc-world" || portNumber == 8080 {
+			if name != "grpc-world" || portNumber != 8080 || targetPort != 8080 {
+				return fmt.Errorf("World Service's grpc-world port must map 8080 to 8080")
+			}
+			hasWorldGRPCPort = true
+		}
+		if name == "grpc-conductor" || portNumber == 8082 {
+			if name != "grpc-conductor" || portNumber != 8082 || targetPort != 8082 {
+				return fmt.Errorf("World Service has a conflicting Conductor port")
+			}
+			hasConductorGRPCPort = true
+		}
+	}
+	if !hasWorldGRPCPort {
+		return fmt.Errorf("World Service is missing its expected grpc-world port 8080")
+	}
+	if hasConductorGRPCPort {
+		return nil
+	}
+	ports = append(ports, map[string]interface{}{
+		"name":       "grpc-conductor",
+		"port":       int64(8082),
+		"protocol":   "TCP",
+		"targetPort": int64(8082),
+	})
+	return unstructured.SetNestedSlice(resource.Object, ports, "spec", "ports")
+}
+
+func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDataStorePVC, needsIntrinsicIconPVC, needsGazeboMeshesPVC *bool, routing openshiftRoutingConfig) error {
 	var path []string
 	switch resource.GetKind() {
 	case "Pod":
@@ -530,12 +848,9 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 			if _, hasHostPath := volume["hostPath"]; !hasHostPath {
 				continue
 			}
-			if resource.GetKind() != "Deployment" || resource.GetName() != "data-store" || volume["name"] != "intrinsic-db-dir" {
-				return fmt.Errorf("hostPath volume %q is not supported", volume["name"])
+			if err := adaptKnownHostPath(resource, volume, needsDataStorePVC, needsIntrinsicIconPVC, needsGazeboMeshesPVC); err != nil {
+				return err
 			}
-			delete(volume, "hostPath")
-			volume["persistentVolumeClaim"] = map[string]interface{}{"claimName": dataStorePVC}
-			*needsDataStorePVC = true
 		}
 		if err := unstructured.SetNestedSlice(podSpec, volumes, "volumes"); err != nil {
 			return err
@@ -553,7 +868,26 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 	}
 
 	containers := append(sliceMaps(podSpec["containers"]), sliceMaps(podSpec["initContainers"])...)
+	if err := adaptGazeboSimulationServiceAddress(resource, namespace, containers); err != nil {
+		return fmt.Errorf("configure Gazebo simulation service address: %w", err)
+	}
+	zenohContainerName := ""
+	if resource.GetKind() == "Deployment" {
+		switch resource.GetName() {
+		case "world":
+			zenohContainerName = "world"
+		case "simulation-service":
+			zenohContainerName = "simulation-service"
+		}
+	}
+	zenohConfigured := false
 	for _, container := range containers {
+		if zenohContainerName != "" && container["name"] == zenohContainerName {
+			if err := ensureProjectZenohRouter(container, namespace); err != nil {
+				return fmt.Errorf("configure Zenoh router for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
+			}
+			zenohConfigured = true
+		}
 		if image, ok := container["image"].(string); ok {
 			if lockedImage, found := openshiftImageOverrides[image]; found {
 				container["image"] = lockedImage
@@ -574,8 +908,374 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 			}
 		}
 	}
+	if zenohContainerName != "" && !zenohConfigured {
+		return fmt.Errorf("Deployment %q has no %q container for the project Zenoh router override", resource.GetName(), zenohContainerName)
+	}
+	needsSimulationRealtimeServiceAccount, err := adaptSimulationSecurityContexts(resource, containers)
+	if err != nil {
+		return err
+	}
+	if needsSimulationRealtimeServiceAccount {
+		podSpec["serviceAccountName"] = intrinsicSimRealtimeServiceAccount
+		podSpec["automountServiceAccountToken"] = false
+	}
 
 	return unstructured.SetNestedMap(resource.Object, podSpec, path...)
+}
+
+type simulationSecurityPolicy struct {
+	imageRepository  string
+	addCapabilities  []string
+	dropCapabilities []string
+	serviceAccount   string
+	runAsRoot        bool
+	removePrivileged bool
+	setROSHomeToTmp  bool
+}
+
+var simulationSecurityPolicies = map[string]simulationSecurityPolicy{
+	"rs-ur-module/rs-ur-module": {
+		imageRepository: "ai.intrinsic.ur3e_hardware_module_core_service.gazebo_hwm_stub_image",
+		addCapabilities: []string{"IPC_LOCK"},
+		serviceAccount:  intrinsicSimRealtimeServiceAccount,
+		runAsRoot:       true,
+	},
+	"rs-icon/rs-icon": {
+		imageRepository: "ai.intrinsic.generic_realtime_control_service.generic_icon_machine_resource",
+		addCapabilities: []string{"IPC_LOCK", "SYS_NICE"},
+		serviceAccount:  intrinsicSimRealtimeServiceAccount,
+		runAsRoot:       true,
+	},
+	"rs-motion-planner-service/rs-motion-planner-service": {
+		imageRepository:  "ai.intrinsic.motion_planner_service.motion-planner-service-image",
+		dropCapabilities: []string{"SYS_RAWIO"},
+	},
+	"rs-hande-gripper/rs-hande-gripper": {
+		imageRepository:  "ai.intrinsic.hande_gripper_aquarium_hande_gripper_launch_xml.hande-gripper-sim-driver-hande-gripper.launch.xml",
+		removePrivileged: true,
+		setROSHomeToTmp:  true,
+	},
+}
+
+const (
+	gzserverDeploymentName       = "gzserver"
+	gzserverContainerName        = "gzserver"
+	gzserverImageRepository      = "gzserver_insrc_3xcbw2p75tkkh7r6"
+	gzserverMainBinary           = "/intrinsic/simulation/gazebo/grpc_proxy/proxy_server_main"
+	simulationServiceAddressFlag = "--simulation_service_address="
+	simulationServicePort        = "8088"
+)
+
+// adaptGazeboSimulationServiceAddress keeps the simulator proxy pointed at
+// the simulation Service in the single OpenShift project. The upstream default
+// assumes a separate app-intrinsic-base namespace, which does not exist here.
+// Match the exact Deployment, container, and pinned image so unrelated
+// workloads remain unchanged; fail closed if that expected shape drifts.
+func adaptGazeboSimulationServiceAddress(resource *unstructured.Unstructured, namespace string, containers []map[string]interface{}) error {
+	if resource.GetKind() != "Deployment" || resource.GetName() != gzserverDeploymentName {
+		return nil
+	}
+	if namespace == "" {
+		return fmt.Errorf("target namespace is required")
+	}
+
+	var target map[string]interface{}
+	for _, container := range containers {
+		if container["name"] != gzserverContainerName {
+			continue
+		}
+		if target != nil {
+			return fmt.Errorf("Deployment %q has duplicate %q containers", gzserverDeploymentName, gzserverContainerName)
+		}
+		target = container
+	}
+	if target == nil {
+		return fmt.Errorf("Deployment %q has no %q container", gzserverDeploymentName, gzserverContainerName)
+	}
+	image, _ := target["image"].(string)
+	if imageRepositoryName(image) != gzserverImageRepository {
+		return fmt.Errorf("Deployment %q container %q has unexpected image repository %q", gzserverDeploymentName, gzserverContainerName, imageRepositoryName(image))
+	}
+	args, ok := target["args"].([]interface{})
+	if !ok || len(args) == 0 {
+		return fmt.Errorf("Deployment %q container %q has no command arguments", gzserverDeploymentName, gzserverContainerName)
+	}
+	binary, ok := args[0].(string)
+	if !ok || binary != gzserverMainBinary {
+		return fmt.Errorf("Deployment %q container %q has unexpected entrypoint", gzserverDeploymentName, gzserverContainerName)
+	}
+
+	address := simulationServiceAddressFlag + "simulation-service." + namespace + ".svc.cluster.local:" + simulationServicePort
+	updated := make([]interface{}, 0, len(args)+1)
+	updated = append(updated, args[0])
+	foundAddress := false
+	for _, rawArg := range args[1:] {
+		arg, ok := rawArg.(string)
+		if !ok {
+			return fmt.Errorf("Deployment %q container %q has a malformed argument", gzserverDeploymentName, gzserverContainerName)
+		}
+		if strings.HasPrefix(arg, simulationServiceAddressFlag) {
+			if foundAddress {
+				return fmt.Errorf("Deployment %q container %q has duplicate simulation service arguments", gzserverDeploymentName, gzserverContainerName)
+			}
+			updated = append(updated, address)
+			foundAddress = true
+			continue
+		}
+		updated = append(updated, arg)
+	}
+	if !foundAddress {
+		updated = append(updated[:1], append([]interface{}{address}, updated[1:]...)...)
+	}
+	target["args"] = updated
+	return nil
+}
+
+func simulationSecurityPolicyFor(resourceName, containerName, image string) (simulationSecurityPolicy, bool) {
+	policy, found := simulationSecurityPolicies[resourceName+"/"+containerName]
+	if !found || imageRepositoryName(image) != policy.imageRepository {
+		return simulationSecurityPolicy{}, false
+	}
+	return policy, true
+}
+
+// adaptSimulationSecurityContexts adapts only the security settings verified
+// in the OMTS simulation ChartAssignment. It matches both the StatefulSet/
+// container identity and image repository, preserves the capabilities verified
+// on AWS for UR/ICON, and uses UID 0 only for those exact main containers under
+// a dedicated ServiceAccount. It removes other simulation-only requests.
+// Unknown capabilities and privileged settings remain subject to the
+// fail-closed adaptSecurityContexts check below.
+func adaptSimulationSecurityContexts(resource *unstructured.Unstructured, containers []map[string]interface{}) (bool, error) {
+	if resource.GetKind() != "StatefulSet" {
+		return false, nil
+	}
+	needsSimulationRealtimeServiceAccount := false
+	for _, container := range containers {
+		containerName, _ := container["name"].(string)
+		image, _ := container["image"].(string)
+		policy, found := simulationSecurityPolicyFor(resource.GetName(), containerName, image)
+		if !found {
+			continue
+		}
+		securityContext, _ := container["securityContext"].(map[string]interface{})
+		if len(policy.addCapabilities) != 0 {
+			if securityContext == nil {
+				securityContext = map[string]interface{}{}
+			}
+			capabilities, _ := securityContext["capabilities"].(map[string]interface{})
+			if capabilities == nil {
+				capabilities = map[string]interface{}{}
+			}
+			requested, found := capabilities["add"]
+			adds, ok := requested.([]interface{})
+			if found && !ok {
+				return false, fmt.Errorf("container %q has malformed capabilities.add", containerName)
+			}
+			for _, capability := range policy.addCapabilities {
+				present := false
+				for _, existing := range adds {
+					if existing == capability {
+						present = true
+						break
+					}
+				}
+				if !present {
+					adds = append(adds, capability)
+				}
+			}
+			capabilities["add"] = adds
+			securityContext["capabilities"] = capabilities
+			container["securityContext"] = securityContext
+		}
+		if policy.runAsRoot {
+			if securityContext == nil {
+				securityContext = map[string]interface{}{}
+			}
+			securityContext["runAsUser"] = int64(0)
+			container["securityContext"] = securityContext
+		}
+		if securityContext != nil {
+			if policy.removePrivileged {
+				if privileged, _ := securityContext["privileged"].(bool); privileged {
+					securityContext["privileged"] = false
+				}
+			}
+			if len(policy.dropCapabilities) != 0 {
+				capabilities, ok := securityContext["capabilities"].(map[string]interface{})
+				if ok {
+					add, found := capabilities["add"]
+					if found {
+						requested, ok := add.([]interface{})
+						if !ok {
+							return false, fmt.Errorf("container %q has malformed capabilities.add", containerName)
+						}
+						drop := make(map[string]struct{}, len(policy.dropCapabilities))
+						for _, capability := range policy.dropCapabilities {
+							drop[capability] = struct{}{}
+						}
+						kept := make([]interface{}, 0, len(requested))
+						for _, capability := range requested {
+							name, ok := capability.(string)
+							if ok {
+								if _, remove := drop[name]; remove {
+									continue
+								}
+							}
+							kept = append(kept, capability)
+						}
+						if len(kept) == 0 {
+							delete(capabilities, "add")
+						} else {
+							capabilities["add"] = kept
+						}
+						if len(capabilities) == 0 {
+							delete(securityContext, "capabilities")
+						}
+					}
+				}
+			}
+		}
+		if policy.serviceAccount != "" && containerRequestsCapability(container, "IPC_LOCK") {
+			needsSimulationRealtimeServiceAccount = true
+		}
+		if policy.serviceAccount != "" {
+			if err := setSimulationRealtimeResourceBounds(container); err != nil {
+				return false, err
+			}
+		}
+		if policy.setROSHomeToTmp {
+			if err := setContainerEnv(container, "HOME", "/tmp"); err != nil {
+				return false, err
+			}
+			if err := setContainerEnv(container, "ROS_HOME", "/tmp/.ros"); err != nil {
+				return false, err
+			}
+		}
+	}
+	return needsSimulationRealtimeServiceAccount, nil
+}
+
+func containerRequestsCapability(container map[string]interface{}, capability string) bool {
+	securityContext, _ := container["securityContext"].(map[string]interface{})
+	capabilities, _ := securityContext["capabilities"].(map[string]interface{})
+	add, _ := capabilities["add"].([]interface{})
+	for _, requested := range add {
+		if requested == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func setSimulationRealtimeResourceBounds(container map[string]interface{}) error {
+	resources, found, err := unstructured.NestedMap(container, "resources")
+	if err != nil {
+		return fmt.Errorf("container resource requirements are malformed: %w", err)
+	}
+	if !found {
+		resources = map[string]interface{}{}
+	}
+	for field, values := range map[string]map[string]interface{}{
+		"requests": {"cpu": "1", "memory": "1Gi"},
+		"limits":   {"cpu": "4", "memory": "4Gi"},
+	} {
+		current, _ := resources[field].(map[string]interface{})
+		if current == nil {
+			current = map[string]interface{}{}
+		}
+		for name, value := range values {
+			current[name] = value
+		}
+		resources[field] = current
+	}
+	return unstructured.SetNestedMap(container, resources, "resources")
+}
+
+func imageRepositoryName(image string) string {
+	if index := strings.IndexByte(image, '@'); index >= 0 {
+		image = image[:index]
+	}
+	if index := strings.LastIndexByte(image, '/'); index >= 0 {
+		image = image[index+1:]
+	}
+	if index := strings.LastIndexByte(image, ':'); index >= 0 {
+		image = image[:index]
+	}
+	return image
+}
+
+func adaptKnownHostPath(resource *unstructured.Unstructured, volume map[string]interface{}, needsDataStorePVC, needsIntrinsicIconPVC, needsGazeboMeshesPVC *bool) error {
+	name, _ := volume["name"].(string)
+	hostPath, ok := volume["hostPath"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("hostPath volume %q is malformed", name)
+	}
+	path, _ := hostPath["path"].(string)
+	claimName := ""
+	switch {
+	case resource.GetKind() == "Deployment" && resource.GetName() == "data-store" && name == "intrinsic-db-dir":
+		claimName = dataStorePVC
+		*needsDataStorePVC = true
+	case resource.GetKind() == "StatefulSet" &&
+		(resource.GetName() == "rs-ur-module" || resource.GetName() == "rs-icon" || resource.GetName() == "rs-gazebo-simulator") &&
+		volume["name"] == "intrinsic-icon" && path == "/tmp/intrinsic_icon":
+		claimName = intrinsicIconPVC
+		*needsIntrinsicIconPVC = true
+	case resource.GetKind() == "StatefulSet" && resource.GetName() == "rs-gazebo-simulator" &&
+		name == "gzserver-meshes-volume" && path == "/tmp/service_volumes/intrinsic/gzserver-meshes":
+		claimName = gazeboMeshesPVC
+		*needsGazeboMeshesPVC = true
+	default:
+		return fmt.Errorf("hostPath volume %q at %q is not supported", name, path)
+	}
+	delete(volume, "hostPath")
+	volume["persistentVolumeClaim"] = map[string]interface{}{"claimName": claimName}
+	return nil
+}
+
+// ensureProjectZenohRouter overrides the SDK's compiled app-intrinsic-base
+// default. Namespace string rewriting only sees manifest values; it cannot
+// alter a default compiled into the World or Simulation binary.
+func ensureProjectZenohRouter(container map[string]interface{}, namespace string) error {
+	endpoint := "tcp/zenoh-router." + namespace + ".svc.cluster.local:7447"
+	args, found, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil {
+		return fmt.Errorf("read container args: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("container has no args")
+	}
+
+	configured := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		var value string
+		switch {
+		case arg == "--zenoh_router":
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+				return fmt.Errorf("--zenoh_router has no endpoint")
+			}
+			i++
+			value = args[i]
+		case strings.HasPrefix(arg, "--zenoh_router="):
+			value = strings.TrimPrefix(arg, "--zenoh_router=")
+		default:
+			continue
+		}
+		if value != endpoint {
+			return fmt.Errorf("container configures Zenoh endpoint %q; expected project endpoint", value)
+		}
+		if configured {
+			return fmt.Errorf("container has multiple --zenoh_router flags")
+		}
+		configured = true
+	}
+	if configured {
+		return nil
+	}
+	args = append(args, "--zenoh_router="+endpoint)
+	return unstructured.SetNestedStringSlice(container, args, "args")
 }
 
 func adaptDeploymentForOpenShift(resource *unstructured.Unstructured, podSpec map[string]interface{}, namespace string) error {
@@ -594,7 +1294,7 @@ func adaptDeploymentForOpenShift(resource *unstructured.Unstructured, podSpec ma
 		watchConfigMaps = true
 	case "workcell-cluster-service":
 		containerName = "workcell-cluster-service"
-		image = quayWorkcellServiceImage
+		image = workcellServiceImage
 	case "code-execution":
 		containerName = "jupyter-server"
 		configureJupyter = true
@@ -975,11 +1675,10 @@ func validateLocalDestinations(value interface{}, namespace string) error {
 	return nil
 }
 
-// adaptNetworkPolicy retargets the upstream ingress-gateway peer to the
-// configured OpenShift Service Mesh gateway namespace. The gateway pod label
-// is retained so the rule stays scoped to the ingress workload. An empty
-// from/to list is never retained because Kubernetes interprets it as allowing
-// every peer.
+// adaptNetworkPolicy retargets upstream ingress and DNS peers to their
+// OpenShift equivalents. It retains the verified Gateway and DNS pod selectors
+// so the rules stay narrow. An empty from/to list is never retained because
+// Kubernetes interprets it as allowing every peer.
 func adaptNetworkPolicy(resource *unstructured.Unstructured, routing openshiftRoutingConfig) error {
 	for _, direction := range []struct{ rules, peers string }{{"ingress", "from"}, {"egress", "to"}} {
 		rules, found, err := unstructured.NestedSlice(resource.Object, "spec", direction.rules)
@@ -1041,6 +1740,25 @@ func adaptNetworkPolicy(resource *unstructured.Unstructured, routing openshiftRo
 							return fmt.Errorf("cannot safely collapse namespace-only selector for %q", namespaceName)
 						}
 						delete(peer, "namespaceSelector")
+					case "kube-system":
+						if direction.rules == "egress" {
+							labels, _, err := unstructured.NestedStringMap(peer, "podSelector", "matchLabels")
+							if err != nil {
+								return fmt.Errorf("upstream DNS pod selector is malformed: %w", err)
+							}
+							if labels[upstreamDNSPodLabel] == upstreamDNSPodValue {
+								if err := unstructured.SetNestedMap(peer, map[string]interface{}{"matchLabels": map[string]interface{}{
+									"kubernetes.io/metadata.name": openshiftDNSNamespace,
+								}}, "namespaceSelector"); err != nil {
+									return fmt.Errorf("retarget DNS namespace selector: %w", err)
+								}
+								if err := unstructured.SetNestedMap(peer, map[string]interface{}{"matchLabels": map[string]interface{}{
+									openshiftDNSPodLabel: openshiftDNSPodValue,
+								}}, "podSelector"); err != nil {
+									return fmt.Errorf("retarget DNS pod selector: %w", err)
+								}
+							}
+						}
 					}
 				}
 				adaptedPeers = append(adaptedPeers, peer)
@@ -1051,13 +1769,235 @@ func adaptNetworkPolicy(resource *unstructured.Unstructured, routing openshiftRo
 			if err := unstructured.SetNestedSlice(rule, adaptedPeers, direction.peers); err != nil {
 				return err
 			}
+			if direction.rules == "egress" {
+				if hasDedicatedGatewayPeer(adaptedPeers, routing) {
+					if err := retargetGatewayEgressPort(rule, 8080, 443); err != nil {
+						return fmt.Errorf("retarget dedicated Gateway egress port: %w", err)
+					}
+				}
+				if err := ensureOpenShiftDNSFallback(rule); err != nil {
+					return err
+				}
+			}
 			adaptedRules = append(adaptedRules, rule)
 		}
 		if err := unstructured.SetNestedSlice(resource.Object, adaptedRules, "spec", direction.rules); err != nil {
 			return err
 		}
 	}
+	return ensureServiceMeshControlPlaneEgress(resource)
+}
+
+func hasDedicatedGatewayPeer(peers []interface{}, routing openshiftRoutingConfig) bool {
+	for _, peerItem := range peers {
+		peer, ok := peerItem.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		namespaceName, _, err := unstructured.NestedString(peer, "namespaceSelector", "matchLabels", "kubernetes.io/metadata.name")
+		if err != nil || namespaceName != routing.serviceNamespace {
+			continue
+		}
+		labels, _, err := unstructured.NestedStringMap(peer, "podSelector", "matchLabels")
+		if err != nil {
+			continue
+		}
+		matches := true
+		for key, expected := range routing.serviceSelector {
+			if labels[key] != fmt.Sprint(expected) {
+				matches = false
+				break
+			}
+		}
+		if matches && len(routing.serviceSelector) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// retargetGatewayEgressPort keeps workload egress limited to the dedicated
+// Gateway pods while matching their actual TLS listener port. Core continues
+// dialing Service port 80; the Service forwards that traffic to pod port 443.
+func retargetGatewayEgressPort(rule map[string]interface{}, oldPort, newPort int64) error {
+	ports, found, err := unstructured.NestedSlice(rule, "ports")
+	if err != nil || !found {
+		return err
+	}
+	changed := false
+	for _, item := range ports {
+		portRule, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("egress port entry is malformed")
+		}
+		port, found, err := unstructured.NestedInt64(portRule, "port")
+		if err != nil {
+			return err
+		}
+		if found && port == oldPort {
+			if err := unstructured.SetNestedField(portRule, newPort, "port"); err != nil {
+				return err
+			}
+			changed = true
+		}
+	}
+	if changed {
+		return unstructured.SetNestedSlice(rule, ports, "ports")
+	}
 	return nil
+}
+
+func ensureOpenShiftDNSFallback(rule map[string]interface{}) error {
+	peers, found, err := unstructured.NestedSlice(rule, "to")
+	if err != nil || !found {
+		return err
+	}
+	for _, item := range peers {
+		peer, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("NetworkPolicy egress peer is malformed")
+		}
+		namespaceName, _, err := unstructured.NestedString(peer, "namespaceSelector", "matchLabels", "kubernetes.io/metadata.name")
+		if err != nil {
+			return fmt.Errorf("OpenShift DNS namespace selector is malformed: %w", err)
+		}
+		labels, _, err := unstructured.NestedStringMap(peer, "podSelector", "matchLabels")
+		if err != nil {
+			return fmt.Errorf("OpenShift DNS pod selector is malformed: %w", err)
+		}
+		if namespaceName != openshiftDNSNamespace || labels[openshiftDNSPodLabel] != openshiftDNSPodValue {
+			continue
+		}
+		if len(peers) != 1 {
+			return fmt.Errorf("OpenShift DNS peer must have a dedicated egress rule")
+		}
+		// The DNS Service exposes port 53 but routes to named resolver Pod ports.
+		// NetworkPolicy rules select those destination Pods, so use their named
+		// ports to allow DNS without opening unrelated ports.
+		ports := []interface{}{
+			map[string]interface{}{"protocol": "UDP", "port": openshiftDNSUDPPortName},
+			map[string]interface{}{"protocol": "TCP", "port": openshiftDNSTCPPortName},
+		}
+		if err := unstructured.SetNestedSlice(rule, ports, "ports"); err != nil {
+			return fmt.Errorf("set named OpenShift DNS endpoint ports: %w", err)
+		}
+		return nil
+	}
+	return nil
+}
+
+// ensureServiceMeshControlPlaneEgress allows restricted workloads to complete
+// the Istio xDS connection required by an injected sidecar. The rule is
+// limited to the verified dev01 control-plane pods and TLS xDS port; it does
+// not allow general egress from the project.
+func ensureServiceMeshControlPlaneEgress(resource *unstructured.Unstructured) error {
+	policyTypes, hasPolicyTypes, err := unstructured.NestedStringSlice(resource.Object, "spec", "policyTypes")
+	if err != nil {
+		return fmt.Errorf("NetworkPolicy types are malformed: %w", err)
+	}
+	egressRules, hasEgress, err := unstructured.NestedSlice(resource.Object, "spec", "egress")
+	if err != nil {
+		return fmt.Errorf("NetworkPolicy egress rules are malformed: %w", err)
+	}
+	egressEnabled := hasEgress
+	if hasPolicyTypes {
+		for _, policyType := range policyTypes {
+			if policyType == "Egress" {
+				egressEnabled = true
+				break
+			}
+		}
+	}
+	if !egressEnabled {
+		return nil
+	}
+	for _, item := range egressRules {
+		rule, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("NetworkPolicy egress rule is malformed")
+		}
+		matches, err := matchesServiceMeshControlPlaneEgress(rule)
+		if err != nil {
+			return err
+		}
+		if matches {
+			return nil // keep reconciliation idempotent.
+		}
+	}
+	peer := map[string]interface{}{
+		"namespaceSelector": map[string]interface{}{"matchLabels": map[string]interface{}{
+			"kubernetes.io/metadata.name": serviceMeshControlPlaneNamespace,
+		}},
+		"podSelector": map[string]interface{}{"matchLabels": map[string]interface{}{
+			"app":          "istiod",
+			"istio.io/rev": serviceMeshControlPlaneRevision,
+		}},
+	}
+	egressRules = append(egressRules, map[string]interface{}{
+		"to": []interface{}{peer},
+		"ports": []interface{}{map[string]interface{}{
+			"protocol": "TCP",
+			"port":     serviceMeshControlPlanePort,
+		}},
+	})
+	if err := unstructured.SetNestedSlice(resource.Object, egressRules, "spec", "egress"); err != nil {
+		return fmt.Errorf("add Service Mesh control-plane egress: %w", err)
+	}
+	return nil
+}
+
+func matchesServiceMeshControlPlaneEgress(rule map[string]interface{}) (bool, error) {
+	peers, hasPeers, err := unstructured.NestedSlice(rule, "to")
+	if err != nil {
+		return false, fmt.Errorf("NetworkPolicy egress peers are malformed: %w", err)
+	}
+	ports, hasPorts, err := unstructured.NestedSlice(rule, "ports")
+	if err != nil {
+		return false, fmt.Errorf("NetworkPolicy egress ports are malformed: %w", err)
+	}
+	if !hasPeers || !hasPorts {
+		return false, nil
+	}
+	peerMatches := false
+	for _, item := range peers {
+		peer, ok := item.(map[string]interface{})
+		if !ok {
+			return false, fmt.Errorf("NetworkPolicy egress peer is malformed")
+		}
+		namespaceName, _, err := unstructured.NestedString(peer, "namespaceSelector", "matchLabels", "kubernetes.io/metadata.name")
+		if err != nil {
+			return false, fmt.Errorf("Service Mesh namespace selector is malformed: %w", err)
+		}
+		labels, _, err := unstructured.NestedStringMap(peer, "podSelector", "matchLabels")
+		if err != nil {
+			return false, fmt.Errorf("Service Mesh pod selector is malformed: %w", err)
+		}
+		if namespaceName == serviceMeshControlPlaneNamespace && labels["app"] == "istiod" && labels["istio.io/rev"] == serviceMeshControlPlaneRevision {
+			peerMatches = true
+			break
+		}
+	}
+	if !peerMatches {
+		return false, nil
+	}
+	for _, item := range ports {
+		port, ok := item.(map[string]interface{})
+		if !ok {
+			return false, fmt.Errorf("NetworkPolicy egress port is malformed")
+		}
+		protocol, _, err := unstructured.NestedString(port, "protocol")
+		if err != nil {
+			return false, fmt.Errorf("NetworkPolicy egress protocol is malformed: %w", err)
+		}
+		portNumber, found, err := unstructured.NestedInt64(port, "port")
+		if err != nil {
+			return false, fmt.Errorf("NetworkPolicy egress port number is malformed: %w", err)
+		}
+		if protocol == "TCP" && found && portNumber == serviceMeshControlPlanePort {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func rejectOpenShiftIncompatibleReferences(resource *unstructured.Unstructured) error {
@@ -1119,11 +2059,18 @@ func rewriteStrings(value interface{}, namespace string) {
 	}
 }
 
-func adaptSecurityContexts(value interface{}) error {
+func adaptSecurityContexts(resource *unstructured.Unstructured) error {
+	serviceAccount, _, _ := unstructured.NestedString(resource.Object, "spec", "template", "spec", "serviceAccountName")
+	return adaptSecurityContextsInResource(resource.Object, resource.GetKind(), resource.GetName(), serviceAccount)
+}
+
+func adaptSecurityContextsInResource(value interface{}, resourceKind, resourceName, serviceAccount string) error {
 	switch item := value.(type) {
 	case map[string]interface{}:
 		if context, ok := item["securityContext"].(map[string]interface{}); ok {
-			_, isContainer := item["image"]
+			image, isContainer := item["image"].(string)
+			containerName, _ := item["name"].(string)
+			allowSimulationRoot := false
 			if isContainer {
 				if privileged, _ := context["privileged"].(bool); privileged {
 					return fmt.Errorf("privileged containers are not supported")
@@ -1131,14 +2078,41 @@ func adaptSecurityContexts(value interface{}) error {
 				if allow, ok := context["allowPrivilegeEscalation"].(bool); ok && allow {
 					return fmt.Errorf("allowPrivilegeEscalation must be false")
 				}
+				policy, knownSimulationContainer := simulationSecurityPolicyFor(resourceName, containerName, image)
+				allowSimulationRoot = resourceKind == "StatefulSet" && knownSimulationContainer &&
+					policy.runAsRoot && policy.serviceAccount == intrinsicSimRealtimeServiceAccount &&
+					serviceAccount == intrinsicSimRealtimeServiceAccount
 				if caps, ok := context["capabilities"].(map[string]interface{}); ok {
 					if add, ok := caps["add"].([]interface{}); ok && len(add) != 0 {
-						return fmt.Errorf("adding Linux capabilities is not supported")
+						for _, capability := range add {
+							allowed := false
+							if resourceKind == "StatefulSet" && knownSimulationContainer &&
+								policy.serviceAccount == intrinsicSimRealtimeServiceAccount &&
+								serviceAccount == intrinsicSimRealtimeServiceAccount {
+								for _, allowedCapability := range policy.addCapabilities {
+									if capability == allowedCapability {
+										allowed = true
+										break
+									}
+								}
+							}
+							if allowed {
+								continue
+							}
+							return fmt.Errorf("adding Linux capabilities %v is not supported for %s/%s container %q", add, resourceKind, resourceName, containerName)
+						}
 					}
 				}
 				context["allowPrivilegeEscalation"] = false
 			}
-			delete(context, "runAsUser")
+			if allowSimulationRoot {
+				uid, ok := context["runAsUser"].(int64)
+				if !ok || uid != 0 {
+					return fmt.Errorf("%s/%s container %q must explicitly run as UID 0 under its dedicated ServiceAccount", resourceKind, resourceName, containerName)
+				}
+			} else {
+				delete(context, "runAsUser")
+			}
 			delete(context, "runAsGroup")
 			if len(context) == 0 {
 				delete(item, "securityContext")
@@ -1148,13 +2122,13 @@ func adaptSecurityContexts(value interface{}) error {
 			if key == "securityContext" {
 				continue
 			}
-			if err := adaptSecurityContexts(nested); err != nil {
+			if err := adaptSecurityContextsInResource(nested, resourceKind, resourceName, serviceAccount); err != nil {
 				return err
 			}
 		}
 	case []interface{}:
 		for _, nested := range item {
-			if err := adaptSecurityContexts(nested); err != nil {
+			if err := adaptSecurityContextsInResource(nested, resourceKind, resourceName, serviceAccount); err != nil {
 				return err
 			}
 		}

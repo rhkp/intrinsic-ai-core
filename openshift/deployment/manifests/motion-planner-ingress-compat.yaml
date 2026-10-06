@@ -1,0 +1,36 @@
+# The pinned upstream motion-planner image still dials the K3s service name
+# `istio-ingressgateway.app-ingress.svc.cluster.local:80` for InstalledAssetsReader.
+# `app-ingress` is absent on dev01. Keep this compatibility alias private to
+# this project and direct it to our dedicated in-project gRPC gateway with
+# Istio mutual TLS; it does not create or modify a shared gateway or Route.
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: motion-planner-upstream-ingress-compat
+spec:
+  exportTo:
+    - "."
+  hosts:
+    - istio-ingressgateway.app-ingress.svc.cluster.local
+  location: MESH_INTERNAL
+  ports:
+    - number: 80
+      name: grpc
+      protocol: GRPC
+  resolution: DNS
+  endpoints:
+    - address: intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local
+      ports:
+        grpc: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: motion-planner-upstream-ingress-compat
+spec:
+  exportTo:
+    - "."
+  host: istio-ingressgateway.app-ingress.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL

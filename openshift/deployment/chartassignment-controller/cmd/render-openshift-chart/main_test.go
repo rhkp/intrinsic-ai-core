@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const smokeNamespace = "arhkp-intrinsic"
+
 func TestRunRendersInlineChartThroughOpenShiftPolicy(t *testing.T) {
 	archive := inlineTestChart(t)
 	input := "apiVersion: apps.cloudrobotics.com/v1alpha1\n" +
@@ -82,7 +84,7 @@ func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
               memory: 128Mi
     service:
       port: 8080
-      host_name: smoke-resource
+      host_name: rs-smoke-resource
       host_port: 8080
       proto_prefixes:
         - /intrinsic_proto.demo.v1.DemoService/
@@ -91,6 +93,10 @@ func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
 	output := runTemplateChart(t, "resource-smoke", "resources.yaml", values)
 	objects := parseRenderedObjects(t, output)
 	statefulSet := findRenderedObject(t, objects, "StatefulSet", "rs-smoke-resource")
+	annotations, found, err := unstructured.NestedStringMap(statefulSet, "spec", "template", "metadata", "annotations")
+	if err != nil || !found || annotations["sidecar.istio.io/inject"] != "true" {
+		t.Fatalf("Gateway-routed resource sidecar annotation = %v, found=%t, err=%v", annotations, found, err)
+	}
 	podSpec, _, _ := unstructured.NestedMap(statefulSet, "spec", "template", "spec")
 	if podSpec["serviceAccountName"] != "intrinsic-runtime" || podSpec["automountServiceAccountToken"] != false {
 		t.Fatalf("resource identity was not adapted: %#v", podSpec)
@@ -106,7 +112,7 @@ func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
 	virtualService := findRenderedObject(t, objects, "VirtualService", "rs-smoke-resource")
 	gateways, _, _ := unstructured.NestedStringSlice(virtualService, "spec", "gateways")
 	exported, _, _ := unstructured.NestedStringSlice(virtualService, "spec", "exportTo")
-	if len(gateways) != 1 || gateways[0] != "arhkp-intrinsic/intrinsic-grpc-internal" || len(exported) != 1 || exported[0] != "." {
+	if len(gateways) != 1 || gateways[0] != smokeNamespace+"/intrinsic-grpc-internal" || len(exported) != 1 || exported[0] != "." {
 		t.Fatalf("resource VirtualService scope = gateways %v, exportTo %v", gateways, exported)
 	}
 	if strings.Contains(output, "app-ingress") || strings.Contains(output, "app-intrinsic-base") {
@@ -131,6 +137,10 @@ skills: []
 	output := runTemplateChart(t, "skill-smoke", "skills.yaml", values)
 	objects := parseRenderedObjects(t, output)
 	deployment := findRenderedObject(t, objects, "Deployment", "smoke-skill-group")
+	annotations, found, err := unstructured.NestedStringMap(deployment, "spec", "template", "metadata", "annotations")
+	if err != nil || !found || annotations["sidecar.istio.io/inject"] != "true" {
+		t.Fatalf("Gateway-routed skill sidecar annotation = %v, found=%t, err=%v", annotations, found, err)
+	}
 	podSpec, _, _ := unstructured.NestedMap(deployment, "spec", "template", "spec")
 	if podSpec["serviceAccountName"] != "intrinsic-runtime" || podSpec["automountServiceAccountToken"] != false {
 		t.Fatalf("skill identity was not adapted: %#v", podSpec)
@@ -153,12 +163,23 @@ skills: []
 	if !found || podSelector["app.kubernetes.io/name"] != "intrinsic-grpc-gateway" || podSelector["istio"] != "intrinsic-grpc-gateway" {
 		t.Fatalf("skill ingress egress peer is not a valid, restricted LabelSelector: %#v", peers[0])
 	}
+	if !strings.Contains(output, "kubernetes.io/metadata.name: istio-system") ||
+		!strings.Contains(output, "istio.io/rev: data-science-smcp") || !strings.Contains(output, "port: 15012") {
+		t.Fatal("skill egress policy does not allow the verified Service Mesh xDS control plane")
+	}
+	if !strings.Contains(output, "kubernetes.io/metadata.name: openshift-dns") ||
+		!strings.Contains(output, "dns.operator.openshift.io/daemonset-dns: default") {
+		t.Fatal("skill DNS egress policy still targets the upstream kube-dns pods")
+	}
+	if !strings.Contains(output, "port: dns") || !strings.Contains(output, "port: dns-tcp") {
+		t.Fatal("skill DNS egress policy does not allow both named OpenShift DNS endpoint ports")
+	}
 }
 
 func setSmokeRouting(t *testing.T) {
 	t.Helper()
-	t.Setenv("INTRINSIC_INGRESS_ADDRESS", "intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local:80")
-	t.Setenv("INTRINSIC_INGRESS_GATEWAY", "arhkp-intrinsic/intrinsic-grpc-internal")
+	t.Setenv("INTRINSIC_INGRESS_ADDRESS", "intrinsic-grpc-gateway."+smokeNamespace+".svc.cluster.local:80")
+	t.Setenv("INTRINSIC_INGRESS_GATEWAY", smokeNamespace+"/intrinsic-grpc-internal")
 	t.Setenv("INTRINSIC_INGRESS_POD_SELECTOR", `{"app.kubernetes.io/name":"intrinsic-grpc-gateway","istio":"intrinsic-grpc-gateway"}`)
 }
 

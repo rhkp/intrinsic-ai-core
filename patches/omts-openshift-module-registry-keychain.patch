@@ -1,0 +1,41 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -23,7 +23,17 @@
+     module_name = "intrinsic-core",
+     commit = INTRINSIC_CORE_COMMIT,
+     patch_strip = 1,
+-    patches = ["//bazel/patches:robotiq_hande_finger_offset.patch"],
++    patches = [
++        "//bazel/patches:robotiq_hande_finger_offset.patch",
++        "//bazel/patches:openshift_registry_keychain.patch",
++        "//bazel/patches:openshift_triton_digest_pin.patch",
++    ],
+     remote = INTRINSIC_CORE_REMOTE,
+ )
++
++single_version_override(
++    module_name = "com_github_mvukov_rules_ros2",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_rules_ros2.patch"],
++)
+ 
+diff --git a/bazel/patches/BUILD b/bazel/patches/BUILD
+--- a/bazel/patches/BUILD
++++ b/bazel/patches/BUILD
+@@ -1,5 +1,15 @@
+ exports_files([
+     "gloop.patch",
+     "robotiq_hande_finger_offset.patch",
++    "openshift_registry_keychain.patch",
++    "openshift_triton_digest_pin.patch",
++    "openshift_rules_ros2.patch",
++    "openshift_tinygltf_bazel_headers.patch",
++    "openshift_glib_gmodule_header.patch",
++    "openshift_grpc_proto_path_order.patch",
++    "openshift_dumb_init_version_header.patch",
++    "openshift_gz_common_cdt_headers.patch",
++    "openshift_aravis_api_header.patch",
++    "openshift_libzmq_install_libdir.patch",
+     "zenohc.patch",
+ ])

@@ -1,0 +1,12 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -708,7 +708,7 @@
+ # Heavy multi-backend Triton image.
+ oci.pull(
+     name = "tritonserver-onprem",
++    digest = "sha256:f76300c73eba7dd4c67183210c10b3fef67fb9aa2c18f150cb916387078442f0",
+     image = "nvcr.io/nvidia/tritonserver",
+     platforms = ["linux/amd64"],
+-    tag = "26.07-py3",
+ )

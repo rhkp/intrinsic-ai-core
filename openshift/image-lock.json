@@ -138,11 +138,16 @@
       "upstream_tarball": "intrinsic/resources/service/resource-registry-image.tar",
       "release_list_digest": "sha256:2670ea0faf26164f11f9a9101b1a8fb00125d1d4e22ebb528c1bd094443c696b",
       "quay_repository": "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b",
-      "quay_tag": "openshift-ns-configmaps-20261005",
-      "quay_digest": "sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512",
+      "quay_tag": "openshift-grpc-ingress-20261005-76b8bc2a8ea8",
+      "quay_digest": "sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6",
       "chart_image_key": "resource_registry",
       "built_from_upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
-      "adaptation_patch": "deployment/patches/resource-registry-namespace-configmaps.patch"
+      "adaptation_patch": "deployment/patches/resource-registry-openshift-ingress.patch",
+      "adaptation_patch_sha256": "76b8bc2a8ea8ab024ee702be817fbebfc98b2480a37cc17276ed3ea4e777af63",
+      "additional_adaptation_patch": "deployment/patches/resource-registry-namespace-configmaps.patch",
+      "build_target": "//intrinsic/resources/service:resource-registry-image.tar",
+      "build_host_architecture": "linux/amd64",
+      "build_tarball_sha256": "1f0685819c35b6a508db1c33c3ec23befc66a769b86c1afba606a45a40291a37"
     },
     {
       "upstream_release": "20260922.0",

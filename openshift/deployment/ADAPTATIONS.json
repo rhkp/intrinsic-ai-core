@@ -125,7 +125,7 @@
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "967b666d5031f9327e5963e6eb5b38ef33e5cfd7ff9ea3004530891cf4d6ed40"
+          "sha256": "786bae6cec0bb7b316cf4df7afafd73bffd0263117ca5cbb2dfdc439e3601c36"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -178,23 +178,23 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "b3aea76a62b9352764e90fd6927c23b488ca0046e7da64c98f805b1ebfb1c729"
+          "sha256": "d731b2b8cc0da3aabe2610fac25ad2465f4b0e4e66db62ce06c71b11848148de"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "231b933c48560efb33932fc95c749375f45c2d769b448516f6ccf58d9a8c2ea1"
+          "sha256": "0911cc5c6003adbd22bd0d5a82df1dbf531b4b17c2af642923d5c00dc721c37d"
         },
         {
           "path": "openshift/configure_routing.py",
-          "sha256": "776d27469145403a0143f69dcea9a96bd5de23b32bac79764a9733064cb3a2c7"
+          "sha256": "3e94b077d4716f7200dcb3df408d6297043f23be998b8f3264ba37fdba6d786e"
         },
         {
           "path": "openshift/test_configure_routing.py",
-          "sha256": "431b8e0a5bb69408cee3fee1de3d3ccb89f98203fa54d8270d107815bebfd25e"
+          "sha256": "17805a2a979bdd2b8baeb19d0eea266092197823c692cdb7ac137bc2b5db2895"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "a620f47cbffb5a2f0a1c77c8c99a6ac2c18c6564455d1780bc0437afd24fa44d"
+          "sha256": "c84901922b6c953d5e517e2c623ab8a7ef55a443290554ea76b3244a720fa8c5"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-rbac.yaml",
@@ -206,7 +206,7 @@
         },
         {
           "path": "openshift/.env.sample",
-          "sha256": "aa3c6db6970b465c59cc5c1972288351e19f032f48bcaebbb5b16694b62215ce"
+          "sha256": "e97a8bcdc3f24014e3cd22e02639c6250ebc46617119209d919aa94c242ba5cf"
         },
         {
           "path": "openshift/deployment/manifests/servicemesh-member.yaml",
@@ -214,7 +214,7 @@
         },
         {
           "path": "openshift/deployment/manifests/intrinsic-dedicated-grpc-gateway.yaml",
-          "sha256": "ff36d9e72b7c48ee2dcc14b36dec4c18ac356acb80637381a84c246883d5c6e1"
+          "sha256": "736180ac91362312625a718cd3208ed5e52892d04ae1ec15b7471a5a06035208"
         }
       ],
       "validation": {
@@ -268,6 +268,28 @@
         "dependent_scene_object_import": "passed; scene-object-import 1/1 and current logs confirm its gRPC connection to asset-deployment",
         "dev01_deployment_snapshot": "22/22 Deployments Ready; registry, Workcell, world-updater, scene-object-import, and code-execution are Ready; Jupyter binds only to pod loopback and all three workers initialized",
         "informer_rbac_denials": "zero current Forbidden log lines from resource-registry and workcell-cluster-service"
+      }
+    },
+    {
+      "id": "resource-registry-project-gateway-address",
+      "status": "built and published by immutable digest; dev01 rollout and live verification complete",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "patch_path": "openshift/deployment/patches/resource-registry-openshift-ingress.patch",
+      "patch_sha256": "76b8bc2a8ea8ab024ee702be817fbebfc98b2480a37cc17276ed3ea4e777af63",
+      "upstream_image_digest": "sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512",
+      "quay_repository": "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b",
+      "quay_tag": "openshift-grpc-ingress-20261005-76b8bc2a8ea8",
+      "quay_digest": "sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6",
+      "build_target": "//intrinsic/resources/service:resource-registry-image.tar",
+      "build_host_architecture": "linux/amd64",
+      "build_tarball_sha256": "1f0685819c35b6a508db1c33c3ec23befc66a769b86c1afba606a45a40291a37",
+      "validation": {
+        "focused_resource_reader_test": "passed on AWS x86-64 build VM",
+        "linux_amd64_image_build": "passed on isolated pinned-source worktree",
+        "quay_publish": "passed; image pushed under unique tag and pinned by immutable digest",
+        "dev01_rollout": "in progress",
+        "resource_handle_address_verification": "pending",
+        "world_robot_subscription": "pending"
       }
     },
     {
@@ -356,15 +378,15 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "b3aea76a62b9352764e90fd6927c23b488ca0046e7da64c98f805b1ebfb1c729"
+          "sha256": "d731b2b8cc0da3aabe2610fac25ad2465f4b0e4e66db62ce06c71b11848148de"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "231b933c48560efb33932fc95c749375f45c2d769b448516f6ccf58d9a8c2ea1"
+          "sha256": "0911cc5c6003adbd22bd0d5a82df1dbf531b4b17c2af642923d5c00dc721c37d"
         },
         {
           "path": "openshift/image-lock.json",
-          "sha256": "967b666d5031f9327e5963e6eb5b38ef33e5cfd7ff9ea3004530891cf4d6ed40"
+          "sha256": "786bae6cec0bb7b316cf4df7afafd73bffd0263117ca5cbb2dfdc439e3601c36"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -372,7 +394,7 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "a620f47cbffb5a2f0a1c77c8c99a6ac2c18c6564455d1780bc0437afd24fa44d"
+          "sha256": "c84901922b6c953d5e517e2c623ab8a7ef55a443290554ea76b3244a720fa8c5"
         }
       ],
       "validation": {

@@ -50,9 +50,12 @@ def safe_client_failure(access, name: str) -> str:
     pod = get_json(access, "get", "pod", name, "-n", PROJECT, missing_ok=True) or {}
     status = pod.get("status", {})
     containers = status.get("containerStatuses", [])
-    terminated = containers[0].get("state", {}).get("terminated", {}) if containers else {}
-    logs = access.oc("logs", name, "-n", PROJECT, check=False).stdout.casefold()
+    client = next((item for item in containers if item.get("name") == "fortio"), {})
+    terminated = client.get("state", {}).get("terminated", {})
+    logs = access.oc("logs", name, "-c", "fortio", "-n", PROJECT, check=False).stdout.casefold()
     classifications = (
+        ("tls_protocol_error", ("wrong version number", "tls_error", "tls handshake")),
+        ("connection_refused", ("connection refused",)),
         ("virtualservice_no_route_404", ("status code 404", "http status 404", "not found")),
         ("gateway_backend_unavailable_503", ("status code 503", "http status 503", "no healthy upstream")),
         ("http2_protocol_or_listener_error", ("frame too large", "error reading server preface", "server preface", "first record does not look like a tls handshake")),
@@ -152,14 +155,14 @@ spec:
 """
 
 
-def client_manifest(name: str, target: str, instance: str) -> str:
+def client_manifest(name: str, target: str, instance: str, mesh_client: bool) -> str:
     return f"""apiVersion: v1
 kind: Pod
 metadata:
   name: {name}
   namespace: {PROJECT}
   annotations:
-    sidecar.istio.io/inject: "false"
+    sidecar.istio.io/inject: "{str(mesh_client).lower()}"
 spec:
   automountServiceAccountToken: false
   restartPolicy: Never
@@ -189,30 +192,62 @@ spec:
 """
 
 
-def run_client(access, name: str, target: str, instance: str) -> None:
+def run_client(access, name: str, target: str, instance: str, mesh_client: bool) -> None:
     access.oc(
         "apply",
         "-f",
         "-",
-        input_data=client_manifest(name, target, instance),
+        input_data=client_manifest(name, target, instance, mesh_client),
     )
-    pod = wait_for_pod(access, name, {"Succeeded", "Failed", "Unknown"})
-    if pod.get("status", {}).get("phase") != "Succeeded":
-        raise PilotError(
-            "The gateway gRPC check failed ("
-            + safe_client_failure(access, name)
-            + ")."
+    if not mesh_client:
+        pod = wait_for_pod(access, name, {"Succeeded", "Failed", "Unknown"})
+        if pod.get("status", {}).get("phase") != "Succeeded":
+            raise PilotError(
+                "The loopback-tunnel Gateway gRPC check failed ("
+                + safe_client_failure(access, name)
+                + ")."
+            )
+        logs = access.oc("logs", name, "-c", "fortio", "-n", PROJECT, check=False)
+        if logs.returncode or logs.stdout.count("Ping RTT") != 5:
+            raise PilotError("The loopback-tunnel Gateway check did not report five successful gRPC pings.")
+        return
+
+    wait_for_pod(access, name, {"Failed", "Unknown"})
+    deadline = time.monotonic() + TIMEOUT_SECONDS
+    while time.monotonic() < deadline:
+        pod = get_json(access, "get", "pod", name, "-n", PROJECT, missing_ok=True) or {}
+        phase = pod.get("status", {}).get("phase", "Unknown")
+        logs = access.oc("logs", name, "-c", "fortio", "-n", PROJECT, check=False)
+        if not logs.returncode and logs.stdout.count("Ping RTT") == 5:
+            return
+        client = next(
+            (
+                item
+                for item in pod.get("status", {}).get("containerStatuses", [])
+                if item.get("name") == "fortio"
+            ),
+            {},
         )
-    logs = access.oc("logs", name, "-n", PROJECT, check=False)
-    if logs.returncode or logs.stdout.count("Ping RTT") != 5:
-        raise PilotError("The gateway gRPC check did not report five successful ping responses.")
+        terminated = client.get("state", {}).get("terminated", {})
+        if phase in {"Failed", "Unknown"} or terminated:
+            raise PilotError(
+                "The mesh-client Gateway gRPC check failed ("
+                + safe_client_failure(access, name)
+                + ")."
+            )
+        time.sleep(2)
+    raise PilotError(
+        "The mesh-client Gateway gRPC check timed out ("
+        + safe_client_failure(access, name)
+        + ")."
+    )
 
 
 def main() -> int:
     suffix = secrets.token_hex(4)
     backend = f"intrinsic-grpc-smoke-backend-{suffix}"
     virtual_service = f"intrinsic-grpc-smoke-{suffix}"
-    client = f"intrinsic-grpc-smoke-client-{suffix}"
+    mesh_client = f"intrinsic-grpc-smoke-mesh-client-{suffix}"
     applied = False
     access = None
     passed = False
@@ -234,16 +269,25 @@ def main() -> int:
         if not gateway_service or gateway_service.get("spec", {}).get("type") != "ClusterIP":
             raise PilotError("The project-owned internal gateway Service is not ready for the smoke.")
         if not gateway:
-            raise PilotError("The project-owned HTTP/2 Gateway is absent; no smoke resources were created.")
+            raise PilotError("The project-owned Gateway is absent; no smoke resources were created.")
+        service_ports = {
+            item.get("port")
+            for item in gateway_service.get("spec", {}).get("ports", [])
+            if item.get("protocol", "TCP") == "TCP"
+        }
+        if not {80, 443}.issubset(service_ports):
+            raise PilotError("The project Gateway Service is missing a required Core or mesh listener port.")
         expected_host = f"{GATEWAY}.{PROJECT}.svc.cluster.local"
         listeners = gateway.get("spec", {}).get("servers", [])
-        if not any(
-            item.get("port", {}).get("number") == 80
-            and item.get("port", {}).get("protocol") == "HTTP2"
-            and expected_host in item.get("hosts", [])
+        mesh_listener = any(
+            item.get("port", {}).get("number") == 443
+            and item.get("port", {}).get("protocol") == "HTTPS"
+            and item.get("tls", {}).get("mode") == "ISTIO_MUTUAL"
+            and {expected_host, "*"}.issubset(set(item.get("hosts", [])))
             for item in listeners
-        ):
-            raise PilotError("The project Gateway does not expose the expected internal HTTP/2 listener.")
+        )
+        if not mesh_listener:
+            raise PilotError("The project Gateway lacks its Istio mTLS mesh listener.")
 
         applied = True
         access.oc("apply", "-f", "-", input_data=manifests(suffix))
@@ -259,9 +303,10 @@ def main() -> int:
         time.sleep(3)  # Allow the Service endpoint and mesh route configuration to converge.
         run_client(
             access,
-            client,
+            mesh_client,
             f"{GATEWAY}.{PROJECT}.svc.cluster.local:80",
             f"smoke-{suffix}",
+            True,
         )
         passed = True
     except PilotError as exc:
@@ -278,14 +323,14 @@ def main() -> int:
                 check=False,
                 input_data=(
                     f"apiVersion: networking.istio.io/v1beta1\nkind: VirtualService\nmetadata:\n  name: {virtual_service}\n  namespace: {PROJECT}\n"
-                    f"---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: {client}\n  namespace: {PROJECT}\n"
+                    f"---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: {mesh_client}\n  namespace: {PROJECT}\n"
                     f"---\napiVersion: v1\nkind: Service\nmetadata:\n  name: {backend}\n  namespace: {PROJECT}\n"
                     f"---\napiVersion: v1\nkind: Pod\nmetadata:\n  name: {backend}\n  namespace: {PROJECT}\n"
                 ),
             )
             cleanup_ok = deleted.returncode == 0
             for kind, name in (
-                ("pod", client),
+                ("pod", mesh_client),
                 ("pod", backend),
                 ("service", backend),
                 ("virtualservice.networking.istio.io", virtual_service),
@@ -301,7 +346,7 @@ def main() -> int:
                     cleanup_ok = False
     if passed:
         if cleanup_ok:
-            print("gRPC gateway smoke passed: five h2c pings traversed the project Gateway and header-based VirtualService to a STRICT-mTLS backend.")
+            print("gRPC Gateway smoke passed: the injected Istio-mTLS client completed five pings to a STRICT-mTLS backend.")
             print("Temporary pods, Service, and VirtualService were deleted and verified absent.")
         else:
             print("gRPC gateway smoke passed, but cleanup could not be fully verified.", file=sys.stderr)

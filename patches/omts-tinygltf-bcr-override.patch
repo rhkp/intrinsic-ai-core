@@ -1,0 +1,58 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -30,3 +30,54 @@
++# The BCR republished tinygltf after its upstream release archive checksum changed.
++# Keep the registry's module metadata and overlay patches by using its corrected version.
++single_version_override(
++    module_name = "tinygltf",
++    version = "2.9.6.bcr.1",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_tinygltf_bazel_headers.patch"],
++)
++
++single_version_override(
++    module_name = "glib",
++    version = "2.82.2.bcr.9",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_glib_gmodule_header.patch"],
++)
++
++# Put source proto roots before generated copies during gRPC code generation.
++single_version_override(
++    module_name = "grpc",
++    version = "1.74.1",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_grpc_proto_path_order.patch"],
++)
++
++single_version_override(
++    module_name = "dumb-init",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_dumb_init_version_header.patch"],
++)
++
++single_version_override(
++    module_name = "gz-common",
++    version = "7.4.0",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_gz_common_cdt_headers.patch"],
++)
++
++single_version_override(
++    module_name = "aravis",
++    version = "0.9.2-20251111063445-57983d013883",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_aravis_api_header.patch"],
++)
++
++single_version_override(
++    module_name = "libzmq",
++    version = "4.3.5.bcr.5",
++    patch_strip = 1,
++    patches = ["//bazel/patches:openshift_libzmq_install_libdir.patch"],
++)
++
+ bazel_dep(name = "intrinsic_apis", version = "0.0.1")
+ git_override(
+     module_name = "intrinsic_apis",

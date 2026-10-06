@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: omts-registry-push-smoke
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/name: intrinsic-omts-deployer
+    app.kubernetes.io/component: registry-smoke
+    app.kubernetes.io/part-of: intrinsic-openshift-demo
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intrinsic-omts-deployer
+        app.kubernetes.io/component: registry-smoke
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      serviceAccountName: omts-deployer
+      automountServiceAccountToken: true
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: registry-smoke
+          image: registry.access.redhat.com/ubi9/ubi:9.6
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              registry='image-registry.openshift-image-registry.svc:5000'
+              ca='/var/run/registry-ca/service-ca.crt'
+              tmp="$(mktemp -d /tmp/registry-smoke.XXXXXX)"
+              trap 'rm -rf "$tmp"' EXIT
+
+              # Check TLS before attempting any authenticated registry request.
+              tls_status="$(curl --silent --show-error --cacert "$ca" \
+                --output /dev/null --write-out '%{http_code}' \
+                "https://${registry}/v2/")"
+              case "$tls_status" in
+                200|401) ;;
+                *) echo "registry_tls=failed status=${tls_status}" >&2; exit 1 ;;
+              esac
+
+              token_file='/var/run/secrets/kubernetes.io/serviceaccount/token'
+              token="$(cat "$token_file")"
+              if [ -z "$token" ]; then
+                echo 'registry_auth=failed reason=missing_service_account_token' >&2
+                exit 1
+              fi
+              username='system:serviceaccount:arhkp-intrinsic:omts-deployer'
+              printf 'user = "%s:%s"\nanyauth\n' "$username" "$token" > "$tmp/auth.conf"
+              chmod 0600 "$tmp/auth.conf"
+              unset token
+
+              repository="arhkp-intrinsic/omts-push-smoke-${HOSTNAME}"
+              push_status="$(curl --silent --show-error --cacert "$ca" \
+                --config "$tmp/auth.conf" --request POST \
+                --dump-header "$tmp/headers" --output /dev/null \
+                --write-out '%{http_code}' \
+                "https://${registry}/v2/${repository}/blobs/uploads/")"
+              if [ "$push_status" != 202 ]; then
+                echo "registry_push=failed status=${push_status}" >&2
+                exit 1
+              fi
+
+              location="$(awk 'BEGIN { IGNORECASE=1 } $1 == "Location:" { sub("\\r$", "", $2); print $2 }' "$tmp/headers" | tail -1)"
+              case "$location" in
+                https://${registry}/*) upload_url="$location" ;;
+                /*) upload_url="https://${registry}${location}" ;;
+                *) echo 'registry_push=failed reason=unexpected_upload_location' >&2; exit 1 ;;
+              esac
+
+              printf 'url = "%s"\nrequest = "DELETE"\n' "$upload_url" > "$tmp/abort.conf"
+              chmod 0600 "$tmp/abort.conf"
+              abort_status="$(curl --silent --show-error --cacert "$ca" \
+                --config "$tmp/auth.conf" --config "$tmp/abort.conf" \
+                --output /dev/null --write-out '%{http_code}')"
+              if [ "$abort_status" != 204 ]; then
+                echo "registry_upload_cleanup=failed status=${abort_status}" >&2
+                exit 1
+              fi
+              echo 'registry_tls=verified registry_push_auth=verified upload_session=aborted'
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          volumeMounts:
+            - name: registry-service-ca
+              mountPath: /var/run/registry-ca
+              readOnly: true
+      volumes:
+        - name: registry-service-ca
+          configMap:
+            name: openshift-service-ca.crt
+            items:
+              - key: service-ca.crt
+                path: service-ca.crt

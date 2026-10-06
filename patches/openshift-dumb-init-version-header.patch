@@ -1,0 +1,19 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -18,15 +18,6 @@ license(
+     package_url = "https://github.com/Yelp/dumb-init",
+ )
+ 
+-genrule(
+-    name = "version",
+-    srcs = ["VERSION"],
+-    outs = ["VERSION.h"],
+-    cmd = "./$(location @xxd) -i -n VERSION $< > $@",
+-    tools = ["@xxd"],
+-    visibility = ["//visibility:private"],
+-)
+-
+ cc_binary(
+     name = "dumb-init",
+     srcs = [

@@ -1,6 +1,10 @@
 # Pinned upstream source inventory
 
-This is the provenance-tracked copy of deployment-specific upstream assets for the OpenShift implementation. The registry publisher and resource/skill image-pull identity are the first adaptations; most copied files are still not OpenShift-adapted or ready to apply. Our OpenShift renderer and lifecycle will become the source of truth after adaptation and validation.
+This is the provenance-tracked copy of selected upstream assets used to test an
+OpenShift port. The pinned upstream release remains the behavioral source of
+truth. Prefer its released Core artifacts and documented OMTS Bazel workflow;
+keep copied code and patches only where a verified OpenShift incompatibility
+requires an adapter.
 
 ## Source pins
 
@@ -24,4 +28,4 @@ The pinned copy now includes **129 Core files and 27 OMTS files** (156 upstream 
 - Host setup scripts for K3s, NVIDIA Container Toolkit, and real-time kernel configuration are intentionally excluded; they configure Ubuntu hosts and are not an OpenShift deployment mechanism.
 - Generated image tarballs, build outputs, vendored dependencies, and unrelated Core runtime/application source are not copied. Reuse upstream images/APIs where compatible; adapt the deployment layer here.
 
-The reference deployment flow is the pinned [Getting Started guide](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/developer_resources/learn/tutorials/getting_started.md). It deploys Core to local K3s and OMTS through the Core gateway. This repository will replace those K3s/controller assumptions with project-scoped OpenShift resources and documented build/deploy/verify/cleanup commands.
+The reference deployment flow is the pinned [Getting Started guide](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/developer_resources/learn/tutorials/getting_started.md): deploy Core from its release artifact, then build and run OMTS through the Core gateway. The OpenShift port should preserve that application flow while replacing only verified K3s-specific operations such as direct node-containerd image loading or cluster-scoped permissions. It is not a goal to replace the upstream deployment model wholesale.

@@ -1,0 +1,17 @@
+diff --git a/src/BUILD.bazel b/src/BUILD.bazel
+--- a/src/BUILD.bazel
++++ b/src/BUILD.bazel
+@@ -368,7 +368,12 @@ cc_library(
+         "arvparamsprivate.h",
+         ":aravis_private_headers",
+     ],
+-    hdrs = PUBLIC_HDRS,
++    hdrs = PUBLIC_HDRS + LIBRARY_HEADERS + LIBRARY_NO_INTROSPECTION_HEADERS + [
++        ":arvapi.h",
++        ":arvenumtypes.h",
++        ":arvfeatures.h",
++        ":arvversion.h",
++    ],
+     copts = [
+         "-I%s" % INCLUDE_PREFIX,
+         "-I$(BINDIR)/%s" % INCLUDE_PREFIX,

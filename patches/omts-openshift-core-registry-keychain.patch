@@ -1,0 +1,21 @@
+diff --git a/intrinsic/assets/imagetransfer.go b/intrinsic/assets/imagetransfer.go
+--- a/intrinsic/assets/imagetransfer.go
++++ b/intrinsic/assets/imagetransfer.go
+@@ -84,8 +84,6 @@ func (r remoteImage) Write(ctx context.Context, imageName string, tag string, img
+ 	return &ipb.Image{
+ 		Registry:     r.registry,
+ 		Name:         imageName,
+ 		Tag:          "@" + digest.String(),
+-		AuthUser:     r.authUser,
+-		AuthPassword: r.authPwd,
+ 	}, nil
+ }
+@@ -98,7 +96,7 @@ func RemoteTransferer(registry string, user string, pwd string, opts ...remote.O
+ 			Password: pwd,
+ 		})))
+ 	} else {
+-		opts = append(opts, remote.WithAuthFromKeychain(google.Keychain))
++		opts = append(opts, remote.WithAuthFromKeychain(authn.NewMultiKeychain(google.Keychain, authn.DefaultKeychain)))
+ 	}
+ 	return remoteImage{
+ 		registry: registry,

@@ -1,0 +1,10 @@
+diff --git a/BUILD b/BUILD
+--- a/BUILD
++++ b/BUILD
+@@ -194,5 +194,5 @@
+     instance_name = "ur_module",
+     service_config = select({
+-        ":is_lab_bb_01": "//configs:lab_bb_01/ur_module_config.textproto",
++        ":is_lab_bb_01": None,
+         "//conditions:default": "//configs:omts/ur_module_config.textproto",
+     }),

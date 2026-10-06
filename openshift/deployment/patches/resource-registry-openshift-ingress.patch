@@ -1,0 +1,159 @@
+diff --git a/intrinsic/resources/service/BUILD b/intrinsic/resources/service/BUILD
+index f158166..58b9b00 100644
+--- a/intrinsic/resources/service/BUILD
++++ b/intrinsic/resources/service/BUILD
+@@ -13,7 +13,7 @@
+ # limitations under the License.
+ 
+ load("//bazel:container.bzl", "container_image")
+-load("//bazel:go_macros.bzl", "go_binary", "go_library")
++load("//bazel:go_macros.bzl", "go_binary", "go_library", "go_test")
+ 
+ filegroup(
+     name = "runtime_db_template",
+@@ -80,6 +80,12 @@ container_image(
+     ],
+ )
+ 
++go_test(
++    name = "resourcereader_test",
++    srcs = ["resourcereader_test.go"],
++    embed = [":resourcereader"],
++)
++
+ go_library(
+     name = "resourceregistryutil",
+     srcs = ["resource_registry_util.go"],
+diff --git a/intrinsic/resources/service/resourcereader.go b/intrinsic/resources/service/resourcereader.go
+index f836919..7f54b67 100644
+--- a/intrinsic/resources/service/resourcereader.go
++++ b/intrinsic/resources/service/resourcereader.go
+@@ -19,7 +19,11 @@ package resourcereader
+ import (
+ 	"context"
+ 	"fmt"
++	"net"
++	"os"
+ 	"slices"
++	"strconv"
++	"strings"
+ 
+ 	"intrinsic/assets/idutils"
+ 	"intrinsic/assets/services/inspection"
+@@ -45,9 +49,31 @@ import (
+ 	anypb "google.golang.org/protobuf/types/known/anypb"
+ )
+ 
+-const (
+-	ingressAddress = `istio-ingressgateway.app-ingress.svc.cluster.local:80`
+-)
++const ingressAddressEnv = "INTRINSIC_INGRESS_ADDRESS"
++
++// configuredIngressAddress returns the validated, in-cluster OpenShift gateway
++// address used by ResourceHandles. Requiring explicit configuration prevents
++// the upstream K3s ingress from being published to service clients.
++func configuredIngressAddress() (string, error) {
++	address := strings.TrimSpace(os.Getenv(ingressAddressEnv))
++	if address == "" {
++		return "", fmt.Errorf("%s must name the in-cluster Service Mesh ingress Service", ingressAddressEnv)
++	}
++	host, portText, err := net.SplitHostPort(address)
++	labels := strings.Split(host, ".")
++	if err != nil || net.ParseIP(host) != nil || len(labels) != 5 ||
++		labels[0] == "" || labels[1] == "" || labels[2] != "svc" || labels[3] != "cluster" || labels[4] != "local" {
++		return "", fmt.Errorf("%s must be service.namespace.svc.cluster.local:80", ingressAddressEnv)
++	}
++	if labels[0] == "istio-ingressgateway" && labels[1] == "app-ingress" {
++		return "", fmt.Errorf("%s must not reference the shared ingress Service", ingressAddressEnv)
++	}
++	port, err := strconv.Atoi(portText)
++	if err != nil || port != 80 {
++		return "", fmt.Errorf("%s must use internal Service port 80", ingressAddressEnv)
++	}
++	return address, nil
++}
+ 
+ // Client has methods to retrieve resource instances from the currently running
+ // application.
+@@ -158,6 +184,10 @@ func (c *Client) resourceTypeRuntimes(ctx context.Context) (map[string]*rtrpb.Re
+ // entries needed to reconstruct each resource instance. If true, all entries are
+ // fetched from the runtime DB, which incurs a performance cost.
+ func (c *Client) ResourceInstancesAsMap(ctx context.Context, includeAllAssetTypes bool) (map[string]*rrpb.ResourceInstance, map[string]*rtrpb.ResourceTypeRuntime, error) {
++	address, err := configuredIngressAddress()
++	if err != nil {
++		return nil, nil, err
++	}
+ 	resp, err := c.RSSClient.GetCurrentResourceSet(ctx, &rsspb.GetCurrentResourceSetRequest{})
+ 	if err != nil {
+ 		// Don't wrap the error here, fully delegate it to the HSS service. It will set the correct gRPC
+@@ -185,7 +215,7 @@ func (c *Client) ResourceInstancesAsMap(ctx context.Context, includeAllAssetType
+ 	// Generate resource handles for every resource that has a service.
+ 	for n, ri := range ris {
+ 		rtr := rtrs[ri.GetTypeId()]
+-		rh, err := handles.Convert(ri, ingressAddress, rtr.GetServiceDef().GetServiceProtoPrefixes())
++		rh, err := handles.Convert(ri, address, rtr.GetServiceDef().GetServiceProtoPrefixes())
+ 		if err != nil {
+ 			return nil, nil, fmt.Errorf("could not retrieve resource handles for resource %q: %v", n, err)
+ 		}
+@@ -201,6 +231,10 @@ func (c *Client) ResourceInstancesAsMap(ctx context.Context, includeAllAssetType
+ // ResourceInstance returns the ResourceInstance proto for the given id. Returns
+ // an error if the resource instance could not be found.
+ func (c *Client) ResourceInstance(ctx context.Context, name string) (*rrpb.ResourceInstance, *rtrpb.ResourceTypeRuntime, error) {
++	address, err := configuredIngressAddress()
++	if err != nil {
++		return nil, nil, err
++	}
+ 	var internal *ripb.ResourceInstance
+ 	if resp, err := c.RSSClient.GetCurrentResourceSet(ctx, &rsspb.GetCurrentResourceSetRequest{}); err != nil {
+ 		// Don't wrap the error here, fully delegate it to the HSS service. It will set the correct gRPC
+@@ -225,7 +259,7 @@ func (c *Client) ResourceInstance(ctx context.Context, name string) (*rrpb.Resou
+ 	ri := convertResourceInstanceWithRuntime(internal, rtr)
+ 
+ 	// Generate the resource handle if the resource has a service.
+-	rh, err := handles.Convert(ri, ingressAddress, rtr.GetServiceDef().GetServiceProtoPrefixes())
++	rh, err := handles.Convert(ri, address, rtr.GetServiceDef().GetServiceProtoPrefixes())
+ 	if err != nil {
+ 		return nil, nil, fmt.Errorf("could not retrieve resource handles for resource %q: %v", name, err)
+ 	}
+diff --git a/intrinsic/resources/service/resourcereader_test.go b/intrinsic/resources/service/resourcereader_test.go
+new file mode 100644
+index 0000000..eb3dac1
+--- /dev/null
++++ b/intrinsic/resources/service/resourcereader_test.go
+@@ -0,0 +1,36 @@
++package resourcereader
++
++import "testing"
++
++func TestConfiguredIngressAddress(t *testing.T) {
++	tests := []struct {
++		name    string
++		address string
++		wantErr bool
++	}{
++		{name: "project service", address: "intrinsic-grpc-gateway.pilot.svc.cluster.local:80"},
++		{name: "missing", address: "", wantErr: true},
++		{name: "shared ingress", address: "istio-ingressgateway.app-ingress.svc.cluster.local:80", wantErr: true},
++		{name: "external hostname", address: "gateway.example.invalid:80", wantErr: true},
++		{name: "IP address", address: "192.0.2.10:80", wantErr: true},
++		{name: "wrong port", address: "gateway.pilot.svc.cluster.local:8080", wantErr: true},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			t.Setenv(ingressAddressEnv, tt.address)
++			got, err := configuredIngressAddress()
++			if tt.wantErr {
++				if err == nil {
++					t.Fatalf("configuredIngressAddress() = %q, want error", got)
++				}
++				return
++			}
++			if err != nil {
++				t.Fatalf("configuredIngressAddress() error = %v", err)
++			}
++			if got != tt.address {
++				t.Fatalf("configuredIngressAddress() = %q, want %q", got, tt.address)
++			}
++		})
++	}
++}

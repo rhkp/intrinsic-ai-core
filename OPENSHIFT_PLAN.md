@@ -1,11 +1,20 @@
 # Intrinsic Core on OpenShift and OpenShift AI: analysis and work plan
 
-**Date:** 2026-10-01, updated 2026-10-02 after the hybrid feasibility review.
-**Status:** full OpenShift deployment selected. Project enrollment, the
-namespace-scoped controller, and a dedicated internal gRPC gateway are applied
-and verified on dev01. No Intrinsic Core workload or complete simulation has
-been deployed; this remains the architecture and work plan.
-[Deployment journal](README.md) · [Current pod reference](PODS_README.md) · [Demo results](DEMO_README.md)
+**Created:** 2026-10-01 · **Updated:** 2026-10-06
+**Status (2026-10-06):** Full OpenShift on dev01 is the selected approach. The
+Core static slice is applied in `arhkp-intrinsic`: all 22 Deployments are
+Ready, `simulation-service` is 2/2, all four ChartAssignments are Settled, and
+five PVCs are Bound. A real `StartSolution` attempt populated RuntimeDB and HSS
+but failed with gRPC `UNAVAILABLE`; dynamic resource/skill creation has not
+passed. On 2026-10-06 we fixed a separate ingress-port mismatch (runtime
+contexts require internal Service port 80), rolled out controller build 22,
+and restored the static baseline. We traced the OMTS Build 13 CycloneDDS
+failure to a Bazel override declared in transitive Core metadata, which Bazel
+does not apply when Core is a dependency. The required ROS 2 patches are now
+declared by OMTS at the root; the focused CycloneDDS target passes and produces
+`lib/libddsc.a`. The full pinned `//:omts_solution` build is now running. No
+solution or viewer is deployed yet.
+[OpenShift deployment journal](openshift/README.md) · [Current pod reference](PODS_README.md) · [Demo results](DEMO_README.md)
 [Deployment approaches](approaches/README.md) · [Archived hybrid experiment](approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
 
 ## 1. Recommendation
@@ -18,18 +27,17 @@ First reproduce the working Intrinsic simulation as native OpenShift workloads.
 Then integrate the perception model lifecycle with **Red Hat OpenShift AI
 (RHOAI)** on that cluster.
 
-Own the OpenShift deployment code itself. The deployment-specific Core source,
-referenced chart templates, and OMTS demo configuration are copied from a
-pinned upstream release into our tree. The registry publisher, project image-pull
-identity, dev01 GPU placement, a no-apply chart renderer/policy adapter, and a
-dedicated Service Mesh gateway are implemented and tested bounded slices. The
-project routing ConfigMap is applied and the controller is restarted with it.
-The base and app chart snapshots pass local rendering into the selected
-project; source-built chart generation, apply/health/lifecycle, and complete
-workload deployment remain open. We own rendering, configuration,
-apply/health checks, and resource lifecycle; do not wrap or invoke the upstream
-K3s deployer or cluster-scoped ChartAssignment controller. Preserve upstream
-license notices and trace changes to the source commit and paths. See the [deployment model](openshift/DEPLOYMENT_MODEL.md),
+Use the pinned upstream release and its documented Core/OMTS workflow as the
+behavioral baseline. Prefer the released Core artifacts, application images,
+charts, configs, and OMTS Bazel commands. Add only the smallest OpenShift
+compatibility layer that a concrete test requires; the current copied renderer
+and controller are a pilot implementation, not a decision to replace the full
+upstream deployment path. The registry publisher, project image-pull identity,
+GPU placement, project policy adapter, and dedicated Service Mesh gateway have
+passed bounded checks, and the current Core slice is applied. Before extending
+that code, compare every change to pinned upstream and record the exact K3s
+assumption it removes. Preserve upstream license notices and trace necessary
+changes to source commit and paths. See the [deployment model](openshift/DEPLOYMENT_MODEL.md),
 [upstream source inventory](openshift/deployment/UPSTREAM_SOURCES.md), and
 [adaptation record](openshift/deployment/ADAPTATIONS.md).
 
@@ -59,7 +67,7 @@ go/no-go questions.
 | Area | Observed baseline | Still unproven |
 | --- | --- | --- |
 | Platform | Ubuntu Server, K3s, one GPU-equipped AWS VM; release `20260922.0` of Core and OMTS | OpenShift admission, CRI-O, target-cluster policies, and multiple-worker behavior |
-| Deployment | 51 ready pods across the namespaces in the pod reference | Equivalent application behavior on dev01; 51 is not a target OpenShift pod count |
+| Deployment | dev01 has a static Core slice: 22 Deployments Ready, four ChartAssignments Settled, five PVCs Bound | `StartSolution`, non-empty resource/skill lifecycle, active simulation, and viewer remain unproven; the VM's 51 pods are not an OpenShift target count |
 | GPU | One NVIDIA T4, with 48 advertised time-sharing slots; the demo advanced through camera capture and pose estimation | Quantitative model accuracy, latency, and capacity under a representative workload |
 | Visualization | Live RViz workcell view; Gazebo simulation backend | Containerized viewer on OpenShift |
 | Application | Local API responding; ICON enabled; simulated pick, transfer, placement, and unload actions executed | Completed machine-tending cycle: retries stopped on a workpiece/enclosure collision during unloading |
@@ -124,7 +132,7 @@ so treat this as a dated inventory, not a reservation:
 | Storage | `gp2-csi`, `gp3-csi`, `ocs-storagecluster-ceph-rbd`, `ocs-storagecluster-cephfs`, and `openshift-storage.noobaa.io` are present. Confirm access mode, topology, snapshots, quota, and approved object storage. |
 | Registry | First test the OpenShift integrated registry through a loopback-only port-forward, with the service CA and project-scoped push/pull access verified; use a platform-approved private OCI registry if this path is unavailable |
 | Networking | Confirm private service connectivity, an approved viewer ingress path, DNS, gRPC, and access to required registries |
-| Governance | `arhkp-intrinsic` is the selected application project and has the RHOAI dashboard marker. No quota, LimitRange, or PVC is configured; Service Mesh enrollment created mesh-managed NetworkPolicies. The upstream cluster-scoped ChartAssignment/controller path is not used; Namespaced ChartAssignment/ResourceSet pilot CRDs and a project-scoped controller are installed and smoke-tested. The full application deployment still needs its resource inventory and reviewed RBAC. |
+| Governance | `arhkp-intrinsic` is the selected application project and has the RHOAI dashboard marker. Five application PVCs are Bound; quota and LimitRange are not configured. Service Mesh enrollment created mesh-managed NetworkPolicies. The upstream cluster-scoped ChartAssignment/controller path is not used; Namespaced ChartAssignment/ResourceSet CRDs and a project-scoped controller are installed. Core RBAC was reviewed for the deployed slice; generated resource/skill lifecycle permissions and broader runtime inventory still need validation. |
 | OpenShift AI | Seven ServingRuntimes are visible; no Triton runtime is currently detected. Reconfirm entitlement, serving mode, runtime, and release-specific dependencies before the RHOAI phase. |
 
 For this pilot, the selected application namespace is `arhkp-intrinsic`, as
@@ -278,7 +286,7 @@ duplicates, the complete 51-pod reference.
 | Upstream `chart-assignment-controller` | Do not use as the initial OpenShift deployment authority; it depends on a missing cluster-scoped CRD and broad RBAC | Render the fixed demo's resources as reviewed OpenShift manifests first; consider a namespace-scoped adapter only if dynamic skill/resource add/remove is required |
 | K3s CoreDNS, metrics, local-path provisioner, `svclb-*` | Use OpenShift platform equivalents; omit K3s infrastructure manifests | These are cluster services, not ML workloads |
 | Standalone NVIDIA device plugin | Use the existing approved GPU Operator/device-plugin integration | Shared infrastructure for inference, workbenches, and jobs |
-| VM viewer service (not currently a pod) | Containerized RViz/noVNC application with private access | Separate visualization workload; optional workbench integration later |
+| Reference VM viewer service | Containerized RViz/noVNC workload with a private ClusterIP Service | Separate visualization workload; Mac access through loopback-only port-forward |
 
 ## 6. Concrete migration blockers found in our deployment
 
@@ -297,7 +305,7 @@ environment dump, or private address is included here.
 | B7 | Source contains an explicit `app-intrinsic-base` CAS DNS name; live services include Istio, Zenoh TCP, and an HTTP gateway UDP NodePort. | Preserve or parameterize DNS/routing contracts; establish protocol-by-protocol network policy. Do not assume an HTTPS Route transports raw TCP or UDP. |
 | B8 | The upstream Cloud Robotics `ChartAssignment` CRD/controller path is absent on dev01 and its original RBAC is cluster-scoped. Intrinsic services generate resource and skill charts dynamically. | The Namespaced `ChartAssignment`/`ResourceSet` pilot is installed in `arhkp-intrinsic`. Its 13-rule Role covers only project workload kinds; live impersonated authorization checks confirmed workload creation and denied Secret, Namespace, ClusterRole, and ClusterRoleBinding creation. The smoke itself used only a ConfigMap. The owned adapter rejects cluster-scoped output. Runtime-generated resource/skill charts and cleanup still need validation. Never install the upstream cluster-wide controller. |
 | B9 | Many application containers have no CPU/memory requests; Gazebo has a `12Gi` limit with a zero memory request. | Measure demand and set realistic requests/limits before shared-cluster scheduling. Account for memory-backed volumes as well. |
-| B10 | The viewer is a VM systemd service; it relies on ROS, X11, software OpenGL, private Unix sockets, and SSH. | Package a non-root container with writable runtime directories; select private port-forwarding or authenticated TLS/WebSocket ingress. |
+| B10 | The reference viewer is a VM systemd service; it relies on ROS, X11, software OpenGL, private Unix sockets, and SSH. | Package a non-root container with writable runtime directories; use a private Service and loopback-only Mac port-forward for the demo. |
 | B11 | The upstream applier creates per-chart namespaces; resource/skill renderers also hard-code namespaces, and base/app chart snapshots refer to several old Service DNS names and namespace selectors. | The local no-apply adapter rendered the pinned base/app snapshots into `arhkp-intrinsic`, replaced the known gateway-dependent gRPC paths, retargeted NetworkPolicy namespace selectors, and fails on remaining legacy namespace references. Reproduce this result from the owned patched-source build and validate generated resource/skill charts before apply; application cleanup must never create/delete projects or shared namespaces. |
 
 All 70 inspected application/infrastructure containers use `IfNotPresent`, not
@@ -508,26 +516,32 @@ Do not substitute a new model or preprocessing pipeline during platform parity.
   network policies and the required application-level identity/TLS controls.
 - Preserve the upstream gRPC path/header dispatch with namespace-scoped Istio
   `VirtualService` resources attached to a dedicated injected Service Mesh
-  gateway Deployment in `arhkp-intrinsic`. The gateway has its own internal
-  `ClusterIP` Service and exact-host HTTP/2 listener on port 80; it does not
-  select or modify the shared ingress pods, `ServiceMeshControlPlane`, or an
-  OpenShift Route. The project is enrolled in the mesh and the routing ConfigMap
-  is applied. The no-output helper rejects the shared ingress Service and
-  verifies the dedicated Service selector, ready endpoints, Gateway selector,
-  exact host, protocol, and port. Service Mesh's generated NetworkPolicy allows
-  traffic from enrolled mesh namespaces, so this pilot has not yet established
-  project-only workload identity authorization. Smoke real gRPC dispatch and
-  review that access boundary before deploying resource/skill charts; external
-  UI Routes remain a separate, protocol-specific decision.
+  gateway Deployment in `arhkp-intrinsic`. The adapted Core resource renderer
+  requires `INTRINSIC_INGRESS_ADDRESS` to use the Gateway Service's internal
+  port 80; that listener speaks HTTP/2, and the port-80 gRPC smoke passed. The
+  separate port-443 `ISTIO_MUTUAL` listener remains available to clients such as
+  the OMTS deployer. Keep these addresses distinct and validate the mesh path
+  used by each caller. The gateway does not select or modify shared ingress
+  pods, the `ServiceMeshControlPlane`, or an OpenShift Route. The project is
+  enrolled in the mesh and the routing ConfigMap is applied. Service Mesh's
+  generated NetworkPolicy allows traffic from enrolled mesh namespaces, so
+  this pilot has not yet established project-only workload identity
+  authorization. Smoke real gRPC dispatch and review that access boundary
+  before deploying resource/skill charts; external UI Routes remain a separate,
+  protocol-specific decision.
 - Treat Zenoh TCP and the observed gateway UDP service separately from HTTP.
   Prove which are needed for this simulation; avoid exposing unused ports.
 - Apply service-account RBAC and network policies for the actual graph, including
   DNS, Core APIs, registry pulls, CAS, model storage, viewer/ROS, and observability.
-- Containerize RViz with software rendering first to match the existing view.
-  Keep VNC/X11 private and permit browser access only through an authenticated
-  TLS/WebSocket endpoint or a private port-forward. The current local viewer uses
-  no separate VNC password because private sockets and SSH provide access control;
-  copying it behind an unauthenticated public Route would remove that protection.
+- Containerize RViz/Gazebo visualization with software rendering first to match
+  the existing view. Keep the viewer Service private and access it from the Mac
+  with `oc port-forward` bound to `127.0.0.1`; do not require an AWS VM, SSH
+  tunnel, or public Route. The viewer is not deployed yet. The current
+  `simulation-service` Service exposes gRPC on 8088 and is not a browser viewer.
+  Confirm how the packaged viewer authenticates or relies on OpenShift API access
+  before exposing its web/VNC port. Once deployed, forward its private Service
+  from the Mac with `oc -n arhkp-intrinsic port-forward --address 127.0.0.1
+  svc/<viewer-service> 6080:6080` and open the local noVNC page.
 - Keep credentials, private certificates, kubeconfigs, account identifiers,
   cluster URLs, private registry/bucket names, and diagnostic exports out of Git.
   Use placeholders and approved external secret handling in implementation files.
@@ -557,72 +571,127 @@ to demonstrate platform parity.
 
 ## 10. Phased execution plan
 
-Owners below describe skills/teams, not assigned individuals. No phase is already
-completed unless explicitly marked; the existing VM supplies the reference.
+Owners below describe skills/teams, not assigned individuals. Status describes
+verified progress as of 2026-10-06; a phase is complete only when its exit gate
+passes. The existing VM supplies the simulation reference.
 
-| Phase | Work and concrete deliverable | Lead | Exit gate |
+| Phase | Work and concrete deliverable | Lead | Status / exit gate |
 | --- | --- | --- | --- |
-| P0 — Baseline and cluster fit | Reconfirm selected target versions/capacity; classify admin-owned prerequisites; record source/image digests and sanitized baseline; define a repeatable camera/pose fixture and bounded simulation test; measure active-cycle resource peaks | Robotics + platform | Supported version combination, admin/project ownership, capacity/storage decisions, and agreed parity criteria are documented |
-| P1 — OpenShift-owned packaging spikes | Verify registry push/pull, restricted SCC/IPC, fixed namespace rendering, and the minimum resource/skill manifest set; map lifecycle behavior and build exact charts from the pinned adapted source | Platform + robotics | Source-built chart render passes project, image, host-access, RBAC, storage, networking, and placement checks without the upstream cluster-scoped controller |
-| P2 — Native OpenShift deployment | Generate the pinned charts from our adapted source and implement the OpenShift apply/health/lifecycle flow, RBAC, storage, requests/limits, GPU placement, and protocol routing; reuse upstream application code where verified | Platform | Core API, resource discovery, skills, GPU inference, simulator, and world all healthy with reviewed ownership |
-| P3 — Visible and functional parity | Package viewer; reproduce RViz scene; run agreed simulated perception/motion regression; test restart/recovery | Robotics + platform | Baseline visual/API parity plus separately recorded functional test results |
-| P4 — OpenShift AI integration | Verify target RHOAI Triton serving with a minimal model; compare options B and C against the pinned Intrinsic model/API contract; provide SDK workbench; preserve fallback inference deployment | ML + robotics | One RHOAI-managed path passes the real model, API, lifecycle, security and latency gates, or serving is recorded as blocked while workbench/pipeline value is demonstrated separately |
-| P5 — Model lifecycle and operations | Add evaluation pipeline and registry mapping, reviewed promotion, monitoring, backup/restore, and GitOps ownership | ML + platform | Reproduce, promote, and roll back a model/application combination with auditable results |
+| P0 — Baseline and cluster fit | Confirm target versions/capacity; classify admin-owned prerequisites; record source/image digests and sanitized baseline; define repeatable camera/pose fixture and bounded simulation test; measure active-cycle peaks | Robotics + platform | **In progress.** Target/project and a dated capacity snapshot are recorded; decide storage/capacity and collect active-cycle baseline before claiming fit. |
+| P1 — OpenShift-owned packaging spikes | Verify image distribution, restricted SCC/IPC, fixed-namespace rendering, and resource/skill manifests; map lifecycle and build exact charts from pinned adapted source | Platform + robotics | **Mostly complete for the static Core slice.** Registry, secret injection, GPU scheduling, namespace policy and static chart adaptation checks passed. Focused synthetic dynamic resource/skill renderer tests pass locally. Live `resources` and `skills` ChartAssignments are Ready but currently have no generated resource-instance or skill-pod entries; non-empty lifecycle, PVC recovery, per-pod sizing and IPC/placement remain open. |
+| P2 — Native OpenShift deployment | Preserve upstream deployment behavior and make only verified platform adaptations | Platform | **Core baseline restored.** All 22 Deployments are Ready, `simulation-service` is 2/2, and all four ChartAssignments are Settled after aligning `INTRINSIC_INGRESS_ADDRESS` to port 80 and re-rendering. A successful Intrinsic application RPC and generated resource/skill lifecycle remain unproven. |
+| P3 — Visible and functional parity | Package viewer; reproduce RViz scene; run agreed simulated perception/motion regression; test restart/recovery | Robotics + platform | **Not started on OpenShift.** Pass when the private viewer shows the expected scene and a bounded simulation test produces recorded API, perception and motion results; track the known AWS unload collision separately. |
+| P4 — OpenShift AI integration | Verify target RHOAI Triton serving with a minimal model; compare serving options against the pinned Intrinsic contract; provide SDK workbench and fallback inference | ML + robotics | **Deferred until the demo contract is clear.** Pass when the real model, API, lifecycle, security and latency gates pass, or document a specific serving blocker while demonstrating separate workbench/pipeline value. |
+| P5 — Model lifecycle and operations | Add evaluation pipeline and registry mapping, reviewed promotion, monitoring, backup/restore and GitOps ownership | ML + platform | **Not started.** Pass when a model/runtime/configuration tuple can be reproduced, promoted and rolled back with auditable results. |
 
-**Current gate status:** dev01 versions and the RHOAI project marker are
-verified. Restricted project smoke checks passed, and the integrated registry
-publisher passed an authenticated push through a loopback-only port-forward.
-The project-scoped `intrinsic-runtime` ServiceAccount and image-puller
-RoleBinding then pulled and ran that private synthetic image in a restricted
-pod with API-token mounting disabled. Test pod and ImageStream were removed;
-the reusable ServiceAccount and RoleBinding remain. Push auth was temporary and
-removed; the current ignored `openshift/.env` contains only non-secret gRPC
-routing values. No external registry Route was created. This verifies the
-OpenShift pull mechanism, not a live Intrinsic workload. The 24 pinned Core
-chart images are mirrored publicly to Quay; the HTTP
-gateway, Zenoh daemon, and Jupyter sidecar passed digest-pinned restricted-SCC
-startup smokes with assigned non-root UIDs. Other images and full workload
-behavior remain unverified. A second restricted smoke passed GPU scheduling and
-device injection using the exact `g5-gpu=true:NoSchedule` taint; its temporary pod was deleted.
-An `Opaque` runtime Secret created from an ignored `.env` was consumed by a
-restricted smoke pod without displaying its value; the temporary Secret, pod,
-and `.env` were deleted. No Intrinsic-specific runtime secret keys have been
-identified yet.
-The copied resource/skill renderer targets `arhkp-intrinsic` and
-`intrinsic-runtime`, rejects inline image credentials, and omits generated pull
-Secrets; its Helm-template check passes. The new offline policy renderer emitted
-87 base/app chart objects, all project-scoped; all rendered images were digest
-locked, and the policy checks found no stale namespace references or host/root
-privileges. The base and app charts still need to be reproduced from the owned
-patched-source build. The project has no quota, LimitRange, or PVC; Service Mesh
-enrollment has since created mesh-managed NetworkPolicies. The upstream cluster-scoped
-ChartAssignment/controller path is not used; the Namespaced pilot CRDs and
-project-scoped controller were smoke-tested with a ConfigMap. Its installed
-Role now covers the reviewed Core chart workload kinds and passed live allow/
-deny checks; it cannot manage Secrets, namespaces, or cluster-scoped RBAC.
-Aggregate capacity was measured, with one estimated free GPU and tainted GPU
-workers. The placement tolerance is verified for a smoke pod, but GPU allocation
-and capacity reservation remain open. P0/P1 remain open for storage behavior
-and capacity, resource/skill chart rendering, CPU/memory requests, per-node
-capacity, active-cycle baseline, exact chart generation from the owned patched
-source, and apply/readiness/cleanup behavior. Service Mesh enrollment, the
-dedicated internal Gateway, and the project routing ConfigMap are now live and
-verified; the shared gateway and control plane were not modified. The new
-gateway has no OpenShift Route. Its mesh-managed network policy admits traffic
-from enrolled mesh namespaces; project-only workload identity authorization
-remains open. A temporary five-call h2c gRPC smoke passed through its
-header-matched VirtualService to a sidecar-injected backend under the existing
-STRICT mTLS policy; all smoke objects were removed. No Intrinsic workload has
-been applied, so an actual Core RPC remains untested.
+**Current dev01 checkpoint (2026-10-06):** Registry, restricted-SCC, GPU,
+secret-injection, and project-scoped ChartAssignment smokes passed. The 24
+pinned Core chart images are mirrored by digest. The static Core slice is
+applied: 22 Deployments Ready, four ChartAssignments Settled, and five PVCs
+Bound. The dedicated Gateway, mesh policy, and port-80 runtime ingress
+configuration are applied; its generic transport smoke passed. The deployed
+static Core image set was preserved through the latest controller rollout.
 
-**Critical path:** registry distribution → permitted identity/IPC → native parity
-→ inference-serving integration. Workbench and offline pipeline development can
-proceed alongside P2/P3 once access is available. Do not combine a model upgrade,
-ROS upgrade, GPU sharing change, and platform migration into one experiment.
+The application-level gates are still open. A prior pinned OMTS client run
+populated RuntimeDB and stored `lab_bb_01` in HSS, but `StartSolution` returned
+gRPC `UNAVAILABLE`; `ListAssetInstances` previously reached the handler but
+returned `INTERNAL` before an application was installed. Failed `world`
+subscriptions to the old shared-ingress address are a lead, not a confirmed
+root cause. No generated resource/skill workloads have been observed, and the
+base `gzserver` proxy runs with `--sleep`, so there is no active simulation.
+Five PVCs being Bound proves provisioning, not recovery or backup. OMTS Build
+13 separately failed in a CycloneDDS CMake action; its root error is unknown.
+The known-good AWS VM remains comparison-only; OpenShift must not depend on it.
 
-Time estimates would be speculative until P1 establishes how much upstream
-refactoring is needed. Estimate the remaining work after the registry and IPC
-spikes, rather than treating this as a manifest-only migration.
+### Ordered execution checklist for the first visible demo
+
+Advance one gate at a time. This ports the pinned release's workflow; it does
+not replace OMTS with a new implementation.
+
+1. **Core readiness — passed for the static slice (2026-10-06).** All 22
+   Deployments are Ready, four ChartAssignments are Settled, five PVCs are
+   Bound, and the generic in-project HTTP/2 Gateway smoke passed. Generated
+   runtime contexts use internal Service port 80; the separate in-mesh
+   `ISTIO_MUTUAL` listener remains on port 443. This does not prove solution
+   startup or dynamic workload lifecycle.
+2. **Audit the OpenShift delta — patch application passed.** The patch stack
+   applies cleanly to the pinned OMTS release and pinned Core commit. Keep
+   upstream Core images and the documented OMTS Bazel workflow. Retain only
+   tested platform
+   changes: project-scoped Core deployment/policies, the dedicated in-mesh
+   Gateway, internal-registry upload instead of direct K3s containerd upload,
+   registry auth through the pod service account, and exclusion of the real
+   robot endpoint config. Do not use the custom simulation build flag, build
+   separate OMTS archives pre-emptively, or copy a Bazel cache into a different
+   runtime image. Track anonymous release fetching and the dependency checksum
+   correction separately from OpenShift changes.
+3. **Prepare one reusable x86-64 workspace — complete.** Build a small
+   digest-pinned UBI 10 tools-only image containing Bazelisk and build
+   prerequisites; do not compile OMTS while building the image. Run one
+   restricted project pod with a 100 GiB `gp3-csi` PVC for the pinned checkout,
+   temporary build files, and Bazel cache. Request 4 CPU and 32 GiB memory,
+   matching the current headroom on three untainted x86-64 workers. Keep its
+   service-account token mounted only for project image publishing; create no
+   long-lived registry credential. Clone the public pinned source anonymously.
+   Tools image Build 8 is built and rolled out; the workspace uses its persistent
+   PVC for the pinned source and Bazel cache.
+4. **Diagnose the existing OMTS build failure — complete.** The focused target
+   confirmed the cause: Core's `single_version_override` is transitive and
+   ignored by Bazel. OMTS now declares the override at its root and applies one
+   pinned patch that removes the incompatible `-latomic` link flag and sets
+   CycloneDDS `CMAKE_INSTALL_LIBDIR=lib`. Source preparation passed twice; the
+   effective metadata contains both changes, and the target produces
+   `lib/libddsc.a`.
+5. **Build and deploy the pinned OMTS solution.** The full
+   `//:omts_solution` Bazel build is in progress in the same x86-64 Linux
+   workspace; it must pass the solution artifact audit before deployment. Then
+   use the upstream OMTS runner with the minimal K3s image-upload/auth adapter,
+   sanitized robot-config exclusion, and internal Gateway Service address.
+   Keep build and run on the same toolchain; do not bake the source/cache into a
+   second-stage runtime image.
+6. **Verify Core RPC and generated resources.** Require `StartSolution` success;
+   if it returns `UNAVAILABLE`, stop and resolve the endpoint/client path before
+   retrying. Confirm generated `resources` and `skills` entries, readiness, and complete
+   add/remove cleanup through the project-scoped controller.
+7. **Run the upstream demo sequence.** Run
+   `bazel run //tools/world:apply_scene_updates -- --address=<gateway>:80
+   --reset_sim`, register the pose estimator using the upstream command, then
+   run `bazel run //src:omts_app -- --address=<gateway>:80
+   --config=configs/lab_bb_01/app_config.yaml --num_cycles=1`. Check each result
+   before the next command and keep the run simulation-only.
+8. **Show and compare the demo.** Deploy/enable the private viewer, reach it
+   through a loopback-bound `oc port-forward`, and verify the expected scene and
+   robot movement. Record results, resource use, cleanup, and image digests;
+   track the known AWS unload collision separately. Defer RHOAI integration
+   until this gate passes.
+
+### OMTS change disposition
+
+| Existing change | Decision for the next attempt |
+| --- | --- |
+| `patches/omts-openshift-sim-config-safety.patch` | Preserve only the narrow `lab_bb_01` hardware-endpoint exclusion and verify the built artifact contains no robot address. Pass `--operation_mode=sim` as upstream documents; add no custom Bazel build flag/default. |
+| `patches/omts-openshift-demo-configs.patch` | Keep the sanitized `lab_bb_01` config selection and archive audit; this is a safety boundary, not an OpenShift platform feature. |
+| `patches/omts-openshift-core-registry-keychain.patch` | Keep the service-account/Docker-keychain support and removal of registry credentials from Core messages. |
+| `patches/omts-openshift-module-registry-keychain.patch` | Keep OMTS wiring for the minimal Core registry-auth patch and the separate digest-pin patch. |
+| `patches/openshift-rules-ros2-build-compat.patch` | Apply at the OMTS root because Bazel ignores Core's transitive module override; preserve the verified `rclpy` link fix and CycloneDDS `lib` install directory. |
+| `patches/omts-tinygltf-bcr-override.patch` | Keep separate from OpenShift changes; verify the upstream archive-checksum failure independently before applying it. |
+| `patches/intrinsic-core-triton-digest-pin.patch` | Keep separate as an image reproducibility pin; it is not required for the OpenShift build boundary. |
+| `patches/omts-anonymous-releases.patch` | Keep only as the user-requested anonymous-download workaround, with exact asset names and SHA-256 pins; it is not an OpenShift requirement. |
+| `omts-runner/Containerfile.toolchain` and BuildConfig | Superseded: it builds multiple targets, embeds the source/cache, changes UBI release between stages, and triggers another Bazel build. Do not rerun Build 13's packaging path. Use one same-toolchain workspace with a persistent PVC/cache after focused failure diagnosis. |
+
+Do not rebuild upstream Core images that already pass the project's restricted
+SCC and behavior checks. Keep the small, pinned Core adaptations that fixed
+observed namespace, registry, mesh, and ingress incompatibilities; the current
+22-Deployment slice verifies that baseline only. This does not justify
+wholesale copying or rewriting additional upstream services.
+
+Do not combine a model upgrade, ROS upgrade, GPU sharing change, and platform
+migration into one experiment.
+
+Time estimates remain speculative until live resource/skill lifecycle and IPC
+tests establish how much more application adaptation is needed. The deployed
+Core slice is a real checkpoint, but it is not evidence that this is a
+manifest-only migration.
 
 ## 11. Acceptance tests
 
@@ -670,11 +739,14 @@ deterministic scheduling, safety controls, and recovery near equipment require a
 separate design. Cloud-hosted inference experiments do not authorize moving a
 physical robot's real-time control loop to a remote cluster.
 
-## 13. Planned repository outputs and next action
+## 13. Remaining repository outputs and next action
 
-The plan, [current dev01 pilot status](openshift/README.md), and the draft
-[registry adaptation](openshift/REGISTRY_ADAPTATION.md) are delivered. The
-remaining entries are proposed outputs, not validated deployment files:
+The plan, [current dev01 pilot status](openshift/README.md),
+[deployment model](openshift/DEPLOYMENT_MODEL.md), [source inventory](openshift/deployment/UPSTREAM_SOURCES.md),
+[adaptation record](openshift/deployment/ADAPTATIONS.md), and
+[registry adaptation](openshift/REGISTRY_ADAPTATION.md) are maintained in the
+repository. These are the remaining planned artifacts; their presence alone
+does not mean the corresponding workload behavior has been validated:
 
 ```text
 openshift/
@@ -696,26 +768,39 @@ patches/
 
 The resource/skill renderer target `//intrinsic/assets/deploy:render` compiled
 successfully at the pinned Core commit on 2026-10-02; this is a package check,
-not a full Core/OMTS build or deployment. A separate no-apply renderer now
-passes the pinned base/app chart snapshots through the OpenShift policy adapter.
-Review of the pinned dynamic skill/resource templates found gRPC
+not a full Core/OMTS build. A separate no-apply renderer passes the pinned
+base/app chart snapshots through the OpenShift policy adapter. Focused Go tests
+also render synthetic runtime-generated resource and skill ChartAssignments
+through that policy adapter and pass, including namespace, identity, image, and
+gateway/network-policy checks; this is offline validation, not live lifecycle
+proof. Review of the pinned dynamic skill/resource templates found gRPC
 `VirtualService` rules that depended on the upstream K3s ingress service. The
 owned-source adaptation now preserves those rules, attaches them to a dedicated
 injected Service Mesh Gateway, limits destinations to project-local Services,
 and retargets NetworkPolicy ingress to the dedicated Gateway Service's actual
 pod selector. The Core renderer writes that internal Service address into
-generated RuntimeContexts. No external OpenShift Route carries this traffic;
-the pilot path is plaintext HTTP/2 (`h2c`) to the project ClusterIP Service on
-port 80.
+generated RuntimeContexts, so this caller must use the internal HTTP/2 Service
+port 80. The separate `ISTIO_MUTUAL` listener on port 443 remains available to
+clients configured for that path, including the OMTS deployer. Neither listener
+uses an external OpenShift Route.
 
-The routing adaptation is built and applied to dev01. The project reports Ready
-mesh membership; the injected gateway proxy and internal endpoint are Ready;
-the exact-host HTTP/2 listener and project routing ConfigMap are verified. The
-controller was restarted with the new config, and the shared gateway, control
-plane, and public Routes remain unchanged. No Core workloads or generated
-VirtualServices exist yet. The repeatable synthetic gateway smoke now passes
-five h2c pings through a header-matched VirtualService to a sidecar-injected
-backend under STRICT mTLS; a real Intrinsic RPC remains pending. Next reproduce
-and review dynamic charts from the owned patched-source build, then apply a
-small Core slice and test its gRPC service dispatch. The AWS comparison VM
-remains available with K3s intentionally stopped.
+The Gateway routing adaptation is built and applied to dev01. The project
+reports Ready mesh membership; the injected Gateway proxy and internal endpoint
+are Ready; the port-80 h2c and port-443 `ISTIO_MUTUAL` listeners and project
+Gateway listeners are verified. The 2026-10-06 correction aligned
+`INTRINSIC_INGRESS_ADDRESS` to port 80, rebuilt the small controller, and
+re-rendered both Core charts. The shared Gateway, control plane, and public Routes remain unchanged. The static Core
+slice is deployed, with all four ChartAssignments Ready and all five PVCs
+Bound. Controller build 22 includes the named OpenShift DNS endpoint ports and
+the World Conductor Service port; RuntimeDB and the other injected clients are
+Ready under strict mesh mTLS. The pinned OMTS client populated RuntimeDB and stored `lab_bb_01` in
+HSS, but `StartSolution` failed with gRPC `UNAVAILABLE` before dynamic resource
+or skill charts were applied. The World Service now exposes port 8082 and the
+current `gzserver` proxy runs with `--sleep`, confirming there is no active
+simulation yet. The next attempt follows the ordered checklist above. The Gateway smoke
+proves generic transport only; `ListAssetInstances` previously reached the
+application handler but returned `INTERNAL`, and successful solution startup is
+still unproven. The Build 13 CycloneDDS failure is now explained by Bazel
+ignoring Core's transitive override; the root-level OMTS override passes the
+focused target, and the full solution build is running. The AWS VM is optional
+historical context and is not part of the OpenShift demo path.

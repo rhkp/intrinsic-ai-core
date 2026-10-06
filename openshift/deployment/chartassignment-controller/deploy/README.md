@@ -169,3 +169,61 @@ Ready. A before/after comparison of all 20 Core Deployment image sets found no
 changes, including `world-*` workloads. Registry and Workcell images and the
 `--configmap_watch_namespace=arhkp-intrinsic` argument remain verified, with
 no current cluster-scope RBAC denials in their logs.
+
+## Internal ingress-port correction — 2026-10-06
+
+The adapted Core renderer requires `INTRINSIC_INGRESS_ADDRESS` to use the
+internal Gateway Service HTTP/2 port 80. The routing helper, checked-in sample,
+controller validation, and live ConfigMap had drifted to port 443, causing
+`simulation-service` to exit with code 134 and report that the ingress address
+must use port 80. The helper and controller tests now accept only port 80 for
+this variable while still checking that the Gateway offers its separate
+port-443 `ISTIO_MUTUAL` listener.
+
+Focused validation passed: 8 Python routing tests, both controller Go test
+packages, and `git diff --check`. The updated ConfigMap was applied; controller
+build 22 was rolled out with digest
+`sha256:a80c9901028d90e5bac40b96cf64a557f452bba792c61a65651b107e56010985`.
+Both base/app ChartAssignments were re-rendered, then the temporary no-op
+reconcile value was removed and reconciled away. Final observed state: all 22
+Deployments Ready, `simulation-service` 2/2, all four ChartAssignments
+Settled, and no temporary value retained. This restores the static Core
+baseline; it does not prove `StartSolution` or generated resource/skill
+lifecycle.
+
+## Simulation resource security prerequisites — 2026-10-06
+
+The live `resources` ChartAssignment requests `IPC_LOCK` for the UR Gazebo stub
+and ICON. Removing it makes both exit while locking memory. Their current
+resource definitions omit CPU and memory requests/limits, so any capability
+exception must first bound them. The controller overlay now preserves
+`IPC_LOCK` only for those exact simulator image repositories, assigns them the
+dedicated `intrinsic-sim-realtime` ServiceAccount, and sets requests of 1 CPU /
+1 GiB and limits of 4 CPU / 4 GiB per container. It strips ICON's `SYS_NICE` and
+the motion planner's `SYS_RAWIO`; unknown capabilities still fail closed. The
+Hand-E simulation image is made non-privileged and gets a writable ROS home
+under `/tmp`.
+
+The cluster-scoped SCC manifest
+[`../../manifests/intrinsic-sim-realtime-scc.yaml`](../../manifests/intrinsic-sim-realtime-scc.yaml)
+clones the observed `restricted-v2` restrictions and adds only `IPC_LOCK` to
+its allowed capabilities; it binds only the dedicated project ServiceAccount.
+It disallows privileged containers and host directory, network, PID, and IPC
+access, and retains `requiredDropCapabilities: [ALL]` and the RuntimeDefault
+seccomp profile. The SCC and ServiceAccount manifests are prepared but have
+not been applied pending explicit approval for this cluster-scoped capability
+exception. Because a namespace writer can select a ServiceAccount in a pod
+spec, keep write access to `arhkp-intrinsic` controlled. Do not roll out the
+controller image until the ServiceAccount and approved SCC are present.
+
+After approval, apply the namespaced ServiceAccount and then the cluster SCC:
+
+```bash
+oc apply -f openshift/deployment/manifests/intrinsic-sim-realtime-serviceaccount.yaml
+oc apply -f openshift/deployment/manifests/intrinsic-sim-realtime-scc.yaml
+```
+
+Verify the SCC's effective settings and its single ServiceAccount binding
+before rolling out the controller. Then confirm the UR module and ICON start
+under the custom SCC without any other capability or host access, and test the
+simulated arm motion.

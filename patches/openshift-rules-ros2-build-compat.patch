@@ -1,0 +1,21 @@
+diff --git a/repositories/rclpy.BUILD.bazel b/repositories/rclpy.BUILD.bazel
+--- a/repositories/rclpy.BUILD.bazel
++++ b/repositories/rclpy.BUILD.bazel
+@@ -18,7 +18,6 @@ ros2_cpp_binary(
+     includes = ["rclpy/src"],
+     linkopts = [
+         "-fvisibility=hidden",
+-        "-latomic",
+     ],
+     linkshared = True,
+     deps = [
+diff --git a/repositories/cyclonedds.BUILD.bazel b/repositories/cyclonedds.BUILD.bazel
+--- a/repositories/cyclonedds.BUILD.bazel
++++ b/repositories/cyclonedds.BUILD.bazel
+@@ -88,5 +88,6 @@
+ cache_entries = {
+     "CMAKE_POSITION_INDEPENDENT_CODE": "ON",  # Must be set!
++    "CMAKE_INSTALL_LIBDIR": "lib",
+     "BUILD_SHARED_LIBS": "OFF",
+     # CycloneDDS specific options.
+     "APPEND_PROJECT_NAME_TO_INCLUDEDIR": "OFF",

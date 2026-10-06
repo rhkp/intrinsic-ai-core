@@ -3,19 +3,20 @@
 ## Decision
 
 Treat the pinned Intrinsic release as the reference for application behavior,
-images, APIs, component relationships, and deployment assets. Copy the
-necessary upstream deployment code into our OpenShift-owned tree and adapt it
-for OpenShift. Our copied/adapted files become the deployable source of truth;
-record their upstream release, commit, and original paths. Own rendering,
-configuration, apply/health checks, and lifecycle/cleanup. Do not invoke the
-upstream single-VM/K3s deployer or its cluster-scoped ChartAssignment
-controller as the deployment authority.
+images, APIs, component relationships, deployment assets, and operator
+workflow. Prefer its released Core assets and documented OMTS Bazel commands.
+Adapt the OpenShift boundary only where a verified K3s assumption prevents that
+workflow from running. The current project-scoped controller and chart policy
+adapter are a working pilot; they are not proof that every upstream deployment
+component must be replaced. Keep each needed source patch traceable to the
+pinned commit and remove speculative adaptations after focused tests show they
+are unnecessary.
 
-This is our maintained OpenShift deployment implementation based on selected
-upstream deployment assets, not just an overlay around the upstream deployer.
-It does not require rewriting every application service: reuse upstream
-service images, APIs, and component definitions where they work, and keep
-adaptations small, reviewable, and traceable to the pinned source.
+Keep application services, images, and solution configuration upstream unless
+a specific OpenShift incompatibility requires a change. Do not run K3s host
+installers or mount node containerd sockets on OpenShift. Replace only affected
+host-level image-transfer and cluster-scope operations with project-scoped
+OpenShift mechanisms.
 
 ## What our deployment package owns
 
@@ -31,17 +32,18 @@ adaptations small, reviewable, and traceable to the pinned source.
 - Versioned dev01 configuration and reproducible deployment/verification
   commands in this repository.
 
-The registry push and private image-pull mechanisms have passed bounded live
+The registry push and private image-pull mechanisms passed bounded live
 smokes. A project-scoped `intrinsic-runtime` ServiceAccount and image-puller
-RoleBinding are in place. The owned resource/skill renderer now selects that
+RoleBinding are in place. The owned resource/skill renderer selects that
 account, rejects inline image credentials, and targets the pilot project;
 Helm template checks pass. A restricted smoke pod also consumed a synthetic
 `Opaque` Secret from a Git-ignored `.env`; the test resources were removed.
 Project mesh membership, the dedicated internal gRPC Gateway, its routing
-ConfigMap, and the restarted namespace-scoped controller are applied and
-verified. No Intrinsic Core application workload has yet been deployed from the
-adapted copy; storage, SCC compatibility for the full set, and app-specific
-runtime-secret mapping remain open.
+ConfigMap, and the namespace-scoped controller are applied and verified. The
+Core static slice is deployed: all 22 Deployments are Ready, all four
+ChartAssignments are Settled, and five PVCs are Bound. A prior `StartSolution`
+attempt failed with gRPC `UNAVAILABLE`; generated resource/skill lifecycle,
+active simulation, and viewer are still unproven.
 
 ## Dynamic assets and controllers
 
@@ -75,7 +77,9 @@ included. The registry publisher and image-pull identity are the first
 adaptations; see the [adaptation record](deployment/ADAPTATIONS.md). Keep upstream originals
 untouched in temporary inspection checkouts; make OpenShift changes against our
 copied files and review their diff whenever the pinned upstream version
-changes. The deployment remains incomplete and is not ready to apply.
+changes. The pilot is applied but incomplete; it is not yet evidence of an
+end-to-end simulation or a complete replacement for upstream deployment
+tooling.
 
 ## Validation boundary
 

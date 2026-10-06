@@ -4,6 +4,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from configure_routing import (
+    GATEWAY_RESOURCE,
+    GATEWAY_SERVICE,
+    PROJECT,
     PilotError,
     read_routing_values,
     safe_selector,
@@ -80,7 +83,7 @@ class RoutingConfigurationTest(unittest.TestCase):
             with self.assertRaises(PilotError):
                 verify_project_mesh_membership(object(), "istio-system")
 
-    def test_verifies_exact_internal_http2_gateway(self):
+    def test_verifies_tunnel_and_mesh_gateway_listeners(self):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
@@ -94,24 +97,44 @@ class RoutingConfigurationTest(unittest.TestCase):
                     "app.kubernetes.io/name": "intrinsic-grpc-gateway",
                     "istio": "intrinsic-grpc-gateway",
                 },
-                "ports": [{"port": 80, "protocol": "TCP"}],
+                "ports": [
+                    {"port": 80, "protocol": "TCP"},
+                    {"port": 443, "protocol": "TCP"},
+                ],
             }
         }
         endpoints = {
             "subsets": [{"addresses": [{"ip": "pod-ip", "targetRef": {"kind": "Pod", "name": "gateway-pod"}}]}]
         }
 
-        def responses(hosts, protocol="HTTP2"):
+        service_host = "intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local"
+
+        def responses(
+            mesh_hosts=None,
+            mesh_protocol="HTTPS",
+            mesh_tls="ISTIO_MUTUAL",
+            include_tunnel=True,
+        ):
+            if mesh_hosts is None:
+                mesh_hosts = [service_host, "*"]
+            servers = []
+            if include_tunnel:
+                servers.append({
+                    "port": {"number": 80, "protocol": "HTTP2"},
+                    "hosts": [service_host],
+                })
+            servers.append({
+                "port": {"number": 443, "protocol": mesh_protocol},
+                "hosts": mesh_hosts,
+                "tls": {"mode": mesh_tls} if mesh_tls else {},
+            })
             gateway = {
                 "spec": {
                     "selector": {
                         "app.kubernetes.io/name": "intrinsic-grpc-gateway",
                         "istio": "intrinsic-grpc-gateway",
                     },
-                    "servers": [{
-                        "port": {"number": 80, "protocol": protocol},
-                        "hosts": hosts,
-                    }],
+                    "servers": servers,
                 }
             }
             pods = {
@@ -133,31 +156,32 @@ class RoutingConfigurationTest(unittest.TestCase):
             return [project, member, rolls, service, endpoints, gateway, pods]
 
         values = {
-            "INTRINSIC_INGRESS_ADDRESS": "intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local:80",
-            "INTRINSIC_INGRESS_GATEWAY": "arhkp-intrinsic/intrinsic-grpc-internal",
+            "INTRINSIC_INGRESS_ADDRESS": f"{GATEWAY_SERVICE}.{PROJECT}.svc.cluster.local:80",
+            "INTRINSIC_INGRESS_GATEWAY": f"{PROJECT}/{GATEWAY_RESOURCE}",
         }
-        with patch("configure_routing.get_json", side_effect=responses([
-            "intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local"
-        ])):
+        with patch("configure_routing.get_json", side_effect=responses()):
             selector = verified_ingress_selector(object(), values)
         self.assertEqual(selector, {
             "app.kubernetes.io/name": "intrinsic-grpc-gateway",
             "istio": "intrinsic-grpc-gateway",
         })
 
-        for hosts, protocol in [
-            (["*"], "HTTP2"),
-            (["intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local"], "HTTP"),
+        for kwargs in [
+            {"mesh_hosts": [service_host]},
+            {"mesh_hosts": ["*"]},
+            {"mesh_protocol": "HTTP2"},
+            {"mesh_tls": "SIMPLE"},
+            {"include_tunnel": False},
         ]:
-            with self.subTest(hosts=hosts, protocol=protocol):
-                with patch("configure_routing.get_json", side_effect=responses(hosts, protocol)):
+            with self.subTest(**kwargs):
+                with patch("configure_routing.get_json", side_effect=responses(**kwargs)):
                     with self.assertRaises(PilotError):
                         verified_ingress_selector(object(), values)
 
     def test_rejects_shared_mesh_ingress_service(self):
         values = {
             "INTRINSIC_INGRESS_ADDRESS": "istio-ingressgateway.istio-system.svc.cluster.local:80",
-            "INTRINSIC_INGRESS_GATEWAY": "arhkp-intrinsic/intrinsic-grpc-internal",
+            "INTRINSIC_INGRESS_GATEWAY": f"{PROJECT}/{GATEWAY_RESOURCE}",
         }
         with self.assertRaises(PilotError):
             verified_ingress_selector(object(), values)

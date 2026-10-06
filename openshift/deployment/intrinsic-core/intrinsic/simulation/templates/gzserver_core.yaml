@@ -32,6 +32,8 @@ spec:
       annotations:
         # Force gzserver to restart every time the frontend switches apps
         app-deployment-id: "{{ .Values.app_deployment_id }}"
+        # The simulation service requires mesh mTLS for in-cluster gRPC.
+        sidecar.istio.io/inject: "true"
     spec:
       automountServiceAccountToken: false
       containers:
@@ -41,6 +43,9 @@ spec:
             readOnlyRootFilesystem: true
           args:
             - /intrinsic/simulation/gazebo/grpc_proxy/proxy_server_main
+            # The upstream default points to app-intrinsic-base, which is not
+            # present in this project-scoped OpenShift deployment.
+            - --simulation_service_address=simulation-service.arhkp-intrinsic.svc.cluster.local:8088
             - --opencensus_tracing=true
             - --opencensus_metrics_port=9090
             {{ if not (and .Values.app_deployment_id .Values.simulated) }}

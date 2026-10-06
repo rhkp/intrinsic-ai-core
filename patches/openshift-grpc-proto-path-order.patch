@@ -1,0 +1,18 @@
+diff --git a/bazel/generate_cc.bzl b/bazel/generate_cc.bzl
+--- a/bazel/generate_cc.bzl
++++ b/bazel/generate_cc.bzl
+@@ -130,10 +130,12 @@ def generate_cc_impl(ctx):
+ 
+     proto_root = get_proto_root(ctx.label.workspace_root)
+     dir_out = str(ctx.genfiles_dir.path + proto_root)
+-    proto_paths = [dir_out]
++    proto_paths = []
+     for inc in includes:
+         inc_dir = get_include_directory(inc)
+         if inc_dir not in proto_paths:
+             proto_paths.append(inc_dir)
++    if dir_out not in proto_paths:
++        proto_paths.append(dir_out)
+     arguments += ["--proto_path={}".format(path) for path in proto_paths]
+ 
+     # Add proto files to compile.
