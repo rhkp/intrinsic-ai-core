@@ -1,0 +1,31 @@
+FROM osrf/ros@sha256:cd0f24da968e3a7e8d0ef76b8d3684483235c86f5ab6a69ca2d4c9d7368a71f7
+
+USER 0
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      dbus-x11 \
+      mesa-utils \
+      novnc \
+      ros-lyrical-rmw-zenoh-cpp \
+      python3-websockify \
+      tigervnc-standalone-server \
+      xfwm4 \
+      xauth \
+      xfce4-panel \
+      xfce4-session \
+      xfce4-terminal \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --chmod=0555 run-viewer.sh desktop-session.sh /opt/intrinsic-viewer/
+COPY workcell.rviz /opt/intrinsic-viewer/workcell.rviz
+
+ENV HOME=/tmp/viewer-home \
+    DISPLAY=:1 \
+    XDG_RUNTIME_DIR=/tmp/intrinsic-viewer \
+    XAUTHORITY=/tmp/intrinsic-viewer/Xauthority \
+    LIBGL_ALWAYS_SOFTWARE=1 \
+    RMW_IMPLEMENTATION=rmw_zenoh_cpp \
+    ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/zenoh-router.arhkp-intrinsic.svc.cluster.local:7447"]'
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["/opt/intrinsic-viewer/run-viewer.sh"]

@@ -24,6 +24,22 @@ upstream RBAC rules but omits that Role and RoleBinding from Synk, because the
 controller must not be allowed to grant the Workcell account permissions that
 the controller itself does not hold.
 
+## Upstream native PubSub Zenoh DNS compatibility
+
+Some pinned upstream native PubSub clients compile in the
+`zenoh-router.app-intrinsic-base.svc.cluster.local:7447` endpoint and ignore
+ROS Zenoh environment overrides. Apply the narrowly scoped DNS alias before
+running solutions that use those clients:
+
+```bash
+oc apply -f openshift/deployment/manifests/upstream-zenoh-router-alias.yaml
+```
+
+The alias points only that upstream service name at the project's existing
+Zenoh router. The ChartAssignment controller excludes outbound port 7447 from
+Istio interception on the ICON, capture-skill, and pose-estimator pod templates
+so their raw Zenoh TCP connections remain plaintext as configured upstream.
+
 ## Workcell RBAC prerequisite for the Core base ChartAssignment
 
 Apply this project-only Role and RoleBinding before applying or reconciling

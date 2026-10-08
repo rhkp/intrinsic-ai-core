@@ -1,0 +1,30 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: intrinsic-rviz-novnc
+  namespace: arhkp-intrinsic
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: intrinsic-rviz-novnc
+  namespace: arhkp-intrinsic
+spec:
+  runPolicy: Serial
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Containerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: intrinsic-rviz-novnc:pilot
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi

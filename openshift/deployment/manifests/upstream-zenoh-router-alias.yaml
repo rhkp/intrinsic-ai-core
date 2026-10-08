@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-intrinsic-base
+  labels:
+    openshift.io/cluster-monitoring: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zenoh-router
+  namespace: app-intrinsic-base
+spec:
+  type: ExternalName
+  externalName: zenoh-router.arhkp-intrinsic.svc.cluster.local
+  ports:
+    - name: zenoh-router
+      protocol: TCP
+      port: 7447
+      targetPort: 7447

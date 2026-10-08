@@ -1,16 +1,23 @@
 # Intrinsic Core full OpenShift pilot
 
-**Status (2026-10-07):** The OpenShift-specific registry and ArtifactService
+**Status (2026-10-08):** The OpenShift-specific registry and ArtifactService
 fixes are deployed. `intrinsic-base`, `resources`, `skills`, and
 `intrinsic-app-chart` ChartAssignments are Settled; solution images use the
-project registry. The surgical ChartAssignment controller adapter adds the
-OpenShift GPU taint toleration to GPU workloads and required ICON/UR
-co-location. Gazebo (2/2), ICON (3/3), and UR (2/2) are running together on a
-GPU node. The inference pod remains Pending because all five cluster GPU slots
-are allocated. Scene updates and the simulation app cycle have not run, so the
-demo is not yet confirmed end-to-end. Use the
+project registry. The controller now applies narrow OpenShift adaptations for
+the pinned upstream runtime: it rewrites serialized simulator addresses to the
+project namespace, exposes Gazebo's seven gRPC ports on the headless
+`simulation-server` Service so Istio can apply strict mTLS, and injects the
+Gazebo sidecar. It also removes a conflicting motion-planner route that sent
+`InstalledAssetsReader` to Resource Registry instead of Workcell. Motion
+planner (3/3), Gazebo (2/2), ICON (3/3), UR (2/2), and gripper (2/2) are
+currently Running; UR and gripper logs confirm simulator connections. Inference
+is 3/3 Ready with the A10G GPU, and the namespace-local RViz/noVNC viewer is
+running. The documented `lab_bb_01` scene updates and reset succeeded. A
+one-cycle simulation reached motion planning, which stopped on the same
+gripper/stock collision observed on AWS. Deployment, inference, and viewing
+work on OpenShift; the pick cycle does not complete. See the
 [bottom-up demo dependency ladder](DEMO_DEPENDENCY_LADDER.md) for the verified
-checkpoint and next steps. See the
+checkpoint and [viewer runbook](deployment/viewer/README.md). See the
 [migration plan](../OPENSHIFT_PLAN.md) for architecture and acceptance gates.
 The [secret adaptation assessment](SECRETS_ADAPTATION.md) records the
 private-pull and `.env`-to-Secret smokes, plus the remaining app-specific key

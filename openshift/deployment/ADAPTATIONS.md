@@ -61,14 +61,14 @@ renderer patch was not the live rendering boundary; Asset Deployment is served
 inside `workcell-cluster-service`, while the controller adapter runs on the
 rendered ChartAssignment before apply.
 
-Validation: controller tests pass for GPU requests, ICON/UR co-location,
+Validation: controller tests passed for GPU requests, ICON/UR co-location,
 idempotence, and non-GPU workloads. Controller image
-`sha256:00dad8f106853d803d0c32bd3222ef207138627628aa139376a34db088b669c3` is
-deployed and Ready. On dev01, `intrinsic-base` and `resources` ChartAssignments
-are Settled; Gazebo is 2/2, ICON 3/3, and UR 2/2 Running on the same GPU node.
-The inference service has the correct project-registry image and toleration,
-but remains Pending because all five GPU slots are occupied. The demo is not
-end-to-end complete.
+`sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9` is
+deployed and Ready. On dev01, the ChartAssignments are Ready; Gazebo is 2/2,
+ICON 3/3, UR 2/2, and inference 3/3 Running, with inference on an A10G. After
+scene reset, ICON reconnected to UR and returned to `kMotionEnabled`. The
+one-cycle app reached planning and stopped on the gripper/stock collision also
+seen on AWS; the full pick has not completed.
 
 
 ## Quay image mirror and digest lock
@@ -380,6 +380,18 @@ headless `world` Service: after a World pod replacement, the sidecar's cached
 headless endpoint still pointed at the terminated pod, causing `StartSolution`
 to time out. These are OpenShift-only render changes; the pinned upstream and
 K3S source remain unchanged.
+
+The ICON action-output publisher, capture-images skill, and pose-estimator use
+Intrinsic's native PubSub binding, which uses the upstream router hostname and
+opens raw Zenoh TCP. The OpenShift pilot has no `app-intrinsic-base` namespace,
+and mesh interception breaks direct access to the non-mesh router. The
+controller marks only the ICON, capture-images skill group, and pose-estimator
+pod templates to exclude outbound port 7447 from Istio. The checked-in
+[`manifests/upstream-zenoh-router-alias.yaml`](manifests/upstream-zenoh-router-alias.yaml)
+provides the upstream DNS name as an `ExternalName` alias to the existing
+project router; it does not create another router or alter upstream/K3S.
+Reconcile the existing ChartAssignments to replace those pods after applying
+the alias. PVCs and the workspace build cache remain untouched.
 
 ## ArtifactService publishing to the OpenShift registry
 

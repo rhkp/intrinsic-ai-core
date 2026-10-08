@@ -13,7 +13,9 @@ import (
 const (
 	flowstateRuntimeConfigMapName = "rc-flowstate-ros-bridge"
 	flowstateRuntimeConfigKey     = "runtime_config.pb"
+	upstreamSimulationServerHost  = "simulation-server.app-intrinsic-app-chart.svc.cluster.local"
 	gripperCommandSkillImageRepo  = "ai.intrinsic.gripper_cmd_skill.gripper_cmd_skill"
+	captureImagesSkillImageRepo   = "ai.intrinsic.capture_images.capture_images_skill_image"
 	moveToContactSkillImageRepo   = "ai.intrinsic.move_to_contact.move_to_contact_skill_image"
 	upstreamZenohRouterEndpoint   = "tcp/zenoh-router.app-intrinsic-base.svc.cluster.local:7447"
 )
@@ -110,6 +112,47 @@ func adaptFlowstateRuntimeConfig(resource *unstructured.Unstructured, namespace 
 	return unstructured.SetNestedMap(resource.Object, binaryData, "binaryData")
 }
 
+// adaptSimulationServerRuntimeContext rewrites the upstream app namespace in
+// serialized resource RuntimeContexts. The manifest namespace rewrite cannot
+// see the address inside the base64-encoded protobuf ConfigMap value.
+func adaptSimulationServerRuntimeContext(resource *unstructured.Unstructured, namespace string) error {
+	if resource.GetKind() != "ConfigMap" {
+		return nil
+	}
+	if namespace == "" {
+		return fmt.Errorf("target namespace is required")
+	}
+	binaryData, found, err := unstructured.NestedMap(resource.Object, "binaryData")
+	if err != nil {
+		return fmt.Errorf("read ConfigMap binaryData: %w", err)
+	}
+	if !found {
+		return nil
+	}
+	encoded, ok := binaryData[flowstateRuntimeConfigKey].(string)
+	if !ok || encoded == "" {
+		return nil
+	}
+	runtimeConfig, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return fmt.Errorf("decode %s: %w", flowstateRuntimeConfigKey, err)
+	}
+	old := []byte(upstreamSimulationServerHost)
+	replacement := []byte("simulation-server." + namespace + ".svc.cluster.local")
+	if !bytes.Contains(runtimeConfig, old) {
+		return nil
+	}
+	updated, replacements, err := rewriteProtobufStrings(runtimeConfig, old, replacement, 0)
+	if err != nil {
+		return fmt.Errorf("rewrite runtime config protobuf: %w", err)
+	}
+	if replacements == 0 || bytes.Contains(updated, old) {
+		return fmt.Errorf("runtime config did not fully replace the upstream simulation server host")
+	}
+	binaryData[flowstateRuntimeConfigKey] = base64.StdEncoding.EncodeToString(updated)
+	return unstructured.SetNestedMap(resource.Object, binaryData, "binaryData")
+}
+
 // rewriteProtobufStrings rewrites an exact string in protobuf wire data while
 // preserving wire types and updating enclosing length-delimited fields.
 func rewriteProtobufStrings(message, old, replacement []byte, depth int) ([]byte, int, error) {
@@ -186,8 +229,15 @@ func adaptZenohClient(resource *unstructured.Unstructured, namespace string, con
 	containerName := ""
 	useFlag := false
 	configureMoveToContact := false
+	useUpstreamZenohDNS := false
 	var target map[string]interface{}
 	switch resource.GetKind() + "/" + resource.GetName() {
+	case "StatefulSet/rs-icon":
+		containerName = "rs-icon"
+		// ICON's native PubSub publisher uses the same compiled upstream DNS
+		// endpoint as capture_images; preserve that endpoint and bypass mesh
+		// interception for its raw Zenoh TCP traffic.
+		useUpstreamZenohDNS = true
 	case "StatefulSet/rs-flowstate-ros-bridge":
 		containerName = "rs-flowstate-ros-bridge"
 	case "StatefulSet/rs-orbbec-gemini-driver":
@@ -204,8 +254,14 @@ func adaptZenohClient(resource *unstructured.Unstructured, namespace string, con
 		for _, container := range containers {
 			image, _ := container["image"].(string)
 			imageRepository := imageRepositoryName(image)
-			if imageRepository != gripperCommandSkillImageRepo && imageRepository != moveToContactSkillImageRepo {
+			if imageRepository != gripperCommandSkillImageRepo && imageRepository != moveToContactSkillImageRepo && imageRepository != captureImagesSkillImageRepo {
 				continue
+			}
+			if imageRepository == captureImagesSkillImageRepo {
+				// capture_images uses PubSub's compiled upstream router hostname.
+				// Keep that hostname resolvable with the OpenShift compatibility
+				// Service and bypass mesh interception for its raw Zenoh TCP port.
+				useUpstreamZenohDNS = true
 			}
 			if imageRepository == moveToContactSkillImageRepo {
 				// The derived MTC image reads this endpoint and passes an explicit
@@ -241,6 +297,9 @@ func adaptZenohClient(resource *unstructured.Unstructured, namespace string, con
 		return fmt.Errorf("%s %q has no %q container", resource.GetKind(), resource.GetName(), containerName)
 	}
 	endpoint := "tcp/zenoh-router." + namespace + ".svc.cluster.local:7447"
+	if useUpstreamZenohDNS {
+		return excludeZenohPortFromIstio(resource)
+	}
 	if configureMoveToContact {
 		if err := setContainerEnv(target, "INTRINSIC_ZENOH_ROUTER_ENDPOINT", endpoint); err != nil {
 			return err

@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: controller
-          image: image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:00dad8f106853d803d0c32bd3222ef207138627628aa139376a34db088b669c3
+          image: image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9
           imagePullPolicy: Always
           envFrom:
             - configMapRef:

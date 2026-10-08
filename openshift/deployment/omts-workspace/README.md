@@ -98,5 +98,14 @@ After a simulator reset, verify ICON has reconnected to `ur_module` and reports
 the HWM active before starting the one-cycle app. On dev01, reset recreated
 `ur_module.sock` as UID/GID `1001690000` with mode `0755`; ICON runs as UID 0
 but the OpenShift SCC drops `DAC_OVERRIDE`, so the shared group cannot reconnect.
-The OpenShift adapter now requests that capability for the ICON container only;
-the change still needs rollout and post-reset verification.
+The OpenShift adapter requests that capability for the ICON container only.
+The controller adaptation is deployed on dev01. After the documented scene
+reset, ICON reconnected to `ur_module` and returned to `kMotionEnabled`; repeat
+that check after each future reset before running the app.
+
+The one-cycle app is confirmed to connect through inference and reach motion
+planning. The planner reports a collision between
+`gripper.gripper_finger2` and `raw_stock_2x3x5.base_link`, matching the known
+AWS behavior; the pick does not complete. The dev01 RViz/noVNC viewer and its
+loopback-only port-forward are documented in
+[`../viewer/README.md`](../viewer/README.md).

@@ -24,6 +24,13 @@
       "patch": "openshift/deployment/artifacts-service/patch_oci_image.py"
     },
     {
+      "name": "intrinsic-rviz-novnc",
+      "repository": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/intrinsic-rviz-novnc",
+      "digest": "sha256:0c027b5234b6e1736ef43517b921e897f8a0d9b8cdb0b6905a704b399549d592",
+      "source_image": "osrf/ros@sha256:cd0f24da968e3a7e8d0ef76b8d3684483235c86f5ab6a69ca2d4c9d7368a71f7",
+      "patch": "openshift/deployment/viewer/"
+    },
+    {
       "name": "workcell-cluster-service",
       "repository": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/workcell-cluster-service",
       "digest": "sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3",

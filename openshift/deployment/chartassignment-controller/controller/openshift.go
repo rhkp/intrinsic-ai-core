@@ -35,6 +35,14 @@ const (
 	inferenceServicePython             = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
 	inferenceServiceUpstreamCASAddress = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
 	inferenceServiceProjectCASAddress  = "content-addressable-storage.arhkp-intrinsic.svc.cluster.local:9747"
+	poseEstimatorServiceName           = "rs-pose-estimator-service"
+	poseEstimatorContainerName         = "rs-pose-estimator-service"
+	poseEstimatorImageRepository       = "ai.intrinsic.ioc_pose_estimator_service.ioc_pose_estimator_image"
+	poseEstimatorPatchName             = "openshift-pose-estimator-cas-address"
+	poseEstimatorPatchVolume           = "pose-estimator-service-patch"
+	poseEstimatorMainPath              = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/intrinsic-core+/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/service/ioc_pose_estimator_service.py"
+	poseEstimatorPython                = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
+	poseEstimatorUpstreamCASAddress    = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
 	jupyterHomeDir                     = "/home/defaultuser"
 	jupyterRuntimeDir                  = jupyterHomeDir + "/.local/share/jupyter/runtime"
 	upstreamIngressAddress             = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
@@ -273,6 +281,9 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		}
 		resource.SetNamespace(namespace)
 		rewriteProjectReferences(resource.Object, namespace)
+		if err := adaptSimulationServerRuntimeContext(resource, namespace); err != nil {
+			return nil, fmt.Errorf("adapt simulation server runtime context for %s/%s: %w", kind, name, err)
+		}
 		if err := adaptFlowstateRuntimeConfig(resource, namespace); err != nil {
 			return nil, fmt.Errorf("adapt runtime config for %s/%s: %w", kind, name, err)
 		}
@@ -310,7 +321,7 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		// workcell-cluster-service calls it over gRPC. The cluster's strict
 		// ISTIO_MUTUAL policy requires the runtime DB server to join the mesh;
 		// keep that policy intact instead of opting this connection out of TLS.
-		needsSidecar := isGatewayBackend || kind == "Deployment" && (name == "runtime-db" || name == "kvstore-service") ||
+		needsSidecar := isGatewayBackend || kind == "Deployment" && (name == "runtime-db" || name == "kvstore-service" || name == gzserverDeploymentName) ||
 			kind == "StatefulSet" && (name == "rs-flowstate-ros-bridge" || name == "rs-orbbec-gemini-driver" || name == "rs-hande-gripper")
 		if needsSidecar {
 			if err := enableIstioSidecar(resource); err != nil {
@@ -751,6 +762,9 @@ func adaptPVC(resource *unstructured.Unstructured) error {
 }
 
 func adaptService(resource *unstructured.Unstructured) error {
+	if err := exposeGazeboSimulationGRPCPorts(resource); err != nil {
+		return err
+	}
 	if resource.GetName() == "world" {
 		if err := exposeWorldConductorGRPCPort(resource); err != nil {
 			return fmt.Errorf("expose World Conductor gRPC port: %w", err)
@@ -783,6 +797,44 @@ func adaptService(resource *unstructured.Unstructured) error {
 		}
 	}
 	return nil
+}
+
+// exposeGazeboSimulationGRPCPorts declares the upstream Gazebo listeners on
+// its headless Service so Istio can apply the project's strict mTLS policy to
+// resource clients connecting to those ports. Upstream leaves these ports
+// undeclared because Kubernetes does not require Service ports for headless
+// DNS; OpenShift's mesh does require service-port metadata for mTLS origination.
+func exposeGazeboSimulationGRPCPorts(resource *unstructured.Unstructured) error {
+	if resource.GetName() != "simulation-server" {
+		return nil
+	}
+	selector, found, err := unstructured.NestedStringMap(resource.Object, "spec", "selector")
+	if err != nil {
+		return err
+	}
+	if !found || selector["app"] != "gzserver" {
+		return fmt.Errorf("Service %q does not select the upstream gzserver workload", resource.GetName())
+	}
+	want := []interface{}{
+		map[string]interface{}{"name": "grpc-health", "port": int64(12377), "targetPort": int64(12377), "protocol": "TCP"},
+		map[string]interface{}{"name": "grpc-gripper", "port": int64(12393), "targetPort": int64(12393), "protocol": "TCP"},
+		map[string]interface{}{"name": "grpc-gpio", "port": int64(12394), "targetPort": int64(12394), "protocol": "TCP"},
+		map[string]interface{}{"name": "grpc-spawner", "port": int64(12395), "targetPort": int64(12395), "protocol": "TCP"},
+		map[string]interface{}{"name": "grpc-outfeed", "port": int64(12396), "targetPort": int64(12396), "protocol": "TCP"},
+		map[string]interface{}{"name": "grpc-inputs", "port": int64(12476), "targetPort": int64(12476), "protocol": "TCP"},
+		map[string]interface{}{"name": "grpc-camera", "port": int64(15333), "targetPort": int64(15333), "protocol": "TCP"},
+	}
+	ports, found, err := unstructured.NestedSlice(resource.Object, "spec", "ports")
+	if err != nil {
+		return err
+	}
+	if found && len(ports) != 0 {
+		if fmt.Sprint(ports) == fmt.Sprint(want) {
+			return nil
+		}
+		return fmt.Errorf("Service %q has unexpected ports; refusing to replace them", resource.GetName())
+	}
+	return unstructured.SetNestedSlice(resource.Object, want, "spec", "ports")
 }
 
 // exposeWorldConductorGRPCPort publishes the World pod's Conductor listener
@@ -913,6 +965,9 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 	}
 	if err := adaptInferenceCASAddress(resource, podSpec, namespace); err != nil {
 		return fmt.Errorf("configure inference CAS service address: %w", err)
+	}
+	if err := adaptPoseEstimatorCASAddress(resource, podSpec, namespace); err != nil {
+		return fmt.Errorf("configure pose estimator CAS service address: %w", err)
 	}
 
 	containers := append(sliceMaps(podSpec["containers"]), sliceMaps(podSpec["initContainers"])...)
@@ -1249,6 +1304,114 @@ func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[s
 		"readOnly":  true,
 	})
 	return unstructured.SetNestedSlice(appContainer, volumeMounts, "volumeMounts")
+}
+
+// adaptPoseEstimatorCASAddress redirects the pinned upstream pose-estimator
+// asset client to the project-local CAS service. Upstream hard-codes the
+// default app namespace, which is not present on the OpenShift pilot.
+func adaptPoseEstimatorCASAddress(resource *unstructured.Unstructured, podSpec map[string]interface{}, namespace string) error {
+	if resource.GetKind() != "StatefulSet" || resource.GetName() != poseEstimatorServiceName {
+		return nil
+	}
+	if namespace == "" {
+		return fmt.Errorf("target namespace is required")
+	}
+
+	containers := sliceMaps(podSpec["containers"])
+	var appContainer map[string]interface{}
+	for _, container := range containers {
+		if container["name"] != poseEstimatorContainerName {
+			continue
+		}
+		if appContainer != nil {
+			return fmt.Errorf("StatefulSet %q has duplicate %q containers", poseEstimatorServiceName, poseEstimatorContainerName)
+		}
+		appContainer = container
+	}
+	if appContainer == nil {
+		return fmt.Errorf("StatefulSet %q has no %q container", poseEstimatorServiceName, poseEstimatorContainerName)
+	}
+	image, _ := appContainer["image"].(string)
+	if imageRepositoryName(image) != poseEstimatorImageRepository {
+		return fmt.Errorf("StatefulSet %q has unexpected pose-estimator image repository %q", poseEstimatorServiceName, imageRepositoryName(image))
+	}
+
+	initContainers, found, err := unstructured.NestedSlice(podSpec, "initContainers")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range initContainers {
+			container, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed init container")
+			}
+			if container["name"] == poseEstimatorPatchName {
+				return fmt.Errorf("StatefulSet %q already contains init container %q", poseEstimatorServiceName, poseEstimatorPatchName)
+			}
+		}
+	}
+	volumes, found, err := unstructured.NestedSlice(podSpec, "volumes")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range volumes {
+			volume, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed volume")
+			}
+			if volume["name"] == poseEstimatorPatchVolume {
+				return fmt.Errorf("StatefulSet %q already contains volume %q", poseEstimatorServiceName, poseEstimatorPatchVolume)
+			}
+		}
+	}
+
+	patchScript := strings.Join([]string{
+		"from pathlib import Path",
+		"source = Path(" + strconv.Quote(poseEstimatorMainPath) + ")",
+		"target = Path('/patch/ioc_pose_estimator_service.py')",
+		"text = source.read_text()",
+		"old = " + strconv.Quote(poseEstimatorUpstreamCASAddress),
+		"new = " + strconv.Quote("content-addressable-storage."+namespace+".svc.cluster.local:9747"),
+		"assert text.count(old) == 1, f'expected one upstream CAS address, found {text.count(old)}'",
+		"target.write_text(text.replace(old, new))",
+	}, "; ")
+	initContainers = append(initContainers, map[string]interface{}{
+		"name": poseEstimatorPatchName, "image": image,
+		"command": []interface{}{poseEstimatorPython}, "args": []interface{}{"-c", patchScript},
+		"volumeMounts": []interface{}{map[string]interface{}{"name": poseEstimatorPatchVolume, "mountPath": "/patch"}},
+	})
+	if err := unstructured.SetNestedSlice(podSpec, initContainers, "initContainers"); err != nil {
+		return err
+	}
+	volumes = append(volumes, map[string]interface{}{"name": poseEstimatorPatchVolume, "emptyDir": map[string]interface{}{}})
+	if err := unstructured.SetNestedSlice(podSpec, volumes, "volumes"); err != nil {
+		return err
+	}
+	volumeMounts, found, err := unstructured.NestedSlice(appContainer, "volumeMounts")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range volumeMounts {
+			mount, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed volume mount")
+			}
+			if mount["mountPath"] == poseEstimatorMainPath {
+				return fmt.Errorf("StatefulSet %q already mounts %q", poseEstimatorServiceName, poseEstimatorMainPath)
+			}
+		}
+	}
+	volumeMounts = append(volumeMounts, map[string]interface{}{
+		"name": poseEstimatorPatchVolume, "mountPath": poseEstimatorMainPath,
+		"subPath": "ioc_pose_estimator_service.py", "readOnly": true,
+	})
+	if err := unstructured.SetNestedSlice(appContainer, volumeMounts, "volumeMounts"); err != nil {
+		return err
+	}
+	return excludeZenohPortFromIstio(resource)
 }
 
 type simulationSecurityPolicy struct {

@@ -107,17 +107,17 @@
     },
     {
       "id": "openshift-gpu-node-toleration-adapter",
-      "status": "deployed and verified on dev01; Gazebo, ICON, and UR scheduled together; inference is pending for lack of another GPU slot",
+      "status": "deployed and verified on dev01; Gazebo, ICON, UR, and inference are Ready; the one-cycle app reaches planning and stops on the known gripper/stock collision",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "upstream_reference": "intrinsic/assets/deploy/renderutil.go podSpecForResource creates GPU requests but has no OpenShift node-taint policy",
       "adaptation_path": "openshift/deployment/chartassignment-controller/controller/openshift.go adaptPodSpec",
-      "controller_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:00dad8f106853d803d0c32bd3222ef207138627628aa139376a34db088b669c3",
+      "controller_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9",
       "validation": {
         "controller_tests": "passed for GPU requests, ICON/UR required co-location, idempotence, and unchanged non-GPU workloads",
-        "dev01_base_and_resources": "intrinsic-base generation 4 and resources generation 7 Settled",
-        "dev01_runtime": "Gazebo 2/2, ICON 3/3, and UR 2/2 Running on the same g5 GPU node with project-registry images",
-        "dev01_inference": "correct GPU toleration and project-registry image; Pending because all five GPU slots are allocated",
-        "demo_scene_and_cycle": "not run; waiting for GPU capacity for inference and remaining runtime dependencies"
+        "dev01_base_and_resources": "intrinsic-base generation 4 Ready; resources generation 10, skills generation 3, and intrinsic-app-chart generation 10 Ready",
+        "dev01_runtime": "Gazebo 2/2, ICON 3/3, UR 2/2, and inference 3/3 Ready; inference uses an A10G GPU",
+        "dev01_inference": "project-registry image and GPU toleration; models loaded and inference completed during the one-cycle app",
+        "demo_scene_and_cycle": "documented lab_bb_01 scene reset succeeded; ICON returned to kMotionEnabled; app reached planning and stopped on gripper.gripper_finger2 versus raw_stock_2x3x5.base_link collision"
       }
     },
     {

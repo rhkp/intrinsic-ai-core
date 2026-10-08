@@ -90,11 +90,11 @@ go/no-go questions.
 
 | Area | Observed baseline | Still unproven |
 | --- | --- | --- |
-| Platform | Ubuntu Server, K3s, one GPU-equipped AWS VM; release `20260922.0` of Core and OMTS | OpenShift admission, CRI-O, target-cluster policies, and multiple-worker behavior |
-| Deployment | Core and OMTS resource workloads are applied; latest snapshot had 44 Pods Running, with only the UR module container unready (4 restarts) | Stable UR health, successful `StartSolution`, end-to-end arm motion, and viewer remain unproven; the VM's 51 pods are not an OpenShift target count |
-| GPU | One NVIDIA T4, with 48 advertised time-sharing slots; the demo advanced through camera capture and pose estimation | Quantitative model accuracy, latency, and capacity under a representative workload |
-| Visualization | Live RViz workcell view; Gazebo simulation backend | Containerized viewer on OpenShift |
-| Application | Local API responding; ICON enabled; simulated pick, transfer, placement, and unload actions executed | Completed machine-tending cycle: retries stopped on a workpiece/enclosure collision during unloading |
+| Platform | Upstream comparison ran on Ubuntu/K3s on the separate AWS VM; dev01 is a distinct OpenShift 4.20 target using CRI-O and project-scoped resources | High availability, node-loss recovery, and behavior under representative multi-user load |
+| Deployment | Core and OMTS ChartAssignments are Ready; required simulation, inference, and viewer Pods are Running in `arhkp-intrinsic` | Full pick completion and recovery after OpenShift node or storage failure |
+| GPU | dev01 inference is 3/3 Ready on an A10G; the demo reached camera capture and pose estimation | Quantitative model accuracy, latency, and capacity under a representative workload |
+| Visualization | Namespace-local RViz/noVNC is verified through a loopback-only port-forward; Gazebo supplies the simulation state | Longer-running viewer stability and measured render performance |
+| Application | A bounded dev01 simulation cycle connects, perceives the stock, and reaches motion planning; planner reports the same gripper/stock collision observed on AWS | Completed machine-tending cycle; successful `move_to_contact` and changed simulator state |
 | Recovery | Existing VM recovered after stop/start and the documented device-plugin fix | OpenShift rescheduling, storage reattachment, or high availability |
 
 We have now run bounded, one-cycle simulation attempts. A missing gripper command
@@ -102,6 +102,14 @@ handler was recovered by recreating its simulated driver pod. Subsequent runs
 demonstrated perception and motion but stopped on a repeatable workpiece/enclosure
 collision during unloading, including after a world reset. See the
 [demo runbook](DEMO_README.md). **No complete cycle has passed.**
+
+On dev01, the pinned solution and all four `lab_bb_01` scene updates were
+applied, the simulator reset successfully, ICON returned to `kMotionEnabled`,
+and the one-cycle app reached motion planning. It stopped on a gripper-finger /
+raw-stock collision, consistent with the AWS behavior. The private RViz/noVNC
+viewer is deployed in `arhkp-intrinsic`; see the
+[OpenShift viewer runbook](openshift/deployment/viewer/README.md). This verifies
+the OpenShift deployment and visual demo path, not a completed pick.
 
 Use the successful intermediate steps as reproducible platform checks, and track
 the existing simulation failure separately. A full-cycle pass remains an
@@ -557,15 +565,12 @@ Do not substitute a new model or preprocessing pipeline during platform parity.
   Prove which are needed for this simulation; avoid exposing unused ports.
 - Apply service-account RBAC and network policies for the actual graph, including
   DNS, Core APIs, registry pulls, CAS, model storage, viewer/ROS, and observability.
-- Containerize RViz/Gazebo visualization with software rendering first to match
-  the existing view. Keep the viewer Service private and access it from the Mac
-  with `oc port-forward` bound to `127.0.0.1`; do not require an AWS VM, SSH
-  tunnel, or public Route. The viewer is not deployed yet. The current
-  `simulation-service` Service exposes gRPC on 8088 and is not a browser viewer.
-  Confirm how the packaged viewer authenticates or relies on OpenShift API access
-  before exposing its web/VNC port. Once deployed, forward its private Service
-  from the Mac with `oc -n arhkp-intrinsic port-forward --address 127.0.0.1
-  svc/<viewer-service> 6080:6080` and open the local noVNC page.
+- RViz/noVNC is deployed in `arhkp-intrinsic` with software rendering. Its
+  ClusterIP Service has no public Route. Access it from the Mac with
+  `oc port-forward` bound to `127.0.0.1`; an AWS VM or SSH tunnel is not part
+  of this path. The `simulation-service` remains gRPC on 8088 and is not a
+  browser viewer. See
+  [`openshift/deployment/viewer/README.md`](openshift/deployment/viewer/README.md).
 - Keep credentials, private certificates, kubeconfigs, account identifiers,
   cluster URLs, private registry/bucket names, and diagnostic exports out of Git.
   Use placeholders and approved external secret handling in implementation files.
@@ -603,9 +608,9 @@ behavioral baseline; the immediate task is to recover one failing runtime path.
 | --- | --- | --- |
 | P0 — Provenance and platform checks | Pinned Core/OMTS sources, release images, registry path, namespace-scoped controller, storage, GPU, Secret injection, and internal gateway have bounded verification. | Revalidate dated capacity and cluster prerequisites only when needed; do not rebuild passed upstream images. |
 | P1 — Apply Core and OMTS workloads | Workloads are applied; all four ResourceSets are settled. | Keep the generated resources and skills healthy through solution/world reset. |
-| P2 — Recover simulator IPC across reset | Root cause identified: the reset recreates a mode-0755 socket owned by GID 1001690000; the OpenShift ICON container drops `DAC_OVERRIDE`. A local exact-container capability change is prepared. | Deploy it, verify only ICON receives the capability, and prove reconnect after reset. |
-| P3 — Prove the simulation | The app has not passed the full cycle; the latest attempt stopped on the UR socket before `move_to_contact`. | One simulation-only cycle completes, including `move_to_contact`, with Gazebo state and visible arm motion. Track the known K3s unload collision separately; reproducing it is not a pass. |
-| P4 — Viewer and parity | Pending. | Reach the viewer through a loopback-bound port-forward and verify the expected workcell and movement. Track the known AWS unload collision separately. |
+| P2 — Recover simulator IPC across reset | Deployed ICON-only capability adaptation; after reset, ICON reconnected and returned to `kMotionEnabled`. | Repeat this check after future resets and during recovery events. |
+| P3 — Prove the simulation | One-cycle simulation reaches motion planning and reproduces the known gripper/stock collision from AWS. The full pick has not completed. | Track or resolve the upstream collision; claim a full pass only after `move_to_contact` completes and simulator state changes. |
+| P4 — Viewer and parity | Namespace-local RViz/noVNC works through the loopback-bound port-forward; `/workcell_markers` and simulation topics are visible. | Keep the private viewer available during future runs and assess longer-running behavior. |
 | P5 — RHOAI integration and operations | Deferred. | After P3, validate the real Intrinsic inference contract, then model lifecycle, sizing, recovery, and ownership. |
 
 ### Ordered recovery checklist

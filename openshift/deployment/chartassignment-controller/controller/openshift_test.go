@@ -1,6 +1,7 @@
 package chartassignment
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/binary"
 	"strings"
@@ -60,6 +61,33 @@ func TestAdaptFlowstateRuntimeConfigUsesProjectZenohRouter(t *testing.T) {
 		t.Fatalf("adapted protobuf is invalid or not idempotent: count=%d err=%v", count, err)
 	}
 	if err := adaptFlowstateRuntimeConfig(resource, pilotNamespace); err != nil {
+		t.Fatalf("second adaptation: %v", err)
+	}
+}
+
+func TestAdaptSimulationServerRuntimeContextUsesProjectNamespace(t *testing.T) {
+	oldHost := []byte(upstreamSimulationServerHost)
+	runtimeConfig := protobufBytesField(3, oldHost)
+	resource := object("ConfigMap", "rc-ur-module", map[string]interface{}{
+		"binaryData": map[string]interface{}{flowstateRuntimeConfigKey: base64.StdEncoding.EncodeToString(runtimeConfig)},
+	})
+
+	if err := adaptSimulationServerRuntimeContext(resource, pilotNamespace); err != nil {
+		t.Fatal(err)
+	}
+	encoded, _, err := unstructured.NestedString(resource.Object, "binaryData", flowstateRuntimeConfigKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantHost := []byte("simulation-server." + pilotNamespace + ".svc.cluster.local")
+	if !bytes.Contains(updated, wantHost) || bytes.Contains(updated, oldHost) {
+		t.Fatalf("adapted RuntimeContext does not contain only the project simulation-server host: %q", updated)
+	}
+	if err := adaptSimulationServerRuntimeContext(resource, pilotNamespace); err != nil {
 		t.Fatalf("second adaptation: %v", err)
 	}
 }
@@ -671,13 +699,20 @@ func TestAdaptOpenShiftResourcesTargetsProjectSimulationService(t *testing.T) {
 		"--simulation_service_address=simulation-service.app-intrinsic-base.svc.cluster.local:8088",
 		"--opencensus_tracing=true",
 	)
+	simulationServer := object("Service", "simulation-server", map[string]interface{}{
+		"spec": map[string]interface{}{
+			"clusterIP": "None",
+			"selector":  map[string]interface{}{"app": "gzserver"},
+			"type":      "ClusterIP",
+		},
+	})
 
-	got, err := adaptOpenShiftResources([]*unstructured.Unstructured{input}, pilotNamespace)
+	got, err := adaptOpenShiftResources([]*unstructured.Unstructured{input, simulationServer}, pilotNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("adapted resources = %v, want only gzserver Deployment", kinds(got))
+	if len(got) != 2 {
+		t.Fatalf("adapted resources = %v, want gzserver Deployment and simulation-server Service", kinds(got))
 	}
 	wantAddress := "--simulation_service_address=simulation-service." + pilotNamespace + ".svc.cluster.local:8088"
 	check := func(resource *unstructured.Unstructured) {
@@ -705,6 +740,16 @@ func TestAdaptOpenShiftResourcesTargetsProjectSimulationService(t *testing.T) {
 		}
 	}
 	check(got[0])
+	ports, found, err := unstructured.NestedSlice(got[1].Object, "spec", "ports")
+	if err != nil || !found || len(ports) != 7 {
+		t.Fatalf("simulation-server ports: found=%v err=%v count=%d, want 7", found, err, len(ports))
+	}
+	for _, item := range ports {
+		port := item.(map[string]interface{})
+		if port["port"] != port["targetPort"] || port["protocol"] != "TCP" || !strings.HasPrefix(port["name"].(string), "grpc-") {
+			t.Errorf("unexpected simulation-server mesh port: %v", port)
+		}
+	}
 
 	// Reconciliation is idempotent when the deployment already contains the
 	// project-local endpoint.
@@ -713,6 +758,10 @@ func TestAdaptOpenShiftResourcesTargetsProjectSimulationService(t *testing.T) {
 		t.Fatal(err)
 	}
 	check(gotAgain[0])
+	portsAgain, found, err := unstructured.NestedSlice(gotAgain[1].Object, "spec", "ports")
+	if err != nil || !found || len(portsAgain) != 7 {
+		t.Errorf("reconciled simulation-server ports: found=%v err=%v count=%d, want same seven ports", found, err, len(portsAgain))
+	}
 
 	wrongImage := deployment("registry.example/unreviewed-gzserver:latest", gzserverMainBinary)
 	if _, err := adaptOpenShiftResources([]*unstructured.Unstructured{wrongImage}, pilotNamespace); err == nil || !strings.Contains(err.Error(), "unexpected image repository") {
@@ -1428,6 +1477,34 @@ func TestAdaptOpenShiftResourcesInjectsSidecarForGatewayRoutedBackend(t *testing
 	annotations, found, err = unstructured.NestedStringMap(find("Deployment", "runtime-db").Object, "spec", "template", "metadata", "annotations")
 	if err != nil || !found || annotations[istioSidecarInjectAnnotation] != "true" {
 		t.Fatalf("runtime DB workload sidecar annotation = %v, found=%t, err=%v", annotations, found, err)
+	}
+}
+
+func TestAdaptOpenShiftResourcesInjectsSidecarForGazeboProxy(t *testing.T) {
+	deployment := object("Deployment", gzserverDeploymentName, map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{
+			"metadata": map[string]interface{}{"annotations": map[string]interface{}{"app-deployment-id": "test"}},
+			"spec": map[string]interface{}{"containers": []interface{}{map[string]interface{}{
+				"name":  gzserverContainerName,
+				"image": "quay.io/rhkp/intrinsic/" + gzserverImageRepository + "@sha256:0123456789abcdef",
+				"args":  []interface{}{gzserverMainBinary, "--simulation_service_address=upstream.invalid:8088"},
+			}}},
+		}},
+	})
+
+	got, err := adaptOpenShiftResources([]*unstructured.Unstructured{deployment}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	annotations, found, err := unstructured.NestedStringMap(got[0].Object, "spec", "template", "metadata", "annotations")
+	if err != nil || !found || annotations[istioSidecarInjectAnnotation] != "true" || annotations["app-deployment-id"] != "test" {
+		t.Fatalf("Gazebo proxy annotations = %v, found=%t, err=%v", annotations, found, err)
+	}
+	containers, _, _ := unstructured.NestedSlice(got[0].Object, "spec", "template", "spec", "containers")
+	args, _, _ := unstructured.NestedStringSlice(containers[0].(map[string]interface{}), "args")
+	wantAddress := simulationServiceAddressFlag + "simulation-service." + pilotNamespace + ".svc.cluster.local:" + simulationServicePort
+	if len(args) != 2 || args[1] != wantAddress {
+		t.Fatalf("Gazebo proxy args = %v, want rewritten simulation service address %q", args, wantAddress)
 	}
 }
 

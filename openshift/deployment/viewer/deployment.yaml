@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intrinsic-rviz-novnc
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/name: intrinsic-rviz-novnc
+    app.kubernetes.io/component: viewer
+    app.kubernetes.io/part-of: intrinsic-openshift-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intrinsic-rviz-novnc
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intrinsic-rviz-novnc
+      annotations:
+        sidecar.istio.io/inject: "false"
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: viewer
+          image: image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/intrinsic-rviz-novnc@sha256:0c027b5234b6e1736ef43517b921e897f8a0d9b8cdb0b6905a704b399549d592
+          imagePullPolicy: Always
+          ports:
+            - name: no-vnc
+              containerPort: 6080
+          readinessProbe:
+            httpGet:
+              path: /vnc.html
+              port: no-vnc
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          env:
+            - name: ROS_DOMAIN_ID
+              value: "0"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: shm
+              mountPath: /dev/shm
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: intrinsic-rviz-novnc
+  namespace: arhkp-intrinsic
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: intrinsic-rviz-novnc
+  ports:
+    - name: no-vnc
+      port: 6080
+      targetPort: no-vnc
