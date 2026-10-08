@@ -1,21 +1,44 @@
 # Intrinsic Core on OpenShift and OpenShift AI: analysis and work plan
 
-**Created:** 2026-10-01 · **Updated:** 2026-10-06
-**Status (2026-10-06):** Full OpenShift on dev01 is the selected approach. The
-Core static slice is applied in `arhkp-intrinsic`: all 22 Deployments are
-Ready, `simulation-service` is 2/2, all four ChartAssignments are Settled, and
-five PVCs are Bound. A real `StartSolution` attempt populated RuntimeDB and HSS
-but failed with gRPC `UNAVAILABLE`; dynamic resource/skill creation has not
-passed. On 2026-10-06 we fixed a separate ingress-port mismatch (runtime
-contexts require internal Service port 80), rolled out controller build 22,
-and restored the static baseline. We traced the OMTS Build 13 CycloneDDS
-failure to a Bazel override declared in transitive Core metadata, which Bazel
-does not apply when Core is a dependency. The required ROS 2 patches are now
-declared by OMTS at the root; the focused CycloneDDS target passes and produces
-`lib/libddsc.a`. The full pinned `//:omts_solution` build is now running. No
-solution or viewer is deployed yet.
+**Created:** 2026-10-01 · **Updated:** 2026-10-07
+**Status (2026-10-07):** Core and OMTS workloads are applied in
+`arhkp-intrinsic`; all four ResourceSets are currently settled. The
+`move_to_contact` image fix is deployed: the native PubSub client now targets
+the project Zenoh router, and the skill Pod is Ready with zero restarts. That
+fix has not passed an actual skill execution. The current run is blocked earlier
+in ICON/UR recovery: ICON initially connected to UR and enabled motion, but
+after a Gazebo reset the lockstep cycle was cancelled and ICON's reconnect to
+`/tmp/intrinsic_icon/ur_module.sock` failed with `Permission denied`. The Pods
+are co-located and share the same CephFS claim, fsGroup, and SELinux MCS label.
+A read-only inspection found the recreated socket is owned by UID/GID
+`1001690000` with mode `0755`; ICON runs as UID 0 and has no group-write access
+or `DAC_OVERRIDE` because the OpenShift SCC drops all capabilities. The local
+controller/SCC change requests that capability for the exact ICON container,
+but it is not yet deployed or verified. One attempted reset also used the
+upstream updater's default CNC-cell file list against `lab_bb_01`; three files
+were applied before it failed on the absent `cnc_enclosure`. The correct
+`lab_bb_01` updates were applied afterward, but the live world may retain extra
+CNC-cell frames. No complete OpenShift cycle or viewer pass is verified.
 [OpenShift deployment journal](openshift/README.md) · [Current pod reference](PODS_README.md) · [Demo results](DEMO_README.md)
 [Deployment approaches](approaches/README.md) · [Archived hybrid experiment](approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
+
+## Simulator IPC: placement fixed, reset reconnect still failing
+
+The Gazebo HWM and ICON exchange `ur_module` over
+`/tmp/intrinsic_icon/ur_module.sock`. Required pod affinity now places ICON,
+the UR module, and Gazebo on the same node; the initial ICON-to-UR handshake
+succeeded and transferred 48 descriptors. This solved the earlier cross-node
+connection refusal, but it did not make reconnection survive a simulator reset.
+
+OpenShift maps upstream's `/tmp/intrinsic_icon` hostPath to the shared
+`intrinsic-icon-data` CephFS PVC. After reset, ICON's log records `Permission
+denied` on the socket. A read-only mount shows the socket is owned by
+`1001690000:1001690000` with mode `0755`. ICON runs as UID 0 with supplemental
+group `1001690000`; the OpenShift SCC drops all capabilities, so ICON lacks
+`DAC_OVERRIDE` and the shared group has no write bit. The local fix requests
+`DAC_OVERRIDE` only on the exact ICON main container; verify its admission and
+post-reset reconnect before treating this as resolved. Do not treat Pod
+readiness as proof that ICON's realtime loop and HWM are healthy.
 
 ## 1. Recommendation
 
@@ -23,8 +46,8 @@ Target the selected GPU-capable **dev01 OpenShift** cluster after confirming
 its provider/topology, product versions, and available capacity. ROSA remains a
 likely context, but the current inventory has not established whether dev01 is
 ROSA or self-managed.
-First reproduce the working Intrinsic simulation as native OpenShift workloads.
-Then integrate the perception model lifecycle with **Red Hat OpenShift AI
+The immediate goal is to stabilize and prove the Intrinsic simulation as native
+OpenShift workloads. Then integrate the perception model lifecycle with **Red Hat OpenShift AI
 (RHOAI)** on that cluster.
 
 Use the pinned upstream release and its documented Core/OMTS workflow as the
@@ -34,8 +57,9 @@ compatibility layer that a concrete test requires; the current copied renderer
 and controller are a pilot implementation, not a decision to replace the full
 upstream deployment path. The registry publisher, project image-pull identity,
 GPU placement, project policy adapter, and dedicated Service Mesh gateway have
-passed bounded checks, and the current Core slice is applied. Before extending
-that code, compare every change to pinned upstream and record the exact K3s
+passed bounded checks, and the Core and OMTS resource workloads are applied.
+The active runtime gate is the failing UR-to-simulator gRPC health path. Before
+extending the adaptation code, compare every change to pinned upstream and record the exact K3s
 assumption it removes. Preserve upstream license notices and trace necessary
 changes to source commit and paths. See the [deployment model](openshift/DEPLOYMENT_MODEL.md),
 [upstream source inventory](openshift/deployment/UPSTREAM_SOURCES.md), and
@@ -67,7 +91,7 @@ go/no-go questions.
 | Area | Observed baseline | Still unproven |
 | --- | --- | --- |
 | Platform | Ubuntu Server, K3s, one GPU-equipped AWS VM; release `20260922.0` of Core and OMTS | OpenShift admission, CRI-O, target-cluster policies, and multiple-worker behavior |
-| Deployment | dev01 has a static Core slice: 22 Deployments Ready, four ChartAssignments Settled, five PVCs Bound | `StartSolution`, non-empty resource/skill lifecycle, active simulation, and viewer remain unproven; the VM's 51 pods are not an OpenShift target count |
+| Deployment | Core and OMTS resource workloads are applied; latest snapshot had 44 Pods Running, with only the UR module container unready (4 restarts) | Stable UR health, successful `StartSolution`, end-to-end arm motion, and viewer remain unproven; the VM's 51 pods are not an OpenShift target count |
 | GPU | One NVIDIA T4, with 48 advertised time-sharing slots; the demo advanced through camera capture and pose estimation | Quantitative model accuracy, latency, and capacity under a representative workload |
 | Visualization | Live RViz workcell view; Gazebo simulation backend | Containerized viewer on OpenShift |
 | Application | Local API responding; ICON enabled; simulated pick, transfer, placement, and unload actions executed | Completed machine-tending cycle: retries stopped on a workpiece/enclosure collision during unloading |
@@ -569,129 +593,64 @@ Additional products are optional and depend on existing entitlements. This plan
 does not require installing every Red Hat AI component or purchasing a new stack
 to demonstrate platform parity.
 
-## 10. Phased execution plan
+## 10. Current phased execution plan
 
-Owners below describe skills/teams, not assigned individuals. Status describes
-verified progress as of 2026-10-06; a phase is complete only when its exit gate
-passes. The existing VM supplies the simulation reference.
+This replaces the earlier 2026-10-06 build/deploy checklist, which predates the
+OMTS workload rollout. Preserve the pinned upstream Core and OMTS release as the
+behavioral baseline; the immediate task is to recover one failing runtime path.
 
-| Phase | Work and concrete deliverable | Lead | Status / exit gate |
-| --- | --- | --- | --- |
-| P0 — Baseline and cluster fit | Confirm target versions/capacity; classify admin-owned prerequisites; record source/image digests and sanitized baseline; define repeatable camera/pose fixture and bounded simulation test; measure active-cycle peaks | Robotics + platform | **In progress.** Target/project and a dated capacity snapshot are recorded; decide storage/capacity and collect active-cycle baseline before claiming fit. |
-| P1 — OpenShift-owned packaging spikes | Verify image distribution, restricted SCC/IPC, fixed-namespace rendering, and resource/skill manifests; map lifecycle and build exact charts from pinned adapted source | Platform + robotics | **Mostly complete for the static Core slice.** Registry, secret injection, GPU scheduling, namespace policy and static chart adaptation checks passed. Focused synthetic dynamic resource/skill renderer tests pass locally. Live `resources` and `skills` ChartAssignments are Ready but currently have no generated resource-instance or skill-pod entries; non-empty lifecycle, PVC recovery, per-pod sizing and IPC/placement remain open. |
-| P2 — Native OpenShift deployment | Preserve upstream deployment behavior and make only verified platform adaptations | Platform | **Core baseline restored.** All 22 Deployments are Ready, `simulation-service` is 2/2, and all four ChartAssignments are Settled after aligning `INTRINSIC_INGRESS_ADDRESS` to port 80 and re-rendering. A successful Intrinsic application RPC and generated resource/skill lifecycle remain unproven. |
-| P3 — Visible and functional parity | Package viewer; reproduce RViz scene; run agreed simulated perception/motion regression; test restart/recovery | Robotics + platform | **Not started on OpenShift.** Pass when the private viewer shows the expected scene and a bounded simulation test produces recorded API, perception and motion results; track the known AWS unload collision separately. |
-| P4 — OpenShift AI integration | Verify target RHOAI Triton serving with a minimal model; compare serving options against the pinned Intrinsic contract; provide SDK workbench and fallback inference | ML + robotics | **Deferred until the demo contract is clear.** Pass when the real model, API, lifecycle, security and latency gates pass, or document a specific serving blocker while demonstrating separate workbench/pipeline value. |
-| P5 — Model lifecycle and operations | Add evaluation pipeline and registry mapping, reviewed promotion, monitoring, backup/restore and GitOps ownership | ML + platform | **Not started.** Pass when a model/runtime/configuration tuple can be reproduced, promoted and rolled back with auditable results. |
+| Phase | Status | Exit gate |
+| --- | --- | --- |
+| P0 — Provenance and platform checks | Pinned Core/OMTS sources, release images, registry path, namespace-scoped controller, storage, GPU, Secret injection, and internal gateway have bounded verification. | Revalidate dated capacity and cluster prerequisites only when needed; do not rebuild passed upstream images. |
+| P1 — Apply Core and OMTS workloads | Workloads are applied; all four ResourceSets are settled. | Keep the generated resources and skills healthy through solution/world reset. |
+| P2 — Recover simulator IPC across reset | Root cause identified: the reset recreates a mode-0755 socket owned by GID 1001690000; the OpenShift ICON container drops `DAC_OVERRIDE`. A local exact-container capability change is prepared. | Deploy it, verify only ICON receives the capability, and prove reconnect after reset. |
+| P3 — Prove the simulation | The app has not passed the full cycle; the latest attempt stopped on the UR socket before `move_to_contact`. | One simulation-only cycle completes, including `move_to_contact`, with Gazebo state and visible arm motion. Track the known K3s unload collision separately; reproducing it is not a pass. |
+| P4 — Viewer and parity | Pending. | Reach the viewer through a loopback-bound port-forward and verify the expected workcell and movement. Track the known AWS unload collision separately. |
+| P5 — RHOAI integration and operations | Deferred. | After P3, validate the real Intrinsic inference contract, then model lifecycle, sizing, recovery, and ownership. |
 
-**Current dev01 checkpoint (2026-10-06):** Registry, restricted-SCC, GPU,
-secret-injection, and project-scoped ChartAssignment smokes passed. The 24
-pinned Core chart images are mirrored by digest. The static Core slice is
-applied: 22 Deployments Ready, four ChartAssignments Settled, and five PVCs
-Bound. The dedicated Gateway, mesh policy, and port-80 runtime ingress
-configuration are applied; its generic transport smoke passed. The deployed
-static Core image set was preserved through the latest controller rollout.
+### Ordered recovery checklist
 
-The application-level gates are still open. A prior pinned OMTS client run
-populated RuntimeDB and stored `lab_bb_01` in HSS, but `StartSolution` returned
-gRPC `UNAVAILABLE`; `ListAssetInstances` previously reached the handler but
-returned `INTERNAL` before an application was installed. Failed `world`
-subscriptions to the old shared-ingress address are a lead, not a confirmed
-root cause. No generated resource/skill workloads have been observed, and the
-base `gzserver` proxy runs with `--sleep`, so there is no active simulation.
-Five PVCs being Bound proves provisioning, not recovery or backup. OMTS Build
-13 separately failed in a CycloneDDS CMake action; its root error is unknown.
-The known-good AWS VM remains comparison-only; OpenShift must not depend on it.
+1. **Freeze and snapshot.** Record the current ResourceSet revisions, pod
+   identities, socket PVC mount, ICON/UR logs, and live world state. Keep the
+   current world mutations visible in the notes; do not reset or restart while
+   diagnosing the socket error.
+2. **Match the cell setup.** The deployed solution is built with
+   `--config=lab_bb_01`. The upstream `apply_scene_updates` tool defaults to the
+   `omts` CNC update files independently of that Bazel build setting. For this
+   solution, pass the four `configs/lab_bb_01/*.updates.pbtxt` files explicitly
+   in upstream order; do not use the default file list.
+3. **Fix the measured socket permission mismatch.** Upstream/K3s uses the
+   node-local `/tmp/intrinsic_icon` hostPath; OpenShift maps it to
+   `intrinsic-icon-data` on CephFS and drops all capabilities. The observed
+   socket is mode `0755`, so the shared group cannot connect. The local
+   adaptation requests `DAC_OVERRIDE` only for the ICON main container. STRICT
+   mTLS and `simulation-server` routing are not implicated by this `EACCES`.
+4. **Restore a deterministic `lab_bb_01` baseline.** Use the pinned solution
+   and matching cell updates, then prove the ICON HWM is active and remains
+   connected after any required simulator reset. Do not count Pod readiness as
+   this gate.
+5. **Run and show the demo.** Execute one cycle in simulation mode and record
+   whether the MTC action streams are received and `move_to_contact` completes.
+   Then verify the workcell view through a loopback-bound in-cluster viewer.
 
-### Ordered execution checklist for the first visible demo
+### Adaptation boundary
 
-Advance one gate at a time. This ports the pinned release's workflow; it does
-not replace OMTS with a new implementation.
+- Keep upstream Core/OMTS application images, resource definitions, and
+  simulation Service semantics unchanged when they run under the project
+  policy.
+- Put unavoidable OpenShift differences in the smallest layer that owns them:
+  project-scoped RBAC, image publishing/pulling, SCC-compatible Pod settings,
+  storage, DNS/config values, and the dedicated internal gateway.
+- Rebuild only a deployment helper/controller when a verified adaptation
+  requires it. Rebuild a runtime image only when an image-level incompatibility
+  is demonstrated by a reproducible test.
+- Keep STRICT mesh mTLS and upstream headless endpoint discovery intact during
+  this diagnosis. Any proposed security exception needs a specific path and an
+  approved design; no such exception is currently planned.
 
-1. **Core readiness — passed for the static slice (2026-10-06).** All 22
-   Deployments are Ready, four ChartAssignments are Settled, five PVCs are
-   Bound, and the generic in-project HTTP/2 Gateway smoke passed. Generated
-   runtime contexts use internal Service port 80; the separate in-mesh
-   `ISTIO_MUTUAL` listener remains on port 443. This does not prove solution
-   startup or dynamic workload lifecycle.
-2. **Audit the OpenShift delta — patch application passed.** The patch stack
-   applies cleanly to the pinned OMTS release and pinned Core commit. Keep
-   upstream Core images and the documented OMTS Bazel workflow. Retain only
-   tested platform
-   changes: project-scoped Core deployment/policies, the dedicated in-mesh
-   Gateway, internal-registry upload instead of direct K3s containerd upload,
-   registry auth through the pod service account, and exclusion of the real
-   robot endpoint config. Do not use the custom simulation build flag, build
-   separate OMTS archives pre-emptively, or copy a Bazel cache into a different
-   runtime image. Track anonymous release fetching and the dependency checksum
-   correction separately from OpenShift changes.
-3. **Prepare one reusable x86-64 workspace — complete.** Build a small
-   digest-pinned UBI 10 tools-only image containing Bazelisk and build
-   prerequisites; do not compile OMTS while building the image. Run one
-   restricted project pod with a 100 GiB `gp3-csi` PVC for the pinned checkout,
-   temporary build files, and Bazel cache. Request 4 CPU and 32 GiB memory,
-   matching the current headroom on three untainted x86-64 workers. Keep its
-   service-account token mounted only for project image publishing; create no
-   long-lived registry credential. Clone the public pinned source anonymously.
-   Tools image Build 8 is built and rolled out; the workspace uses its persistent
-   PVC for the pinned source and Bazel cache.
-4. **Diagnose the existing OMTS build failure — complete.** The focused target
-   confirmed the cause: Core's `single_version_override` is transitive and
-   ignored by Bazel. OMTS now declares the override at its root and applies one
-   pinned patch that removes the incompatible `-latomic` link flag and sets
-   CycloneDDS `CMAKE_INSTALL_LIBDIR=lib`. Source preparation passed twice; the
-   effective metadata contains both changes, and the target produces
-   `lib/libddsc.a`.
-5. **Build and deploy the pinned OMTS solution.** The full
-   `//:omts_solution` Bazel build is in progress in the same x86-64 Linux
-   workspace; it must pass the solution artifact audit before deployment. Then
-   use the upstream OMTS runner with the minimal K3s image-upload/auth adapter,
-   sanitized robot-config exclusion, and internal Gateway Service address.
-   Keep build and run on the same toolchain; do not bake the source/cache into a
-   second-stage runtime image.
-6. **Verify Core RPC and generated resources.** Require `StartSolution` success;
-   if it returns `UNAVAILABLE`, stop and resolve the endpoint/client path before
-   retrying. Confirm generated `resources` and `skills` entries, readiness, and complete
-   add/remove cleanup through the project-scoped controller.
-7. **Run the upstream demo sequence.** Run
-   `bazel run //tools/world:apply_scene_updates -- --address=<gateway>:80
-   --reset_sim`, register the pose estimator using the upstream command, then
-   run `bazel run //src:omts_app -- --address=<gateway>:80
-   --config=configs/lab_bb_01/app_config.yaml --num_cycles=1`. Check each result
-   before the next command and keep the run simulation-only.
-8. **Show and compare the demo.** Deploy/enable the private viewer, reach it
-   through a loopback-bound `oc port-forward`, and verify the expected scene and
-   robot movement. Record results, resource use, cleanup, and image digests;
-   track the known AWS unload collision separately. Defer RHOAI integration
-   until this gate passes.
-
-### OMTS change disposition
-
-| Existing change | Decision for the next attempt |
-| --- | --- |
-| `patches/omts-openshift-sim-config-safety.patch` | Preserve only the narrow `lab_bb_01` hardware-endpoint exclusion and verify the built artifact contains no robot address. Pass `--operation_mode=sim` as upstream documents; add no custom Bazel build flag/default. |
-| `patches/omts-openshift-demo-configs.patch` | Keep the sanitized `lab_bb_01` config selection and archive audit; this is a safety boundary, not an OpenShift platform feature. |
-| `patches/omts-openshift-core-registry-keychain.patch` | Keep the service-account/Docker-keychain support and removal of registry credentials from Core messages. |
-| `patches/omts-openshift-module-registry-keychain.patch` | Keep OMTS wiring for the minimal Core registry-auth patch and the separate digest-pin patch. |
-| `patches/openshift-rules-ros2-build-compat.patch` | Apply at the OMTS root because Bazel ignores Core's transitive module override; preserve the verified `rclpy` link fix and CycloneDDS `lib` install directory. |
-| `patches/omts-tinygltf-bcr-override.patch` | Keep separate from OpenShift changes; verify the upstream archive-checksum failure independently before applying it. |
-| `patches/intrinsic-core-triton-digest-pin.patch` | Keep separate as an image reproducibility pin; it is not required for the OpenShift build boundary. |
-| `patches/omts-anonymous-releases.patch` | Keep only as the user-requested anonymous-download workaround, with exact asset names and SHA-256 pins; it is not an OpenShift requirement. |
-| `omts-runner/Containerfile.toolchain` and BuildConfig | Superseded: it builds multiple targets, embeds the source/cache, changes UBI release between stages, and triggers another Bazel build. Do not rerun Build 13's packaging path. Use one same-toolchain workspace with a persistent PVC/cache after focused failure diagnosis. |
-
-Do not rebuild upstream Core images that already pass the project's restricted
-SCC and behavior checks. Keep the small, pinned Core adaptations that fixed
-observed namespace, registry, mesh, and ingress incompatibilities; the current
-22-Deployment slice verifies that baseline only. This does not justify
-wholesale copying or rewriting additional upstream services.
-
-Do not combine a model upgrade, ROS upgrade, GPU sharing change, and platform
-migration into one experiment.
-
-Time estimates remain speculative until live resource/skill lifecycle and IPC
-tests establish how much more application adaptation is needed. The deployed
-Core slice is a real checkpoint, but it is not evidence that this is a
-manifest-only migration.
+The goal remains a reproducible OpenShift deployment of the upstream demo, not
+a new implementation. Keep each delta linked to the pinned source, the concrete
+OpenShift constraint it resolves, and a verification result.
 
 ## 11. Acceptance tests
 

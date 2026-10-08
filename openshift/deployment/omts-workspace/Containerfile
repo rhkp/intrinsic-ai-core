@@ -45,6 +45,7 @@ RUN set -eux; \
     rm -rf /tmp/bazelisk-amd64.deb /tmp/usr
 
 COPY openshift/deployment/omts-runner/ /opt/intrinsic/repo/openshift/deployment/omts-runner/
+COPY openshift/deployment/artifacts-service/ /opt/intrinsic/repo/openshift/deployment/artifacts-service/
 COPY openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml
 COPY patches/ /opt/intrinsic/repo/patches/
 RUN chmod 0555 \
@@ -52,7 +53,8 @@ RUN chmod 0555 \
       /opt/intrinsic/repo/openshift/deployment/omts-runner/deploy-simulation.sh \
       /opt/intrinsic/repo/openshift/deployment/omts-runner/prepare-omts-source.sh \
       /opt/intrinsic/repo/openshift/deployment/omts-runner/prepare-internal-registry-auth.py \
-      /opt/intrinsic/repo/openshift/deployment/omts-runner/audit_solution_artifacts.py
+      /opt/intrinsic/repo/openshift/deployment/omts-runner/audit_solution_artifacts.py \
+      /opt/intrinsic/repo/openshift/deployment/artifacts-service/patch_oci_image.py
 
 ENV HOME=/workspace/home \
     TMPDIR=/workspace/tmp \

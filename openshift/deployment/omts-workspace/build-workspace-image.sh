@@ -43,6 +43,11 @@ cp "${repo_root}/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_confi
 for patch_file in \
   omts-anonymous-releases.patch \
   omts-openshift-core-registry-keychain.patch \
+  intrinsic-openshift-gpu-toleration.patch \
+  omts-openshift-gpu-toleration.patch \
+  omts-openshift-resource-registry-adaptations.patch \
+  resource-registry-namespace-configmaps.patch \
+  resource-registry-openshift-ingress.patch \
   omts-openshift-demo-configs.patch \
   omts-openshift-module-registry-keychain.patch \
   omts-openshift-sim-config-safety.patch \
@@ -56,7 +61,15 @@ for patch_file in \
   openshift-libzmq-install-libdir.patch \
   openshift-rules-ros2-build-compat.patch \
   openshift-tinygltf-bazel-headers.patch; do
-  cp "${repo_root}/patches/${patch_file}" "${context}/patches/${patch_file}"
+  case "${patch_file}" in
+    resource-registry-namespace-configmaps.patch|resource-registry-openshift-ingress.patch)
+      patch_source_dir="${repo_root}/openshift/deployment/patches"
+      ;;
+    *)
+      patch_source_dir="${repo_root}/patches"
+      ;;
+  esac
+  cp "${patch_source_dir}/${patch_file}" "${context}/patches/${patch_file}"
 done
 
 oc apply -n "${namespace}" \

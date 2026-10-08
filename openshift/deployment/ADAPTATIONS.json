@@ -2,7 +2,7 @@
   "adaptations": [
     {
       "id": "openshift-registry-publisher",
-      "status": "applied-to-owned-copy",
+      "status": "upstream renderer patch was built and checked, but it was not the live Asset Deployment rendering boundary; runtime fix is recorded in openshift-gpu-node-toleration-adapter",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "patch_path": "patches/intrinsic-openshift-registry.patch",
       "patch_sha256": "d3fa7e7133b3173b897b4417722078f4c083082fa67cf40abf6a2b591ea16b35",
@@ -102,7 +102,22 @@
         "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
         "copied_tree_unit_tests": "not run; Go/Bazel build context is not present in the selected deployment copy",
         "full_upstream_bazel_build": "not run; complete Core/OMTS deployment build remains pending",
-        "live_intrinsic_gpu_deployment": "not run"
+        "live_intrinsic_gpu_deployment": "not applicable to this renderer patch; live pod templates are adapted by the ChartAssignment controller"
+      }
+    },
+    {
+      "id": "openshift-gpu-node-toleration-adapter",
+      "status": "deployed and verified on dev01; Gazebo, ICON, and UR scheduled together; inference is pending for lack of another GPU slot",
+      "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
+      "upstream_reference": "intrinsic/assets/deploy/renderutil.go podSpecForResource creates GPU requests but has no OpenShift node-taint policy",
+      "adaptation_path": "openshift/deployment/chartassignment-controller/controller/openshift.go adaptPodSpec",
+      "controller_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:00dad8f106853d803d0c32bd3222ef207138627628aa139376a34db088b669c3",
+      "validation": {
+        "controller_tests": "passed for GPU requests, ICON/UR required co-location, idempotence, and unchanged non-GPU workloads",
+        "dev01_base_and_resources": "intrinsic-base generation 4 and resources generation 7 Settled",
+        "dev01_runtime": "Gazebo 2/2, ICON 3/3, and UR 2/2 Running on the same g5 GPU node with project-registry images",
+        "dev01_inference": "correct GPU toleration and project-registry image; Pending because all five GPU slots are allocated",
+        "demo_scene_and_cycle": "not run; waiting for GPU capacity for inference and remaining runtime dependencies"
       }
     },
     {

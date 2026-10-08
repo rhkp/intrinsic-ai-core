@@ -1,0 +1,29 @@
+diff --git a/intrinsic/assets/deploy/renderutil.go b/intrinsic/assets/deploy/renderutil.go
+--- a/intrinsic/assets/deploy/renderutil.go
++++ b/intrinsic/assets/deploy/renderutil.go
+@@ -792,6 +792,7 @@
+ 	}
+ 	spec.Volumes = append(spec.Volumes, cfgMapVolume)
+ 
++	anyContainerRequiresNvidiaGPU := false
+ 	for idx := range spec.Containers {
+ 		for _, rvm := range rs.GetImage()[idx].GetVolumeMounts() {
+ 			vm, err := volumeMount(rvm)
+@@ -815,6 +816,17 @@
+ 		}
+ 		if rr != nil {
+ 			spec.Containers[idx].Resources = *rr
++			_, nvidiaGPURequest := rr.Requests[kubev1.ResourceName("nvidia.com/gpu")]
++			_, nvidiaGPULimit := rr.Limits[kubev1.ResourceName("nvidia.com/gpu")]
++			anyContainerRequiresNvidiaGPU = anyContainerRequiresNvidiaGPU || nvidiaGPURequest || nvidiaGPULimit
+ 		}
+ 	}
++	if anyContainerRequiresNvidiaGPU {
++		spec.Tolerations = append(spec.Tolerations, kubev1.Toleration{
++			Key:      "g5-gpu",
++			Operator: kubev1.TolerationOpEqual,
++			Value:    "true",
++			Effect:   kubev1.TaintEffectNoSchedule,
++		})
++	}
+ 	for idx := range spec.InitContainers {

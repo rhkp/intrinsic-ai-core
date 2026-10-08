@@ -52,17 +52,23 @@ ready to deploy.
 
 ## GPU-node placement for OpenShift resources
 
-Status: applied to the owned Core copy. Resource PodSpecs add the exact
-`g5-gpu=true:NoSchedule` toleration only when at least one rendered container
-requests or limits an allowed GPU resource; non-GPU resources do not receive
-it. This reflects the taint observed on all five dev01 GPU nodes and avoids a
-broad `Exists` toleration.
+Status: applied in the OpenShift ChartAssignment adapter after consulting the
+pinned Core renderer. The adapter adds the exact
+`g5-gpu=true:NoSchedule` toleration to workloads that request or limit
+`nvidia.com/gpu`, and to ICON/UR workloads whose required pod affinity pins them
+to Gazebo/ICON on the GPU node. Other workloads are unchanged. The earlier Core
+renderer patch was not the live rendering boundary; Asset Deployment is served
+inside `workcell-cluster-service`, while the controller adapter runs on the
+rendered ChartAssignment before apply.
 
-Validation: a one-GPU pod with the same exact toleration passed the restricted
-admission, scheduling, public image pull, and `/dev/nvidia0` visibility check in
-`arhkp-intrinsic`; cleanup was verified. This validates cluster placement and
-device injection only. The adapted renderer package build passed as recorded
-above; no Intrinsic GPU workload has been applied.
+Validation: controller tests pass for GPU requests, ICON/UR co-location,
+idempotence, and non-GPU workloads. Controller image
+`sha256:00dad8f106853d803d0c32bd3222ef207138627628aa139376a34db088b669c3` is
+deployed and Ready. On dev01, `intrinsic-base` and `resources` ChartAssignments
+are Settled; Gazebo is 2/2, ICON 3/3, and UR 2/2 Running on the same GPU node.
+The inference service has the correct project-registry image and toleration,
+but remains Pending because all five GPU slots are occupied. The demo is not
+end-to-end complete.
 
 
 ## Quay image mirror and digest lock
@@ -109,10 +115,16 @@ The policy pass emitted 76 base-chart and 11 app-chart objects, all in
 matched the Quay digest lock. Three upstream ClusterRoles and bindings became
 project Roles and RoleBindings; the render contained no cluster-scoped objects,
 Secret objects, stale upstream namespace/DNS references, hostPath, hostPort,
-privileged containers, or fixed `runAsUser`/`runAsGroup` fields. K3s VirtualServices,
-the K3s artifact importer, and its static local PV were removed. The two
-application-level gRPC paths that depended on the removed Istio gateway now use
-the corresponding in-project simulation, skill-registry, and workcell Services.
+privileged containers, or fixed `runAsUser`/`runAsGroup` fields. K3s VirtualServices and the static local PV were removed. The upstream
+`artifacts-deployment` ArtifactServiceApi and headless Service are retained
+because OMTS uses them to upload large non-container data bundles. The pinned
+released server always creates a containerd client, even when its local registry
+listener is disabled, so the OpenShift adapter replaces the upstream node-local
+K3s socket with a restricted, pod-local containerd sidecar. It removes the
+K3s-only local registry argument, host port, and hostPath; container images use
+the separate OpenShift registry publisher. The two application-level gRPC paths
+that depended on the removed Istio gateway now use the corresponding in-project
+simulation, skill-registry, and workcell Services.
 The code-execution NetworkPolicy retains the application peer rules and drops
 the obsolete ingress-gateway peer without creating an allow-all rule.
 
@@ -176,9 +188,8 @@ through the Gateway and header-matched VirtualService to a sidecar-injected
 backend. The sidecar was required by dev01's existing mesh-wide `STRICT`
 mTLS policy; no mesh policy was changed. All temporary smoke resources were
 removed and verified absent. This proves generic gateway routing, not a live
-Intrinsic application RPC. The Core base slice has since deployed and is
-Ready; generated application VirtualServices and a real Core RPC remain
-untested. The repeatable smoke is [`../grpc_gateway_smoke.py`](../grpc_gateway_smoke.py).
+Intrinsic application RPC. The repeatable smoke is
+[`../grpc_gateway_smoke.py`](../grpc_gateway_smoke.py).
 
 The pinned Bazel graph packages the Workcell service binary, asset deployment
 service, and resource/skill templates together in
@@ -202,14 +213,53 @@ scan. It is published to the existing Quay image repository under a new
 checksum-based tag; the immutable registry digest and upstream digest are
 both recorded in [`../image-lock.json`](../image-lock.json). An anonymous
 digest-pinned pull succeeded. The project-scoped controller was rebuilt from
-the updated source, rolled out by immutable digest, and verified Ready. The
-Core base slice is now deployed; the dedicated gateway and project routing
-ConfigMap are live, but no application `VirtualService` has been deployed, so
-the generic gRPC gateway path passes a five-call smoke while no Intrinsic
-application RPC has been tested. Remaining gates are to render and review
-runtime-generated charts, smoke a real Core gRPC method through the dedicated
-Service, test resource and skill lifecycle plus cleanup, and verify the full
-simulation demo and robot movement.
+the updated source, rolled out by immutable digest, and verified Ready.
+
+**Runtime update (2026-10-07):** Generated OMTS resource and skill workloads
+are applied in dev01. During recovery, the simulator restarted while ICON and
+UR retained channels to the old simulator. The pose-estimator Pod was not
+crash-looping; its RPC failed because the project Zenoh router did not contain
+the requested capture result. UR reconnected to the new simulator endpoint,
+but ICON's main control loop had already stopped. Restarting ICON on a
+different worker produced `ECONNREFUSED` for
+`/tmp/intrinsic_icon/ur_module.sock`: the socket file was on the shared
+CephFS-backed volume, while its server process lived on the simulator's node.
+After scheduling `rs-icon` with required pod affinity to
+`app=rs-gazebo-simulator`, ICON connected, received 48 descriptors, and the
+Gazebo HWM reported active and enabled. A later ICON restart could not reconnect
+to `ur_module.sock` when `rs-ur-module` landed on another node, despite the
+shared CephFS volume. The controller now also schedules `rs-ur-module` with
+required pod affinity to `app=rs-icon`, keeping ICON, both hardware modules,
+and Gazebo on one node. The headless, undeclared-port simulation Service, mesh
+sidecars, and STRICT mTLS policy remain unchanged. A successful end-to-end
+OMTS cycle and the in-cluster noVNC viewer are still unverified.
+
+**Latest OMTS attempt:** ICON completed the planned arm trajectory, and the
+pose-estimator service successfully loaded the camera result, segmented one
+object, ran FoundationPose, and published its visualizations. The run then
+failed in `move_to_contact`: ICON entered approach and stabilize, but the
+skill's 2-second settle window expired. The skill had no streamed `LogItem`
+for ICON action topics `/icon/icon/output_streams/action_1` or
+`/icon/icon/output_streams/action_2`, so it could not report the sensed force.
+The pinned upstream `move_to_contact.py` constructs `pubsub.PubSub()` with no
+configuration. Its native binding defaults to
+`zenoh-router.app-intrinsic-base.svc.cluster.local:7447`, while that namespace
+does not exist in this OpenShift deployment. The upstream skill chart places
+skills outside `app-intrinsic-base` and allows them to reach the base router;
+the OpenShift pilot instead co-locates services in `arhkp-intrinsic`. The
+controller's `ZENOH_CONFIG_OVERRIDE` was ineffective because this skill uses
+Intrinsic's native PubSub binding rather than ROS `rmw_zenoh_cpp`. This explains
+the absent action-stream subscription; it is independent of the 2-second
+settling threshold and provides no evidence that permissive mTLS is needed.
+
+A standalone diagnostic using the binding's explicit JSON config connected to
+the project Zenoh router and registered the exact upstream ICON action topics.
+A derived image is now built from the pinned upstream digest; its only source
+change passes `INTRINSIC_ZENOH_ROUTER_ENDPOINT` to the native PubSub constructor.
+The controller is being rebuilt to pin that image by digest and inject the
+endpoint. End-to-end skill readiness and a complete OMTS cycle remain pending.
+The pose-estimator Pod was Ready with zero restarts during this contact/stream
+diagnostic.
 
 ## Workcell Role/RoleBinding escalation boundary
 
@@ -289,3 +339,58 @@ Controller BuildConfig build #11 is pinned at
 Both Core ChartAssignments are Ready with Settled ResourceSets. The deployment
 is 22/22 Ready, and a before/after comparison found no changes in the 20 Core
 Deployment image references across the two live ChartAssignments.
+
+## Inference model downloads use the project CAS Service
+
+The inference image's compiled `_CAS_ADDRESS` names the upstream
+`app-intrinsic-base` Service. On dev01, the model objects are available from
+the project `content-addressable-storage` Service, while routing the upstream
+hostname to that Service IP resets at the mesh proxy. The controller now adds
+a narrowly scoped init container to `rs-inference-service` that copies the
+entrypoint module to an `EmptyDir`, changes only the CAS authority to the target
+project Service DNS name, and mounts the patched module over the original. The
+app image, model bytes, and mesh mTLS policy are unchanged. On dev01, the
+patched pod reached Ready, both Triton models loaded, and a pose-estimator RPC
+completed segmentation and FoundationPose inference.
+
+## Hand-E simulated gripper joins the project Zenoh mesh
+
+The live `rs-hande-gripper` pod used `rmw_zenoh_cpp` but had no Zenoh endpoint
+override and no mesh sidecar. A ROS graph query from Gemini showed only the
+Orbbec and Flowstate nodes, with no gripper action server; an in-pod graph query
+from Hand-E also warned that it could not connect to a Zenoh router. The
+controller now configures Hand-E to connect to the project Zenoh Service and
+injects its mesh sidecar, which is required by the project's strict mTLS policy.
+Gemini now sees the Hand-E action server. The remaining request failed because
+the separate `gripper_cmd_skill` container also had no project Zenoh endpoint;
+the controller now identifies that container by its pinned image repository
+and injects the same client override. Its live rollout and a successful gripper
+command are still pending.
+
+## Zenoh and Conductor paths through Service Mesh
+
+The pinned upstream World manifest waits for the Zenoh router before starting,
+and the pinned Workcell chart passes `world.<namespace>.svc.cluster.local:8082`
+to its Conductor client. On dev01, the Zenoh router is not a mesh member, so
+Envoy's automatic mTLS on port 7447 breaks the raw Zenoh connection. The
+OpenShift renderer now excludes only outbound port 7447 from Istio interception
+on recognized Zenoh clients. The OpenShift World chart also exposes a stable
+`conductor` ClusterIP Service. Workcell now targets that Service instead of the
+headless `world` Service: after a World pod replacement, the sidecar's cached
+headless endpoint still pointed at the terminated pod, causing `StartSolution`
+to time out. These are OpenShift-only render changes; the pinned upstream and
+K3S source remain unchanged.
+
+## ArtifactService publishing to the OpenShift registry
+
+Pinned upstream ArtifactService already provides a remote OCI registry backend
+through `--registry`. OpenShift configures this backend for the project
+integrated registry instead of using K3S's node-local containerd registry. Its
+`omts-deployer` ServiceAccount can push through `system:image-builder`; the
+pod reads the projected token through an OpenShift-only password-file flag,
+trusts the injected service CA, and excludes outbound port 5000 from mesh
+interception. The service no longer logs its options struct because it contains
+the registry password. The client continues uploading over ArtifactService's
+gRPC API, and `CheckImage` returns project-registry image references for node
+pulls. The separate OpenShift OCI writer adaptation still skips restricted
+pod-local overlay unpack. Pinned upstream Core/K3S behavior remains unchanged.

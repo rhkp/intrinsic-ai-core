@@ -191,39 +191,27 @@ Settled, and no temporary value retained. This restores the static Core
 baseline; it does not prove `StartSolution` or generated resource/skill
 lifecycle.
 
-## Simulation resource security prerequisites — 2026-10-06
+## Simulation resource security and IPC permissions — 2026-10-07
 
-The live `resources` ChartAssignment requests `IPC_LOCK` for the UR Gazebo stub
-and ICON. Removing it makes both exit while locking memory. Their current
-resource definitions omit CPU and memory requests/limits, so any capability
-exception must first bound them. The controller overlay now preserves
-`IPC_LOCK` only for those exact simulator image repositories, assigns them the
-dedicated `intrinsic-sim-realtime` ServiceAccount, and sets requests of 1 CPU /
-1 GiB and limits of 4 CPU / 4 GiB per container. It strips ICON's `SYS_NICE` and
-the motion planner's `SYS_RAWIO`; unknown capabilities still fail closed. The
-Hand-E simulation image is made non-privileged and gets a writable ROS home
-under `/tmp`.
+The applied `intrinsic-sim-realtime` SCC is restricted and non-privileged. It
+uses `requiredDropCapabilities: [ALL]`, the RuntimeDefault seccomp profile, and
+the dedicated `intrinsic-sim-realtime` ServiceAccount. The controller overlay
+adds only the reviewed capabilities to exact simulator containers and bounds
+their resources; other workloads remain fail-closed.
 
-The cluster-scoped SCC manifest
-[`../../manifests/intrinsic-sim-realtime-scc.yaml`](../../manifests/intrinsic-sim-realtime-scc.yaml)
-clones the observed `restricted-v2` restrictions and adds only `IPC_LOCK` to
-its allowed capabilities; it binds only the dedicated project ServiceAccount.
-It disallows privileged containers and host directory, network, PID, and IPC
-access, and retains `requiredDropCapabilities: [ALL]` and the RuntimeDefault
-seccomp profile. The SCC and ServiceAccount manifests are prepared but have
-not been applied pending explicit approval for this cluster-scoped capability
-exception. Because a namespace writer can select a ServiceAccount in a pod
-spec, keep write access to `arhkp-intrinsic` controlled. Do not roll out the
-controller image until the ServiceAccount and approved SCC are present.
+The reset reconnect failure has a measured permission cause. After reset, the
+shared CephFS volume contains `ur_module.sock` owned by UID/GID
+`1001690000:1001690000` with mode `0755`. ICON runs as UID 0 with supplemental
+group `1001690000`, but the socket has no group-write bit and the SCC removes
+`DAC_OVERRIDE`. The local adapter change requests `DAC_OVERRIDE` only for the
+`rs-icon/rs-icon` container, alongside its existing `IPC_LOCK` and `SYS_NICE`.
+The local SCC manifest allows the capability; it is not yet applied in the
+cluster. The SCC update, controller rollout, and post-reset ICON reconnect
+still need verification. No mesh policy or mTLS setting is involved in this
+local filesystem `EACCES`.
 
-After approval, apply the namespaced ServiceAccount and then the cluster SCC:
-
-```bash
-oc apply -f openshift/deployment/manifests/intrinsic-sim-realtime-serviceaccount.yaml
-oc apply -f openshift/deployment/manifests/intrinsic-sim-realtime-scc.yaml
-```
-
-Verify the SCC's effective settings and its single ServiceAccount binding
-before rolling out the controller. Then confirm the UR module and ICON start
-under the custom SCC without any other capability or host access, and test the
-simulated arm motion.
+The SCC and ServiceAccount are already applied in dev01. Because a namespace
+writer can select this ServiceAccount in a Pod spec, keep write access to
+`arhkp-intrinsic` controlled. Confirm the new capability appears only on the
+ICON main container after reconciliation; keep privileged mode, host directory,
+host network, host PID, and host IPC disabled.

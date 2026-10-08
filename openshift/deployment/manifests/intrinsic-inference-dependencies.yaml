@@ -1,0 +1,32 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: intrinsic-inference-dependencies
+  namespace: arhkp-intrinsic
+  labels:
+    app.kubernetes.io/managed-by: openshift-overlay
+    app.kubernetes.io/part-of: intrinsic-core
+spec:
+  exportTo:
+    - "."
+  gateways:
+    - arhkp-intrinsic/intrinsic-grpc-internal
+  hosts:
+    - "*"
+  http:
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.assets.v1.InstalledAssetsReader/
+      route:
+        - destination:
+            host: asset-info-internal
+            port:
+              number: 8080
+    - match:
+        - uri:
+            prefix: /intrinsic_proto.data.v1.DataAssets/
+      route:
+        - destination:
+            host: asset-artifacts-v1
+            port:
+              number: 8080

@@ -1,0 +1,22 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -25,5 +25,7 @@ git_override(
+         "//bazel/patches:robotiq_hande_finger_offset.patch",
+         "//bazel/patches:openshift_registry_keychain.patch",
+         "//bazel/patches:openshift_gpu_toleration.patch",
++        "//bazel/patches:resource_registry_namespace_configmaps.patch",
++        "//bazel/patches:resource_registry_openshift_ingress.patch",
+         "//bazel/patches:openshift_triton_digest_pin.patch",
+     ],
+diff --git a/bazel/patches/BUILD b/bazel/patches/BUILD
+--- a/bazel/patches/BUILD
++++ b/bazel/patches/BUILD
+@@ -3,5 +3,7 @@ exports_files([
+     "gloop.patch",
+     "robotiq_hande_finger_offset.patch",
+     "openshift_registry_keychain.patch",
+     "openshift_gpu_toleration.patch",
++    "resource_registry_namespace_configmaps.patch",
++    "resource_registry_openshift_ingress.patch",
+     "openshift_triton_digest_pin.patch",

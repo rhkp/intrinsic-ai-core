@@ -48,7 +48,7 @@ class ValidationError(ValueError):
     """A safe-to-print rendered-manifest validation failure."""
 
 
-def locked_references(path: Path) -> set[str]:
+def locked_references(path: Path, namespace: str) -> set[str]:
     try:
         lock = json.loads(path.read_text())
         images = lock["images"]
@@ -70,6 +70,23 @@ def locked_references(path: Path) -> set[str]:
         ref = f"{repository}@{digest}"
         if ref in refs:
             raise ValidationError("duplicate image lock entry")
+        refs.add(ref)
+    project_images = lock.get("project_images", [])
+    if not isinstance(project_images, list):
+        raise ValidationError("project image lock schema is invalid")
+    project_prefix = f"image-registry.openshift-image-registry.svc:5000/{namespace}/"
+    for image in project_images:
+        if not isinstance(image, dict):
+            raise ValidationError("project image lock entry is invalid")
+        repository = image.get("repository")
+        digest = image.get("digest")
+        if not isinstance(repository, str) or not repository.startswith(project_prefix):
+            raise ValidationError("project image lock repository is outside the target project")
+        if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise ValidationError("project image lock digest is invalid")
+        ref = f"{repository}@{digest}"
+        if ref in refs:
+            raise ValidationError("duplicate project image lock entry")
         refs.add(ref)
     return refs
 
@@ -237,7 +254,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        locked = locked_references(args.image_lock)
+        locked = locked_references(args.image_lock, args.namespace)
         documents: list[dict[str, Any]] = []
         for path in args.manifests:
             try:

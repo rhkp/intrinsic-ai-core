@@ -39,6 +39,15 @@ install -D -m 0644 \
   "${repo_root}/patches/omts-openshift-core-registry-keychain.patch" \
   "${source_dir}/bazel/patches/openshift_registry_keychain.patch"
 install -D -m 0644 \
+  "${repo_root}/patches/intrinsic-openshift-gpu-toleration.patch" \
+  "${source_dir}/bazel/patches/openshift_gpu_toleration.patch"
+install -D -m 0644 \
+  "${repo_root}/openshift/deployment/patches/resource-registry-namespace-configmaps.patch" \
+  "${source_dir}/bazel/patches/resource_registry_namespace_configmaps.patch"
+install -D -m 0644 \
+  "${repo_root}/openshift/deployment/patches/resource-registry-openshift-ingress.patch" \
+  "${source_dir}/bazel/patches/resource_registry_openshift_ingress.patch"
+install -D -m 0644 \
   "${repo_root}/patches/intrinsic-core-triton-digest-pin.patch" \
   "${source_dir}/bazel/patches/openshift_triton_digest_pin.patch"
 install -D -m 0644 \
@@ -70,7 +79,7 @@ validate_source_changes() {
   while IFS= read -r change; do
     [[ -z "${change}" ]] && continue
     case "${change:3}" in
-      BUILD|MODULE.bazel|bazel/gh_release.bzl|bazel/patches/BUILD|bazel/patches/openshift_registry_keychain.patch|bazel/patches/openshift_triton_digest_pin.patch|bazel/patches/openshift_rules_ros2.patch|bazel/patches/openshift_tinygltf_bazel_headers.patch|bazel/patches/openshift_glib_gmodule_header.patch|bazel/patches/openshift_grpc_proto_path_order.patch|bazel/patches/openshift_dumb_init_version_header.patch|bazel/patches/openshift_gz_common_cdt_headers.patch|bazel/patches/openshift_aravis_api_header.patch|bazel/patches/openshift_libzmq_install_libdir.patch|configs/BUILD|src/BUILD) ;;
+      BUILD|MODULE.bazel|bazel/gh_release.bzl|bazel/patches/BUILD|bazel/patches/openshift_registry_keychain.patch|bazel/patches/openshift_gpu_toleration.patch|bazel/patches/resource_registry_namespace_configmaps.patch|bazel/patches/resource_registry_openshift_ingress.patch|bazel/patches/openshift_triton_digest_pin.patch|bazel/patches/openshift_rules_ros2.patch|bazel/patches/openshift_tinygltf_bazel_headers.patch|bazel/patches/openshift_glib_gmodule_header.patch|bazel/patches/openshift_grpc_proto_path_order.patch|bazel/patches/openshift_dumb_init_version_header.patch|bazel/patches/openshift_gz_common_cdt_headers.patch|bazel/patches/openshift_aravis_api_header.patch|bazel/patches/openshift_libzmq_install_libdir.patch|configs/BUILD|src/BUILD) ;;
       *)
         echo "unexpected OMTS source modification; refusing to build" >&2
         return 1
@@ -91,6 +100,8 @@ readonly compatibility_patches=(
   "${repo_root}/patches/omts-anonymous-releases.patch"
   "${repo_root}/patches/omts-openshift-demo-configs.patch"
   "${repo_root}/patches/omts-openshift-sim-config-safety.patch"
+  "${repo_root}/patches/omts-openshift-gpu-toleration.patch"
+  "${repo_root}/patches/omts-openshift-resource-registry-adaptations.patch"
   "${repo_root}/patches/omts-openshift-module-registry-keychain.patch"
   "${repo_root}/patches/omts-tinygltf-bcr-override.patch"
 )

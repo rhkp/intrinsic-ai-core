@@ -1,6 +1,8 @@
 package chartassignment
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"strings"
 	"testing"
 
@@ -19,6 +21,245 @@ func object(kind, name string, fields map[string]interface{}) *unstructured.Unst
 		value[key] = field
 	}
 	return &unstructured.Unstructured{Object: value}
+}
+
+func protobufBytesField(number uint64, value []byte) []byte {
+	var encoded [binary.MaxVarintLen64]byte
+	fieldTagBytes := binary.PutUvarint(encoded[:], number<<3|2)
+	result := append([]byte(nil), encoded[:fieldTagBytes]...)
+	lengthBytes := binary.PutUvarint(encoded[:], uint64(len(value)))
+	result = append(result, encoded[:lengthBytes]...)
+	return append(result, value...)
+}
+
+func TestAdaptFlowstateRuntimeConfigUsesProjectZenohRouter(t *testing.T) {
+	oldEndpoint := []byte(upstreamZenohRouterEndpoint)
+	firstNested := protobufBytesField(1, oldEndpoint)
+	secondNested := protobufBytesField(2, protobufBytesField(1, oldEndpoint))
+	runtimeConfig := append(protobufBytesField(1, firstNested), secondNested...)
+	resource := object("ConfigMap", flowstateRuntimeConfigMapName, map[string]interface{}{
+		"binaryData": map[string]interface{}{flowstateRuntimeConfigKey: base64.StdEncoding.EncodeToString(runtimeConfig)},
+	})
+
+	if err := adaptFlowstateRuntimeConfig(resource, pilotNamespace); err != nil {
+		t.Fatal(err)
+	}
+	encoded, _, err := unstructured.NestedString(resource.Object, "binaryData", flowstateRuntimeConfigKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEndpoint := []byte("tcp/zenoh-router." + pilotNamespace + ".svc.cluster.local:7447")
+	if got := strings.Count(string(updated), string(wantEndpoint)); got != 2 {
+		t.Fatalf("adapted endpoint count = %d, want 2", got)
+	}
+	if _, count, err := rewriteProtobufStrings(updated, oldEndpoint, wantEndpoint, 0); err != nil || count != 0 {
+		t.Fatalf("adapted protobuf is invalid or not idempotent: count=%d err=%v", count, err)
+	}
+	if err := adaptFlowstateRuntimeConfig(resource, pilotNamespace); err != nil {
+		t.Fatalf("second adaptation: %v", err)
+	}
+}
+
+func TestAdaptOpenShiftResourcesConfiguresProjectZenohClients(t *testing.T) {
+	deployment := object("Deployment", "kvstore-service", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name": "kvstore-service", "image": "example.invalid/kvstore",
+				"args": []interface{}{"server_main", "--port=8080"},
+			}},
+		}}},
+	})
+	moveToContactSkill := object("Deployment", "skill-group-09", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name":  "move-to-contact-ai-intrinsic",
+				"image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/" + moveToContactSkillImageRepo + "@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b",
+				"args":  []interface{}{"/skills/skill_service", "--port=8003"},
+			}},
+		}}},
+	})
+	statefulSet := object("StatefulSet", "rs-orbbec-gemini-driver", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{"name": "rs-orbbec-gemini-driver", "image": "example.invalid/gemini"}},
+		}}},
+	})
+	simulator := object("StatefulSet", "rs-gazebo-simulator", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name": "rs-gazebo-simulator", "image": "example.invalid/ai.intrinsic.gazebo_simulator.asset-gzserver-image",
+				"resources": map[string]interface{}{"requests": map[string]interface{}{"nvidia.com/gpu": "1"}},
+				"args":      []interface{}{"/intrinsic/simulation/gazebo/asset/asset_simulation_server_main", "--simulation_service_address=localhost:80"},
+			}},
+		}}},
+	})
+	adapted, err := adaptOpenShiftResources([]*unstructured.Unstructured{deployment, moveToContactSkill, statefulSet, simulator}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEndpoint := "tcp/zenoh-router." + pilotNamespace + ".svc.cluster.local:7447"
+	for _, resource := range adapted {
+		containers, _, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "containers")
+		if err != nil {
+			t.Fatal(err)
+		}
+		container := containers[0].(map[string]interface{})
+		if resource.GetName() == "rs-gazebo-simulator" {
+			tolerations, _, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "tolerations")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(tolerations) != 1 || tolerations[0].(map[string]interface{})["key"] != openshiftGPUTaintKey || tolerations[0].(map[string]interface{})["operator"] != "Equal" || tolerations[0].(map[string]interface{})["value"] != "true" || tolerations[0].(map[string]interface{})["effect"] != "NoSchedule" {
+				t.Fatalf("%s/%s GPU tolerations = %v, want only %s=true:NoSchedule", resource.GetKind(), resource.GetName(), tolerations, openshiftGPUTaintKey)
+			}
+		}
+		if resource.GetName() == "rs-orbbec-gemini-driver" {
+			tolerations, _, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "tolerations")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(tolerations) != 0 {
+				t.Fatalf("non-GPU workload %s/%s got tolerations: %v", resource.GetKind(), resource.GetName(), tolerations)
+			}
+		}
+		if resource.GetName() == "skill-group-09" {
+			wantImage := "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/move-to-contact-openshift@sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520"
+			if container["image"] != wantImage {
+				t.Fatalf("%s/%s image = %v, want pinned OpenShift-derived MTC image %q", resource.GetKind(), resource.GetName(), container["image"], wantImage)
+			}
+			args, _, err := unstructured.NestedStringSlice(container, "args")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, arg := range args {
+				if strings.HasPrefix(arg, "--zenoh_router=") {
+					t.Fatalf("%s/%s args contain unsupported Zenoh router flag: %v", resource.GetKind(), resource.GetName(), args)
+				}
+			}
+			env, _, err := unstructured.NestedSlice(container, "env")
+			if err != nil {
+				t.Fatal(err)
+			}
+			values := map[string]string{}
+			for _, item := range env {
+				entry := item.(map[string]interface{})
+				values[entry["name"].(string)] = entry["value"].(string)
+			}
+			if values["INTRINSIC_ZENOH_ROUTER_ENDPOINT"] != wantEndpoint {
+				t.Fatalf("%s/%s PubSub config endpoint = %v, want %q", resource.GetKind(), resource.GetName(), values["INTRINSIC_ZENOH_ROUTER_ENDPOINT"], wantEndpoint)
+			}
+			for _, name := range []string{"ZENOH_CONFIG_OVERRIDE", "ZENOH_ROUTER_CHECK_ATTEMPTS", "PYTHONPATH"} {
+				if _, exists := values[name]; exists {
+					t.Fatalf("%s/%s unexpectedly sets ineffective bootstrap variable %s", resource.GetKind(), resource.GetName(), name)
+				}
+			}
+			volumes, _, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "volumes")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, item := range volumes {
+				volume := item.(map[string]interface{})
+				if volume["name"] == "move-to-contact-zenoh-bootstrap" {
+					t.Fatalf("%s/%s unexpectedly mounts failed Python startup hook", resource.GetKind(), resource.GetName())
+				}
+			}
+			continue
+		}
+		if resource.GetName() == "kvstore-service" || resource.GetName() == "rs-gazebo-simulator" {
+			args, _, err := unstructured.NestedStringSlice(container, "args")
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantArg := "--zenoh_router=" + wantEndpoint
+			count := 0
+			for _, arg := range args {
+				if arg == wantArg {
+					count++
+				}
+			}
+			if count != 1 {
+				t.Fatalf("%s/%s args = %v, want exactly one %q", resource.GetKind(), resource.GetName(), args, wantArg)
+			}
+			continue
+		}
+		env, _, err := unstructured.NestedSlice(container, "env")
+		if err != nil {
+			t.Fatal(err)
+		}
+		values := map[string]string{}
+		for _, item := range env {
+			entry := item.(map[string]interface{})
+			values[entry["name"].(string)] = entry["value"].(string)
+		}
+		wantOverride := `mode="client";connect/endpoints=["` + wantEndpoint + `"]`
+		if values["ZENOH_CONFIG_OVERRIDE"] != wantOverride || values["ZENOH_ROUTER_CHECK_ATTEMPTS"] != "-1" {
+			t.Fatalf("%s/%s Zenoh environment = %v", resource.GetKind(), resource.GetName(), values)
+		}
+	}
+	annotations, _, err := unstructured.NestedStringMap(adapted[0].Object, "spec", "template", "metadata", "annotations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if annotations[istioSidecarInjectAnnotation] != "true" {
+		t.Fatalf("KVStore sidecar injection annotation = %q, want true", annotations[istioSidecarInjectAnnotation])
+	}
+}
+
+func TestEnsureNvidiaGPUTolerationIsScopedAndIdempotent(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		podSpec map[string]interface{}
+		wantTol bool
+	}{
+		{
+			name: "GPU request",
+			podSpec: map[string]interface{}{"containers": []interface{}{map[string]interface{}{
+				"resources": map[string]interface{}{"requests": map[string]interface{}{"nvidia.com/gpu": "1"}},
+			}}},
+			wantTol: true,
+		},
+		{
+			name: "ICON co-location",
+			podSpec: map[string]interface{}{"affinity": map[string]interface{}{"podAffinity": map[string]interface{}{
+				"requiredDuringSchedulingIgnoredDuringExecution": []interface{}{map[string]interface{}{
+					"labelSelector": map[string]interface{}{"matchLabels": map[string]interface{}{"app": gazeboSimulatorName}},
+				}},
+			}}},
+			wantTol: true,
+		},
+		{
+			name: "UR co-location",
+			podSpec: map[string]interface{}{"affinity": map[string]interface{}{"podAffinity": map[string]interface{}{
+				"requiredDuringSchedulingIgnoredDuringExecution": []interface{}{map[string]interface{}{
+					"labelSelector": map[string]interface{}{"matchLabels": map[string]interface{}{"app": "rs-icon"}},
+				}},
+			}}},
+			wantTol: true,
+		},
+		{
+			name:    "unrelated workload",
+			podSpec: map[string]interface{}{"containers": []interface{}{map[string]interface{}{"name": "web"}}},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := ensureNvidiaGPUToleration(test.podSpec); err != nil {
+				t.Fatal(err)
+			}
+			if err := ensureNvidiaGPUToleration(test.podSpec); err != nil {
+				t.Fatalf("second adaptation: %v", err)
+			}
+			tolerations, _, err := unstructured.NestedSlice(test.podSpec, "tolerations")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := len(tolerations) == 1; got != test.wantTol {
+				t.Fatalf("tolerations = %v, want GPU toleration present=%t", tolerations, test.wantTol)
+			}
+		})
+	}
 }
 
 func TestAdaptOpenShiftResourcesScopesRBAC(t *testing.T) {
@@ -204,15 +445,23 @@ func TestAdaptOpenShiftResourcesReplacesK3sDataStore(t *testing.T) {
 
 func TestAdaptOpenShiftResourcesReplacesSimulationHostPaths(t *testing.T) {
 	statefulSet := func(name string, volumes ...interface{}) *unstructured.Unstructured {
+		container := map[string]interface{}{
+			"name":  "service",
+			"image": "example.invalid/service",
+		}
+		if name == gazeboSimulatorName {
+			container = map[string]interface{}{
+				"name":  gazeboSimulatorContainerName,
+				"image": "example.invalid/" + gazeboSimulatorImageRepository,
+				"args":  []interface{}{gazeboSimulatorMainBinary},
+			}
+		}
 		return object("StatefulSet", name, map[string]interface{}{
 			"spec": map[string]interface{}{
 				"template": map[string]interface{}{
 					"spec": map[string]interface{}{
-						"containers": []interface{}{map[string]interface{}{
-							"name":  "service",
-							"image": "example.invalid/service",
-						}},
-						"volumes": volumes,
+						"containers": []interface{}{container},
+						"volumes":    volumes,
 					},
 				},
 			},
@@ -343,7 +592,7 @@ func TestAdaptOpenShiftResourcesDropsOnlyKnownSimulationSecurityRequests(t *test
 		}
 		wantCapabilities := map[string][]string{
 			"rs-ur-module":              {"IPC_LOCK"},
-			"rs-icon":                   {"SYS_NICE", "IPC_LOCK"},
+			"rs-icon":                   {"SYS_NICE", "DAC_OVERRIDE", "IPC_LOCK"},
 			"rs-motion-planner-service": nil,
 			"rs-hande-gripper":          nil,
 		}[resource.GetName()]
@@ -571,6 +820,7 @@ func TestAdaptOpenShiftResourcesPinsNamespaceScopedServiceImages(t *testing.T) {
 			"containers": []interface{}{map[string]interface{}{
 				"name":  "workcell-cluster-service",
 				"image": "upstream.example/workcell-service:stale",
+				"args":  []interface{}{"--conductor_service_address=conductor.app-intrinsic-base.svc.cluster.local:8082"},
 			}},
 		}}},
 	})
@@ -794,7 +1044,18 @@ func TestAdaptOpenShiftResourcesRequiresWritableJupyterHome(t *testing.T) {
 func TestAdaptOpenShiftResourcesRetargetsVirtualServiceAndRemovesK3sOnlyObjects(t *testing.T) {
 	routing := testRoutingConfig()
 	resources := []*unstructured.Unstructured{
-		object("Deployment", "artifacts-deployment", nil),
+		object("Deployment", "artifacts-deployment", map[string]interface{}{
+			"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+				"containers": []interface{}{map[string]interface{}{
+					"name":         "artifacts-deployment",
+					"image":        "quay.io/rhkp/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99",
+					"args":         []interface{}{"intrinsic/storage/artifacts/artifact_service", "--registry_port=9090", "--containerd_namespace=k8s.io"},
+					"ports":        []interface{}{map[string]interface{}{"name": "http-registry", "containerPort": int64(9090), "hostPort": int64(17127)}},
+					"volumeMounts": []interface{}{map[string]interface{}{"name": "containerd-socket", "mountPath": "/run/containerd/containerd.sock"}},
+				}},
+				"volumes": []interface{}{map[string]interface{}{"name": "containerd-socket", "hostPath": map[string]interface{}{"path": "/run/k3s/containerd/containerd.sock"}}},
+			}}},
+		}),
 		object("Service", "artifacts-deployment", nil),
 		object("ServiceMonitor", "artifacts-deployment-metrics", nil),
 		object("Service", "zenoh-router", map[string]interface{}{"spec": map[string]interface{}{
@@ -822,14 +1083,14 @@ func TestAdaptOpenShiftResourcesRetargetsVirtualServiceAndRemovesK3sOnlyObjects(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 2 || got[0].GetKind() != "Service" || got[0].GetName() != "zenoh-router" || got[1].GetKind() != "VirtualService" {
-		t.Fatalf("adapted objects = %v, want the in-project Zenoh Service and project-scoped VirtualService", kinds(got))
+	if len(got) != 4 || got[0].GetKind() != "Deployment" || got[0].GetName() != "artifacts-deployment" || got[1].GetKind() != "Service" || got[1].GetName() != "artifacts-deployment" || got[2].GetKind() != "Service" || got[2].GetName() != "zenoh-router" || got[3].GetKind() != "VirtualService" {
+		t.Fatalf("adapted objects = %v, want adapted ArtifactService objects and the project-scoped Zenoh resources", kinds(got))
 	}
-	gateways, _, _ := unstructured.NestedStringSlice(got[1].Object, "spec", "gateways")
+	gateways, _, _ := unstructured.NestedStringSlice(got[3].Object, "spec", "gateways")
 	if len(gateways) != 1 || gateways[0] != routing.gateway {
 		t.Fatalf("gateways = %v, want %q", gateways, routing.gateway)
 	}
-	exportTo, _, _ := unstructured.NestedStringSlice(got[1].Object, "spec", "exportTo")
+	exportTo, _, _ := unstructured.NestedStringSlice(got[3].Object, "spec", "exportTo")
 	if len(exportTo) != 2 || exportTo[0] != "." || exportTo[1] != "mesh-system" {
 		t.Fatalf("exportTo = %v, want project and ingress-Gateway namespaces", exportTo)
 	}
@@ -1036,12 +1297,72 @@ func TestAdaptOpenShiftResourcesRejectsConflictingWorldConductorPort(t *testing.
 	}
 }
 
+func TestAdaptOpenShiftResourcesConfiguresGazeboAssetInstancesServiceAddress(t *testing.T) {
+	statefulSet := object("StatefulSet", gazeboSimulatorName, map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name":  gazeboSimulatorContainerName,
+				"image": "registry.invalid/intrinsic/" + gazeboSimulatorImageRepository + "@sha256:0123456789abcdef",
+				"args":  []interface{}{gazeboSimulatorMainBinary, "--mesh_savepath=/mnt/gzserver-meshes"},
+			}},
+		}}},
+	})
+
+	adapted, err := adaptOpenShiftResources([]*unstructured.Unstructured{statefulSet}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	containers, _, _ := unstructured.NestedSlice(adapted[0].Object, "spec", "template", "spec", "containers")
+	args, _, _ := unstructured.NestedStringSlice(containers[0].(map[string]interface{}), "args")
+	want := assetInstancesServiceAddressFlag + "=asset-instances-v1." + pilotNamespace + ".svc.cluster.local:" + assetInstancesServiceAddressPort
+	count := 0
+	for _, arg := range args {
+		if arg == want {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("adapted args = %v, want exactly one %q", args, want)
+	}
+
+	adaptedAgain, err := adaptOpenShiftResources(adapted, pilotNamespace)
+	if err != nil {
+		t.Fatalf("second adaptation: %v", err)
+	}
+	containers, _, _ = unstructured.NestedSlice(adaptedAgain[0].Object, "spec", "template", "spec", "containers")
+	args, _, _ = unstructured.NestedStringSlice(containers[0].(map[string]interface{}), "args")
+	count = 0
+	for _, arg := range args {
+		if arg == want {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("second adaptation args = %v, want exactly one %q", args, want)
+	}
+}
+
+func TestAdaptOpenShiftResourcesRejectsUnexpectedGazeboSimulatorImage(t *testing.T) {
+	statefulSet := object("StatefulSet", gazeboSimulatorName, map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name": gazeboSimulatorContainerName, "image": "registry.invalid/other-image",
+				"args": []interface{}{gazeboSimulatorMainBinary},
+			}},
+		}}},
+	})
+	if _, err := adaptOpenShiftResources([]*unstructured.Unstructured{statefulSet}, pilotNamespace); err == nil || !strings.Contains(err.Error(), "unexpected image repository") {
+		t.Fatalf("unexpected simulator image should fail closed, got %v", err)
+	}
+}
+
 func TestAdaptOpenShiftResourcesInjectsSidecarForGatewayRoutedBackend(t *testing.T) {
 	workcell := object("Deployment", "workcell-cluster-service", map[string]interface{}{
 		"spec": map[string]interface{}{"template": map[string]interface{}{
 			"metadata": map[string]interface{}{"labels": map[string]interface{}{"app": "workcell-cluster-service"}},
 			"spec": map[string]interface{}{"containers": []interface{}{map[string]interface{}{
 				"name": "workcell-cluster-service", "image": "example.invalid/workcell",
+				"args": []interface{}{"--conductor_service_address=conductor.app-intrinsic-base.svc.cluster.local:8082"},
 			}}},
 		}},
 	})
@@ -1149,6 +1470,7 @@ func TestAdaptOpenShiftResourcesRewritesIngressAndNetworkPolicyReferences(t *tes
 				"image": "upstream.example/workcell-service:stale",
 				"args": []interface{}{
 					"--sim_service_address=istio-ingressgateway.app-ingress.svc.cluster.local:80",
+					"--conductor_service_address=conductor.app-intrinsic-base.svc.cluster.local:8082",
 				},
 			}},
 		}}},

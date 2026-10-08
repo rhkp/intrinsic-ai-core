@@ -38,7 +38,8 @@ spec:
         app.kubernetes.io/name: intrinsic-omts-demo
         app.kubernetes.io/component: build-workspace
       annotations:
-        sidecar.istio.io/inject: "false"
+        sidecar.istio.io/inject: "true"
+        traffic.sidecar.istio.io/excludeOutboundPorts: "5000"
     spec:
       serviceAccountName: omts-deployer
       automountServiceAccountToken: true
@@ -46,6 +47,7 @@ spec:
         kubernetes.io/arch: amd64
       securityContext:
         runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:

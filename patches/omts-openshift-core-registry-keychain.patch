@@ -1,6 +1,13 @@
 diff --git a/intrinsic/assets/imagetransfer.go b/intrinsic/assets/imagetransfer.go
 --- a/intrinsic/assets/imagetransfer.go
 +++ b/intrinsic/assets/imagetransfer.go
+@@ -18,5 +18,6 @@ import (
+ 	"context"
+ 	"fmt"
++	"os"
+ 	"strings"
+ 
+ 	backoff "github.com/cenkalti/backoff/v4"
 @@ -84,8 +84,6 @@ func (r remoteImage) Write(ctx context.Context, imageName string, tag string, img
  	return &ipb.Image{
  		Registry:     r.registry,
@@ -10,7 +17,16 @@ diff --git a/intrinsic/assets/imagetransfer.go b/intrinsic/assets/imagetransfer.
 -		AuthPassword: r.authPwd,
  	}, nil
  }
-@@ -98,7 +96,7 @@ func RemoteTransferer(registry string, user string, pwd string, opts ...remote.O
+@@ -95,11 +96,16 @@ func RemoteTransferer(registry string, user string, pwd string, opts ...remote.Option) Transferer {
+ func RemoteTransferer(registry string, user string, pwd string, opts ...remote.Option) Transferer {
++	if registryHost := os.Getenv("INTRINSIC_REGISTRY_HOST"); registryHost != "" {
++		if namespace := os.Getenv("OPENSHIFT_NAMESPACE"); namespace != "" {
++			registry = strings.TrimRight(registryHost, "/") + "/" + namespace
++		}
++	}
+ 	if user != "" && pwd != "" {
+ 		opts = append(opts, remote.WithAuth(authn.FromConfig(authn.AuthConfig{
+ 			Username: user,
  			Password: pwd,
  		})))
  	} else {
@@ -19,3 +35,24 @@ diff --git a/intrinsic/assets/imagetransfer.go b/intrinsic/assets/imagetransfer.
  	}
  	return remoteImage{
  		registry: registry,
+diff --git a/intrinsic/assets/build_defs/solution_update.go b/intrinsic/assets/build_defs/solution_update.go
+--- a/intrinsic/assets/build_defs/solution_update.go
++++ b/intrinsic/assets/build_defs/solution_update.go
+@@ -263,8 +263,15 @@
+ 			}
+ 			if !flags.GetFlagSkipDirectUpload() {
+-				transfer = directupload.NewTransferer(
++				directUploadOptions := []directupload.Option{
+ 					directupload.WithDiscovery(directupload.NewFromConnection(ingressConnection)),
+ 					directupload.WithOutput(cmd.OutOrStdout()),
+ 					directupload.WithFailOver(transfer),
+-				)
++				}
++				// OpenShift adaptation: return project-registry refs for workloads.
++				if registryHost := os.Getenv("INTRINSIC_REGISTRY_HOST"); registryHost != "" {
++					if namespace := os.Getenv("OPENSHIFT_NAMESPACE"); namespace != "" {
++						directUploadOptions = append(directUploadOptions, directupload.WithRegistry(registryHost+"/"+namespace))
++					}
++				}
++				transfer = directupload.NewTransferer(directUploadOptions...)
+ 			}

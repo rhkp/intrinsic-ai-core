@@ -20,10 +20,21 @@ const (
 	intrinsicIconPVC                   = "intrinsic-icon-data"
 	gazeboMeshesPVC                    = "intrinsic-gazebo-meshes"
 	openshiftSharedStorageClass        = "ocs-storagecluster-cephfs"
-	quayResourceRegistryImage          = "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b@sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6"
+	nvidiaGPUResource                  = "nvidia.com/gpu"
+	openshiftGPUTaintKey               = "g5-gpu"
+	quayResourceRegistryImage          = "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/resource-registry-openshift@sha256:40744c21511b7bdfcdea20334b5b00939b40153ebbc6647b9e7ec60192eba4cb"
 	workcellServiceImage               = "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/workcell-cluster-service@sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3"
 	quayZenohdImage                    = "quay.io/rhkp/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
 	quayJupyterServerImage             = "quay.io/rhkp/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
+	inferenceServiceName               = "rs-inference-service"
+	inferenceServiceContainerName      = "rs-inference-service"
+	inferenceServiceImageRepository    = "ai.intrinsic.inference_service.inference_service_image"
+	inferenceServicePatchName          = "openshift-inference-cas-address"
+	inferenceServicePatchVolume        = "inference-service-main-patch"
+	inferenceServiceMainPath           = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/intrinsic-core+/intrinsic_inference/assets/inference_service/inference_service_main.py"
+	inferenceServicePython             = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
+	inferenceServiceUpstreamCASAddress = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
+	inferenceServiceProjectCASAddress  = "content-addressable-storage.arhkp-intrinsic.svc.cluster.local:9747"
 	jupyterHomeDir                     = "/home/defaultuser"
 	jupyterRuntimeDir                  = jupyterHomeDir + "/.local/share/jupyter/runtime"
 	upstreamIngressAddress             = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
@@ -43,12 +54,31 @@ const (
 	ingressSelectorEnv                 = "INTRINSIC_INGRESS_POD_SELECTOR"
 )
 
+const (
+	artifactsDeploymentName           = "artifacts-deployment"
+	artifactsServiceContainerName     = "artifacts-deployment"
+	artifactsServiceImageRepository   = "artifacts_service_ap6rsu7y7q2zdhlk"
+	artifactsServiceBinary            = "intrinsic/storage/artifacts/artifact_service"
+	artifactsUpstreamContainerdVolume = "containerd-socket"
+	artifactsUpstreamContainerdMount  = "/run/containerd/containerd.sock"
+	artifactsUpstreamContainerdHost   = "/run/k3s/containerd/containerd.sock"
+	artifactsContainerdContainerName  = "containerd"
+	artifactsRegistryHost             = "image-registry.openshift-image-registry.svc:5000"
+	artifactsRegistryCAConfigMap      = "intrinsic-registry-service-ca"
+	artifactsRegistryCAVolume         = "artifacts-registry-service-ca"
+	artifactsRegistryCAMount          = "/var/run/registry-ca"
+	artifactsRegistryPasswordFile     = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	artifactsRegistryServiceAccount   = "omts-deployer"
+)
+
 // These upstream charts pin two images directly in templates instead of using
 // their image abstraction values. Keep the destinations synchronized with
 // openshift/image-lock.json; the rendered-manifest validator checks the lock.
 var openshiftImageOverrides = map[string]string{
-	"us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2":                                            quayZenohdImage,
-	"ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c": quayJupyterServerImage,
+	"us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2":                                                                                                                   quayZenohdImage,
+	"ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c":                                                                        quayJupyterServerImage,
+	"image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/ai.intrinsic.move_to_contact.move_to_contact_skill_image@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/move-to-contact-openshift@sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520",
+	"quay.io/rhkp/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99":                                                                 "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/artifacts-service-openshift@sha256:7e35c59a20a0000f49076f4b99bd328a846ccb576b652d0b9a96177da9f88c42",
 }
 
 type openshiftRoutingConfig struct {
@@ -141,11 +171,14 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		resource := original.DeepCopy()
 		kind, name := resource.GetKind(), resource.GetName()
 
-		// K3s artifact import uses the host's containerd socket and host port.
-		// The OpenShift publisher uploads images to the internal registry instead.
-		if kind == "Deployment" && name == "artifacts-deployment" ||
-			kind == "Service" && name == "artifacts-deployment" ||
-			kind == "ServiceMonitor" && name == "artifacts-deployment-metrics" {
+		// Replace the K3s ArtifactService containerd backend with the OpenShift
+		// project registry, while keeping its pod-local sidecar restricted.
+		if kind == "Deployment" && name == artifactsDeploymentName {
+			if err := adaptArtifactsServiceDeployment(resource, namespace); err != nil {
+				return nil, fmt.Errorf("adapt artifact service for OpenShift: %w", err)
+			}
+		}
+		if kind == "ServiceMonitor" && name == "artifacts-deployment-metrics" {
 			continue
 		}
 		// The static local PV is not valid on OpenShift/CSI storage.
@@ -240,6 +273,9 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		}
 		resource.SetNamespace(namespace)
 		rewriteProjectReferences(resource.Object, namespace)
+		if err := adaptFlowstateRuntimeConfig(resource, namespace); err != nil {
+			return nil, fmt.Errorf("adapt runtime config for %s/%s: %w", kind, name, err)
+		}
 		if err := adaptKnownIngressAddresses(resource, namespace); err != nil {
 			return nil, fmt.Errorf("adapt service addresses for %s/%s: %w", kind, name, err)
 		}
@@ -274,7 +310,8 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 		// workcell-cluster-service calls it over gRPC. The cluster's strict
 		// ISTIO_MUTUAL policy requires the runtime DB server to join the mesh;
 		// keep that policy intact instead of opting this connection out of TLS.
-		needsSidecar := isGatewayBackend || kind == "Deployment" && name == "runtime-db"
+		needsSidecar := isGatewayBackend || kind == "Deployment" && (name == "runtime-db" || name == "kvstore-service") ||
+			kind == "StatefulSet" && (name == "rs-flowstate-ros-bridge" || name == "rs-orbbec-gemini-driver" || name == "rs-hande-gripper")
 		if needsSidecar {
 			if err := enableIstioSidecar(resource); err != nil {
 				return nil, fmt.Errorf("enable Service Mesh sidecar for %s/%s: %w", kind, name, err)
@@ -826,13 +863,15 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 		}
 		return nil
 	}
-
 	serviceAccount, _ := podSpec["serviceAccountName"].(string)
 	if serviceAccount == "" || serviceAccount == "default" {
 		serviceAccount = openshiftImagePullServiceAccount
 		podSpec["serviceAccountName"] = serviceAccount
 	}
 	automount := serviceAccount == "resource-registry" || serviceAccount == "skill-registry" || serviceAccount == "workcell-cluster-service"
+	if resource.GetKind() == "Deployment" && resource.GetName() == artifactsDeploymentName && serviceAccount == artifactsRegistryServiceAccount {
+		automount = true
+	}
 	podSpec["automountServiceAccountToken"] = automount
 
 	volumes, found, err := unstructured.NestedSlice(podSpec, "volumes")
@@ -866,10 +905,28 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 	if err := adaptDeploymentForOpenShift(resource, podSpec, namespace); err != nil {
 		return err
 	}
+	if err := adaptICONPodAffinity(resource, podSpec, namespace); err != nil {
+		return fmt.Errorf("co-locate ICON and UR hardware module: %w", err)
+	}
+	if err := ensureNvidiaGPUToleration(podSpec); err != nil {
+		return fmt.Errorf("adapt NVIDIA GPU scheduling for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
+	}
+	if err := adaptInferenceCASAddress(resource, podSpec, namespace); err != nil {
+		return fmt.Errorf("configure inference CAS service address: %w", err)
+	}
 
 	containers := append(sliceMaps(podSpec["containers"]), sliceMaps(podSpec["initContainers"])...)
+	if err := adaptConductorServiceAddress(resource, namespace, containers); err != nil {
+		return fmt.Errorf("configure stable Conductor Service for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
+	}
 	if err := adaptGazeboSimulationServiceAddress(resource, namespace, containers); err != nil {
 		return fmt.Errorf("configure Gazebo simulation service address: %w", err)
+	}
+	if err := adaptGazeboAssetInstancesServiceAddress(resource, namespace, sliceMaps(podSpec["containers"])); err != nil {
+		return fmt.Errorf("configure Gazebo Asset Instances service address: %w", err)
+	}
+	if err := adaptZenohClient(resource, namespace, sliceMaps(podSpec["containers"])); err != nil {
+		return fmt.Errorf("configure project Zenoh client for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
 	}
 	zenohContainerName := ""
 	if resource.GetKind() == "Deployment" {
@@ -889,6 +946,9 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 			zenohConfigured = true
 		}
 		if image, ok := container["image"].(string); ok {
+			if strings.HasPrefix(image, "localhost:17127/") {
+				return fmt.Errorf("runtime image %q still targets the node-local ArtifactService registry; set the OpenShift registry endpoint in the workspace", image)
+			}
 			if lockedImage, found := openshiftImageOverrides[image]; found {
 				container["image"] = lockedImage
 			}
@@ -911,6 +971,11 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 	if zenohContainerName != "" && !zenohConfigured {
 		return fmt.Errorf("Deployment %q has no %q container for the project Zenoh router override", resource.GetName(), zenohContainerName)
 	}
+	if zenohConfigured {
+		if err := excludeZenohPortFromIstio(resource); err != nil {
+			return fmt.Errorf("exclude Zenoh TCP from Service Mesh for %s/%s: %w", resource.GetKind(), resource.GetName(), err)
+		}
+	}
 	needsSimulationRealtimeServiceAccount, err := adaptSimulationSecurityContexts(resource, containers)
 	if err != nil {
 		return err
@@ -921,6 +986,269 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 	}
 
 	return unstructured.SetNestedMap(resource.Object, podSpec, path...)
+}
+
+// ensureNvidiaGPUToleration lets workloads that already request an NVIDIA GPU
+// schedule on dev01's GPU nodes. It leaves all other workloads unchanged.
+func ensureNvidiaGPUToleration(podSpec map[string]interface{}) error {
+	containers := append(sliceMaps(podSpec["containers"]), sliceMaps(podSpec["initContainers"])...)
+	requiresGPU := requiresGPUCoLocation(podSpec)
+	for _, container := range containers {
+		resources, _ := container["resources"].(map[string]interface{})
+		for _, field := range []string{"requests", "limits"} {
+			quantities, _ := resources[field].(map[string]interface{})
+			value, found := quantities[nvidiaGPUResource]
+			if !found {
+				continue
+			}
+			quantity := strings.TrimSpace(fmt.Sprint(value))
+			if quantity != "" && quantity != "0" && quantity != "0m" {
+				requiresGPU = true
+				break
+			}
+		}
+		if requiresGPU {
+			break
+		}
+	}
+	if !requiresGPU {
+		return nil
+	}
+
+	tolerations, found, err := unstructured.NestedSlice(podSpec, "tolerations")
+	if err != nil {
+		return err
+	}
+	for _, item := range tolerations {
+		toleration, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if toleration["key"] == openshiftGPUTaintKey && toleration["operator"] == "Equal" && toleration["value"] == "true" && toleration["effect"] == "NoSchedule" {
+			return nil
+		}
+	}
+	if !found {
+		tolerations = []interface{}{}
+	}
+	tolerations = append(tolerations, map[string]interface{}{
+		"key":      openshiftGPUTaintKey,
+		"operator": "Equal",
+		"value":    "true",
+		"effect":   "NoSchedule",
+	})
+	return unstructured.SetNestedSlice(podSpec, tolerations, "tolerations")
+}
+
+func requiresGPUCoLocation(podSpec map[string]interface{}) bool {
+	affinity, _, _ := unstructured.NestedMap(podSpec, "affinity")
+	podAffinity, _, _ := unstructured.NestedMap(affinity, "podAffinity")
+	required, _, _ := unstructured.NestedSlice(podAffinity, "requiredDuringSchedulingIgnoredDuringExecution")
+	for _, item := range required {
+		rule, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		matchLabels, _, _ := unstructured.NestedMap(rule, "labelSelector", "matchLabels")
+		app, _ := matchLabels["app"].(string)
+		if app == gazeboSimulatorName || app == "rs-icon" {
+			return true
+		}
+	}
+	return false
+}
+
+func adaptICONPodAffinity(resource *unstructured.Unstructured, podSpec map[string]interface{}, namespace string) error {
+	if resource.GetKind() != "StatefulSet" {
+		return nil
+	}
+
+	// ICON connects to the Gazebo HWM over a Unix socket on their shared PVC.
+	// The UR HWM server creates that socket too, so it must share ICON's node.
+	var targetApp string
+	switch resource.GetName() {
+	case "rs-icon":
+		targetApp = gazeboSimulatorName
+	case "rs-ur-module":
+		targetApp = "rs-icon"
+	default:
+		return nil
+	}
+
+	affinity, found, err := unstructured.NestedMap(podSpec, "affinity")
+	if err != nil {
+		return err
+	}
+	if !found {
+		affinity = map[string]interface{}{}
+	}
+	podAffinity, found, err := unstructured.NestedMap(affinity, "podAffinity")
+	if err != nil {
+		return err
+	}
+	if !found {
+		podAffinity = map[string]interface{}{}
+	}
+	required, found, err := unstructured.NestedSlice(podAffinity, "requiredDuringSchedulingIgnoredDuringExecution")
+	if err != nil {
+		return err
+	}
+	if !found {
+		required = []interface{}{}
+	}
+	for _, item := range required {
+		rule, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("malformed required pod affinity rule")
+		}
+		matchLabels, _, err := unstructured.NestedMap(rule, "labelSelector", "matchLabels")
+		if err != nil {
+			return err
+		}
+		app, _ := matchLabels["app"].(string)
+		topologyKey, _, err := unstructured.NestedString(rule, "topologyKey")
+		if err != nil {
+			return err
+		}
+		namespaces, _, err := unstructured.NestedStringSlice(rule, "namespaces")
+		if err != nil {
+			return err
+		}
+		if app == targetApp && topologyKey == "kubernetes.io/hostname" && len(namespaces) == 1 && namespaces[0] == namespace {
+			return nil
+		}
+	}
+
+	required = append(required, map[string]interface{}{
+		"labelSelector": map[string]interface{}{
+			"matchLabels": map[string]interface{}{"app": targetApp},
+		},
+		"namespaces":  []interface{}{namespace},
+		"topologyKey": "kubernetes.io/hostname",
+	})
+	if err := unstructured.SetNestedSlice(podAffinity, required, "requiredDuringSchedulingIgnoredDuringExecution"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedMap(affinity, podAffinity, "podAffinity"); err != nil {
+		return err
+	}
+	return unstructured.SetNestedMap(podSpec, affinity, "affinity")
+}
+
+func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[string]interface{}, namespace string) error {
+	if resource.GetKind() != "StatefulSet" || resource.GetName() != inferenceServiceName {
+		return nil
+	}
+	if namespace == "" {
+		return fmt.Errorf("target namespace is required")
+	}
+
+	containers := sliceMaps(podSpec["containers"])
+	var appContainer map[string]interface{}
+	for _, container := range containers {
+		if container["name"] != inferenceServiceContainerName {
+			continue
+		}
+		if appContainer != nil {
+			return fmt.Errorf("StatefulSet %q has duplicate %q containers", inferenceServiceName, inferenceServiceContainerName)
+		}
+		appContainer = container
+	}
+	if appContainer == nil {
+		return fmt.Errorf("StatefulSet %q has no %q container", inferenceServiceName, inferenceServiceContainerName)
+	}
+	image, _ := appContainer["image"].(string)
+	if imageRepositoryName(image) != inferenceServiceImageRepository {
+		return fmt.Errorf("StatefulSet %q has unexpected inference image repository %q", inferenceServiceName, imageRepositoryName(image))
+	}
+
+	initContainers, found, err := unstructured.NestedSlice(podSpec, "initContainers")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range initContainers {
+			container, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed init container")
+			}
+			if container["name"] == inferenceServicePatchName {
+				return fmt.Errorf("StatefulSet %q already contains init container %q", inferenceServiceName, inferenceServicePatchName)
+			}
+		}
+	}
+
+	volumes, found, err := unstructured.NestedSlice(podSpec, "volumes")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range volumes {
+			volume, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed volume")
+			}
+			if volume["name"] == inferenceServicePatchVolume {
+				return fmt.Errorf("StatefulSet %q already contains volume %q", inferenceServiceName, inferenceServicePatchVolume)
+			}
+		}
+	}
+
+	patchScript := strings.Join([]string{
+		"from pathlib import Path",
+		"source = Path(" + strconv.Quote(inferenceServiceMainPath) + ")",
+		"target = Path('/patch/inference_service_main.py')",
+		"text = source.read_text()",
+		"old = " + strconv.Quote(inferenceServiceUpstreamCASAddress),
+		"new = " + strconv.Quote("content-addressable-storage."+namespace+".svc.cluster.local:9747"),
+		"assert text.count(old) == 1, f'expected one upstream CAS address, found {text.count(old)}'",
+		"target.write_text(text.replace(old, new))",
+	}, "; ")
+
+	initContainers = append(initContainers, map[string]interface{}{
+		"name":    inferenceServicePatchName,
+		"image":   image,
+		"command": []interface{}{inferenceServicePython},
+		"args":    []interface{}{"-c", patchScript},
+		"volumeMounts": []interface{}{map[string]interface{}{
+			"name":      inferenceServicePatchVolume,
+			"mountPath": "/patch",
+		}},
+	})
+	if err := unstructured.SetNestedSlice(podSpec, initContainers, "initContainers"); err != nil {
+		return err
+	}
+
+	volumes = append(volumes, map[string]interface{}{
+		"name":     inferenceServicePatchVolume,
+		"emptyDir": map[string]interface{}{},
+	})
+	if err := unstructured.SetNestedSlice(podSpec, volumes, "volumes"); err != nil {
+		return err
+	}
+
+	volumeMounts, found, err := unstructured.NestedSlice(appContainer, "volumeMounts")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range volumeMounts {
+			mount, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed volume mount")
+			}
+			if mount["mountPath"] == inferenceServiceMainPath {
+				return fmt.Errorf("StatefulSet %q already mounts %q", inferenceServiceName, inferenceServiceMainPath)
+			}
+		}
+	}
+	volumeMounts = append(volumeMounts, map[string]interface{}{
+		"name":      inferenceServicePatchVolume,
+		"mountPath": inferenceServiceMainPath,
+		"subPath":   "inference_service_main.py",
+		"readOnly":  true,
+	})
+	return unstructured.SetNestedSlice(appContainer, volumeMounts, "volumeMounts")
 }
 
 type simulationSecurityPolicy struct {
@@ -942,7 +1270,11 @@ var simulationSecurityPolicies = map[string]simulationSecurityPolicy{
 	},
 	"rs-icon/rs-icon": {
 		imageRepository: "ai.intrinsic.generic_realtime_control_service.generic_icon_machine_resource",
-		addCapabilities: []string{"IPC_LOCK", "SYS_NICE"},
+		// DAC_OVERRIDE is needed after OpenShift resets the simulator: the UR
+		// HWM recreates its shared CephFS Unix socket as UID/GID 1001690000,
+		// mode 0755. ICON runs as UID 0 with all other capabilities dropped, so
+		// it otherwise cannot reconnect through the group without write access.
+		addCapabilities: []string{"DAC_OVERRIDE", "IPC_LOCK", "SYS_NICE"},
 		serviceAccount:  intrinsicSimRealtimeServiceAccount,
 		runAsRoot:       true,
 	},
@@ -958,12 +1290,18 @@ var simulationSecurityPolicies = map[string]simulationSecurityPolicy{
 }
 
 const (
-	gzserverDeploymentName       = "gzserver"
-	gzserverContainerName        = "gzserver"
-	gzserverImageRepository      = "gzserver_insrc_3xcbw2p75tkkh7r6"
-	gzserverMainBinary           = "/intrinsic/simulation/gazebo/grpc_proxy/proxy_server_main"
-	simulationServiceAddressFlag = "--simulation_service_address="
-	simulationServicePort        = "8088"
+	gzserverDeploymentName           = "gzserver"
+	gzserverContainerName            = "gzserver"
+	gzserverImageRepository          = "gzserver_insrc_3xcbw2p75tkkh7r6"
+	gzserverMainBinary               = "/intrinsic/simulation/gazebo/grpc_proxy/proxy_server_main"
+	simulationServiceAddressFlag     = "--simulation_service_address="
+	simulationServicePort            = "8088"
+	gazeboSimulatorName              = "rs-gazebo-simulator"
+	gazeboSimulatorContainerName     = "rs-gazebo-simulator"
+	gazeboSimulatorImageRepository   = "ai.intrinsic.gazebo_simulator.asset-gzserver-image"
+	gazeboSimulatorMainBinary        = "/intrinsic/simulation/gazebo/asset/asset_simulation_server_main"
+	assetInstancesServiceAddressFlag = "--asset_instances_service_address"
+	assetInstancesServiceAddressPort = "8080"
 )
 
 // adaptGazeboSimulationServiceAddress keeps the simulator proxy pointed at
@@ -1017,6 +1355,83 @@ func adaptGazeboSimulationServiceAddress(resource *unstructured.Unstructured, na
 		if strings.HasPrefix(arg, simulationServiceAddressFlag) {
 			if foundAddress {
 				return fmt.Errorf("Deployment %q container %q has duplicate simulation service arguments", gzserverDeploymentName, gzserverContainerName)
+			}
+			updated = append(updated, address)
+			foundAddress = true
+			continue
+		}
+		updated = append(updated, arg)
+	}
+	if !foundAddress {
+		updated = append(updated[:1], append([]interface{}{address}, updated[1:]...)...)
+	}
+	target["args"] = updated
+	return nil
+}
+
+// adaptGazeboAssetInstancesServiceAddress overrides the simulator image's
+// upstream Asset Instances default with the Service in the target project.
+// Match the exact StatefulSet, container, image repository, and entrypoint so
+// unrelated resources remain unchanged and shape drift fails closed.
+func adaptGazeboAssetInstancesServiceAddress(resource *unstructured.Unstructured, namespace string, containers []map[string]interface{}) error {
+	if resource.GetKind() != "StatefulSet" || resource.GetName() != gazeboSimulatorName {
+		return nil
+	}
+	if namespace == "" {
+		return fmt.Errorf("target namespace is required")
+	}
+
+	var target map[string]interface{}
+	for _, container := range containers {
+		if container["name"] != gazeboSimulatorContainerName {
+			continue
+		}
+		if target != nil {
+			return fmt.Errorf("StatefulSet %q has duplicate %q containers", gazeboSimulatorName, gazeboSimulatorContainerName)
+		}
+		target = container
+	}
+	if target == nil {
+		return fmt.Errorf("StatefulSet %q has no %q container", gazeboSimulatorName, gazeboSimulatorContainerName)
+	}
+	image, _ := target["image"].(string)
+	if imageRepositoryName(image) != gazeboSimulatorImageRepository {
+		return fmt.Errorf("StatefulSet %q container %q has unexpected image repository %q", gazeboSimulatorName, gazeboSimulatorContainerName, imageRepositoryName(image))
+	}
+	args, ok := target["args"].([]interface{})
+	if !ok || len(args) == 0 {
+		return fmt.Errorf("StatefulSet %q container %q has no command arguments", gazeboSimulatorName, gazeboSimulatorContainerName)
+	}
+	binary, ok := args[0].(string)
+	if !ok || binary != gazeboSimulatorMainBinary {
+		return fmt.Errorf("StatefulSet %q container %q has unexpected entrypoint", gazeboSimulatorName, gazeboSimulatorContainerName)
+	}
+
+	address := assetInstancesServiceAddressFlag + "=" + "asset-instances-v1." + namespace + ".svc.cluster.local:" + assetInstancesServiceAddressPort
+	updated := make([]interface{}, 0, len(args)+1)
+	updated = append(updated, args[0])
+	foundAddress := false
+	for i := 1; i < len(args); i++ {
+		arg, ok := args[i].(string)
+		if !ok {
+			return fmt.Errorf("StatefulSet %q container %q has a malformed argument", gazeboSimulatorName, gazeboSimulatorContainerName)
+		}
+		if arg == assetInstancesServiceAddressFlag {
+			if foundAddress || i+1 >= len(args) {
+				return fmt.Errorf("StatefulSet %q container %q has a malformed Asset Instances service argument", gazeboSimulatorName, gazeboSimulatorContainerName)
+			}
+			value, ok := args[i+1].(string)
+			if !ok || strings.HasPrefix(value, "--") {
+				return fmt.Errorf("StatefulSet %q container %q has a malformed Asset Instances service argument", gazeboSimulatorName, gazeboSimulatorContainerName)
+			}
+			updated = append(updated, address)
+			foundAddress = true
+			i++
+			continue
+		}
+		if strings.HasPrefix(arg, assetInstancesServiceAddressFlag+"=") {
+			if foundAddress {
+				return fmt.Errorf("StatefulSet %q container %q has duplicate Asset Instances service arguments", gazeboSimulatorName, gazeboSimulatorContainerName)
 			}
 			updated = append(updated, address)
 			foundAddress = true
@@ -1203,6 +1618,230 @@ func imageRepositoryName(image string) string {
 		image = image[:index]
 	}
 	return image
+}
+
+// adaptArtifactsServiceDeployment configures the upstream remote registry
+// backend with the project-scoped OpenShift service account and CA.
+func adaptArtifactsServiceDeployment(resource *unstructured.Unstructured, namespace string) error {
+	if resource.GetKind() != "Deployment" || resource.GetName() != artifactsDeploymentName {
+		return nil
+	}
+
+	containers, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "containers")
+	if err != nil || !found {
+		return fmt.Errorf("Deployment %q has no container list", artifactsDeploymentName)
+	}
+	var target map[string]interface{}
+	for _, raw := range containers {
+		container, ok := raw.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Deployment %q has a malformed container", artifactsDeploymentName)
+		}
+		if container["name"] == artifactsServiceContainerName {
+			if target != nil {
+				return fmt.Errorf("Deployment %q has duplicate artifact-service containers", artifactsDeploymentName)
+			}
+			target = container
+		}
+		if container["name"] == artifactsContainerdContainerName {
+			return fmt.Errorf("Deployment %q already has a containerd sidecar", artifactsDeploymentName)
+		}
+	}
+	if target == nil {
+		return fmt.Errorf("Deployment %q has no artifact-service container", artifactsDeploymentName)
+	}
+	image, _ := target["image"].(string)
+	if imageRepositoryName(image) != artifactsServiceImageRepository {
+		return fmt.Errorf("Deployment %q has unexpected image repository %q", artifactsDeploymentName, imageRepositoryName(image))
+	}
+
+	args, ok := target["args"].([]interface{})
+	if !ok || len(args) == 0 || args[0] != artifactsServiceBinary {
+		return fmt.Errorf("Deployment %q has an unexpected artifact-service entrypoint", artifactsDeploymentName)
+	}
+	filteredArgs := make([]interface{}, 0, len(args))
+	removedRegistryPort, containerdNamespaceCount := 0, 0
+	for _, raw := range args {
+		arg, ok := raw.(string)
+		if !ok {
+			return fmt.Errorf("Deployment %q has a malformed artifact-service argument", artifactsDeploymentName)
+		}
+		switch arg {
+		case "--registry_port=9090":
+			removedRegistryPort++
+		case "--containerd_namespace=k8s.io":
+			containerdNamespaceCount++
+		default:
+			if strings.HasPrefix(arg, "--containerd_address") {
+				return fmt.Errorf("Deployment %q has an unexpected containerd address override", artifactsDeploymentName)
+			}
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+	if removedRegistryPort != 1 || containerdNamespaceCount != 1 {
+		return fmt.Errorf("Deployment %q has unexpected local-registry arguments", artifactsDeploymentName)
+	}
+	filteredArgs = append(filteredArgs,
+		"--registry="+artifactsRegistryHost+"/"+namespace,
+		"--registry_username=token",
+		"--registry_password_file="+artifactsRegistryPasswordFile,
+	)
+	target["args"] = filteredArgs
+	env, found, err := unstructured.NestedSlice(target, "env")
+	if err != nil {
+		return fmt.Errorf("Deployment %q has malformed environment variables", artifactsDeploymentName)
+	}
+	if !found {
+		env = []interface{}{}
+	}
+	for _, raw := range env {
+		entry, ok := raw.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Deployment %q has a malformed environment variable", artifactsDeploymentName)
+		}
+		if entry["name"] == "SSL_CERT_FILE" {
+			return fmt.Errorf("Deployment %q already defines SSL_CERT_FILE", artifactsDeploymentName)
+		}
+	}
+	env = append(env, map[string]interface{}{"name": "SSL_CERT_FILE", "value": artifactsRegistryCAMount + "/service-ca.crt"})
+	if err := unstructured.SetNestedSlice(target, env, "env"); err != nil {
+		return err
+	}
+	target["startupProbe"] = map[string]interface{}{
+		"tcpSocket":        map[string]interface{}{"port": int64(8080)},
+		"periodSeconds":    int64(2),
+		"timeoutSeconds":   int64(1),
+		"failureThreshold": int64(30),
+	}
+	target["readinessProbe"] = map[string]interface{}{
+		"tcpSocket":        map[string]interface{}{"port": int64(8080)},
+		"periodSeconds":    int64(3),
+		"timeoutSeconds":   int64(1),
+		"failureThreshold": int64(3),
+	}
+
+	ports, found, err := unstructured.NestedSlice(target, "ports")
+	if err != nil || !found {
+		return fmt.Errorf("Deployment %q has no container ports", artifactsDeploymentName)
+	}
+	filteredPorts := make([]interface{}, 0, len(ports))
+	removedRegistryPort = 0
+	for _, raw := range ports {
+		port, ok := raw.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Deployment %q has a malformed container port", artifactsDeploymentName)
+		}
+		if port["name"] == "http-registry" {
+			if port["containerPort"] != int64(9090) || port["hostPort"] != int64(17127) {
+				return fmt.Errorf("Deployment %q has an unexpected local-registry port", artifactsDeploymentName)
+			}
+			removedRegistryPort++
+			continue
+		}
+		if _, hasHostPort := port["hostPort"]; hasHostPort {
+			return fmt.Errorf("Deployment %q has an unexpected hostPort", artifactsDeploymentName)
+		}
+		filteredPorts = append(filteredPorts, port)
+	}
+	if removedRegistryPort != 1 {
+		return fmt.Errorf("Deployment %q has no expected local-registry port", artifactsDeploymentName)
+	}
+	if len(filteredPorts) == 0 {
+		unstructured.RemoveNestedField(target, "ports")
+	} else if err := unstructured.SetNestedSlice(target, filteredPorts, "ports"); err != nil {
+		return err
+	}
+
+	volumeMounts, found, err := unstructured.NestedSlice(target, "volumeMounts")
+	if err != nil || !found {
+		return fmt.Errorf("Deployment %q has no volume mounts", artifactsDeploymentName)
+	}
+	filteredMounts := make([]interface{}, 0, len(volumeMounts))
+	removedContainerdMount := 0
+	for _, raw := range volumeMounts {
+		mount, ok := raw.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Deployment %q has a malformed volume mount", artifactsDeploymentName)
+		}
+		if mount["name"] == artifactsUpstreamContainerdVolume {
+			if mount["mountPath"] != artifactsUpstreamContainerdMount {
+				return fmt.Errorf("Deployment %q has an unexpected containerd socket mount", artifactsDeploymentName)
+			}
+			removedContainerdMount++
+			continue
+		}
+		filteredMounts = append(filteredMounts, mount)
+	}
+	if removedContainerdMount != 1 {
+		return fmt.Errorf("Deployment %q has no expected containerd socket mount", artifactsDeploymentName)
+	}
+	filteredMounts = append(filteredMounts, map[string]interface{}{
+		"name":      artifactsRegistryCAVolume,
+		"mountPath": artifactsRegistryCAMount,
+		"readOnly":  true,
+	})
+	if err := unstructured.SetNestedSlice(target, filteredMounts, "volumeMounts"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedSlice(resource.Object, containers, "spec", "template", "spec", "containers"); err != nil {
+		return err
+	}
+
+	volumes, found, err := unstructured.NestedSlice(resource.Object, "spec", "template", "spec", "volumes")
+	if err != nil || !found {
+		return fmt.Errorf("Deployment %q has no pod volumes", artifactsDeploymentName)
+	}
+	filteredVolumes := make([]interface{}, 0, len(volumes))
+	removedContainerdVolume := 0
+	for _, raw := range volumes {
+		volume, ok := raw.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("Deployment %q has a malformed volume", artifactsDeploymentName)
+		}
+		if volume["name"] == artifactsUpstreamContainerdVolume {
+			hostPath, _ := volume["hostPath"].(map[string]interface{})
+			if hostPath["path"] != artifactsUpstreamContainerdHost {
+				return fmt.Errorf("Deployment %q has an unexpected containerd hostPath", artifactsDeploymentName)
+			}
+			removedContainerdVolume++
+			continue
+		}
+		filteredVolumes = append(filteredVolumes, volume)
+	}
+	if removedContainerdVolume != 1 {
+		return fmt.Errorf("Deployment %q has no expected containerd hostPath", artifactsDeploymentName)
+	}
+	filteredVolumes = append(filteredVolumes, map[string]interface{}{
+		"name": artifactsRegistryCAVolume,
+		"configMap": map[string]interface{}{
+			"name":  artifactsRegistryCAConfigMap,
+			"items": []interface{}{map[string]interface{}{"key": "service-ca.crt", "path": "service-ca.crt"}},
+		},
+	})
+	if err := unstructured.SetNestedSlice(resource.Object, filteredVolumes, "spec", "template", "spec", "volumes"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(resource.Object, artifactsRegistryServiceAccount, "spec", "template", "spec", "serviceAccountName"); err != nil {
+		return err
+	}
+	if err := unstructured.SetNestedField(resource.Object, true, "spec", "template", "spec", "automountServiceAccountToken"); err != nil {
+		return err
+	}
+	annotations, found, err := unstructured.NestedMap(resource.Object, "spec", "template", "metadata", "annotations")
+	if err != nil {
+		return fmt.Errorf("Deployment %q has malformed pod-template annotations", artifactsDeploymentName)
+	}
+	if !found {
+		annotations = map[string]interface{}{}
+	}
+	if _, exists := annotations["traffic.sidecar.istio.io/excludeOutboundPorts"]; exists {
+		return fmt.Errorf("Deployment %q already defines mesh port exclusions", artifactsDeploymentName)
+	}
+	annotations["traffic.sidecar.istio.io/excludeOutboundPorts"] = "5000"
+	if err := unstructured.SetNestedMap(resource.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
+		return err
+	}
+	return unstructured.SetNestedSlice(target, filteredMounts, "volumeMounts")
 }
 
 func adaptKnownHostPath(resource *unstructured.Unstructured, volume map[string]interface{}, needsDataStorePVC, needsIntrinsicIconPVC, needsGazeboMeshesPVC *bool) error {

@@ -1,6 +1,35 @@
 {
   "schema_version": 1,
   "registry_prefix": "quay.io/rhkp/intrinsic",
+  "project_images": [
+    {
+      "name": "move-to-contact-openshift",
+      "repository": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/move-to-contact-openshift",
+      "digest": "sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520",
+      "source_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/ai.intrinsic.move_to_contact.move_to_contact_skill_image@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b",
+      "patch": "openshift/deployment/move-to-contact-image/patch_move_to_contact.py"
+    },
+    {
+      "name": "artifacts-containerd",
+      "repository": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/artifacts-containerd",
+      "digest": "sha256:4d7526569fd01d5133799dce94f97b743e384b9fba8c7f8cfa2d28e9558da8a6",
+      "source_image": "docker.io/library/alpine:3.22",
+      "patch": "openshift/deployment/artifacts-containerd/"
+    },
+    {
+      "name": "artifacts-service-openshift",
+      "repository": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/artifacts-service-openshift",
+      "digest": "sha256:7e35c59a20a0000f49076f4b99bd328a846ccb576b652d0b9a96177da9f88c42",
+      "source_image": "quay.io/rhkp/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99",
+      "patch": "openshift/deployment/artifacts-service/patch_oci_image.py"
+    },
+    {
+      "name": "workcell-cluster-service",
+      "repository": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/workcell-cluster-service",
+      "digest": "sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3",
+      "source_tag": "openshift-sim-20261006"
+    }
+  ],
   "images": [
     {
       "upstream_release": "20260922.0",
@@ -142,12 +171,16 @@
       "quay_digest": "sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6",
       "chart_image_key": "resource_registry",
       "built_from_upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
-      "adaptation_patch": "deployment/patches/resource-registry-openshift-ingress.patch",
-      "adaptation_patch_sha256": "76b8bc2a8ea8ab024ee702be817fbebfc98b2480a37cc17276ed3ea4e777af63",
-      "additional_adaptation_patch": "deployment/patches/resource-registry-namespace-configmaps.patch",
+      "adaptation_patches": [
+        "deployment/patches/resource-registry-openshift-ingress.patch",
+        "deployment/patches/resource-registry-namespace-configmaps.patch"
+      ],
       "build_target": "//intrinsic/resources/service:resource-registry-image.tar",
       "build_host_architecture": "linux/amd64",
-      "build_tarball_sha256": "1f0685819c35b6a508db1c33c3ec23befc66a769b86c1afba606a45a40291a37"
+      "build_tarball_sha256": "1f0685819c35b6a508db1c33c3ec23befc66a769b86c1afba606a45a40291a37",
+      "openshift_image_reference": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/resource-registry-openshift@sha256:40744c21511b7bdfcdea20334b5b00939b40153ebbc6647b9e7ec60192eba4cb",
+      "openshift_build_config": "openshift/deployment/resource-registry/build.yaml",
+      "openshift_binary_build_target": "@intrinsic-core//intrinsic/resources/service:resource_registry_main"
     },
     {
       "upstream_release": "20260922.0",

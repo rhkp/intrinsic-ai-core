@@ -1,0 +1,3 @@
+[project]
+# Tells Codex where to look for your conditional skill files
+skills_dir = ".agents/skills"

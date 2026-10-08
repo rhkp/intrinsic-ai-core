@@ -1,0 +1,12 @@
+version = 3
+root = "/tmp/containerd-root"
+state = "/tmp/containerd-state"
+disabled_plugins = ["io.containerd.grpc.v1.cri", "io.containerd.internal.v1.opt"]
+
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  uid = __UID__
+  gid = __GID__
+
+[debug]
+  level = "warn"

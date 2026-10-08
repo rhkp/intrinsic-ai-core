@@ -1,0 +1,30 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: artifacts-service-openshift
+  namespace: arhkp-intrinsic
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: artifacts-service-openshift
+  namespace: arhkp-intrinsic
+spec:
+  runPolicy: Serial
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: artifacts-service-openshift:pilot
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 4Gi

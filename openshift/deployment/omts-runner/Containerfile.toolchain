@@ -42,11 +42,24 @@ COPY openshift/deployment/omts-runner/ /opt/intrinsic/repo/openshift/deployment/
 COPY openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml
 COPY patches/omts-anonymous-releases.patch /opt/intrinsic/repo/patches/omts-anonymous-releases.patch
 COPY patches/omts-openshift-core-registry-keychain.patch /opt/intrinsic/repo/patches/omts-openshift-core-registry-keychain.patch
+COPY patches/intrinsic-openshift-gpu-toleration.patch /opt/intrinsic/repo/patches/intrinsic-openshift-gpu-toleration.patch
+COPY patches/omts-openshift-gpu-toleration.patch /opt/intrinsic/repo/patches/omts-openshift-gpu-toleration.patch
+COPY patches/omts-openshift-resource-registry-adaptations.patch /opt/intrinsic/repo/patches/omts-openshift-resource-registry-adaptations.patch
+COPY patches/resource-registry-namespace-configmaps.patch /opt/intrinsic/repo/patches/resource-registry-namespace-configmaps.patch
+COPY patches/resource-registry-openshift-ingress.patch /opt/intrinsic/repo/patches/resource-registry-openshift-ingress.patch
 COPY patches/omts-openshift-demo-configs.patch /opt/intrinsic/repo/patches/omts-openshift-demo-configs.patch
 COPY patches/omts-openshift-module-registry-keychain.patch /opt/intrinsic/repo/patches/omts-openshift-module-registry-keychain.patch
 COPY patches/omts-openshift-sim-config-safety.patch /opt/intrinsic/repo/patches/omts-openshift-sim-config-safety.patch
 COPY patches/omts-tinygltf-bcr-override.patch /opt/intrinsic/repo/patches/omts-tinygltf-bcr-override.patch
 COPY patches/intrinsic-core-triton-digest-pin.patch /opt/intrinsic/repo/patches/intrinsic-core-triton-digest-pin.patch
+COPY patches/openshift-rules-ros2-build-compat.patch /opt/intrinsic/repo/patches/openshift-rules-ros2-build-compat.patch
+COPY patches/openshift-tinygltf-bazel-headers.patch /opt/intrinsic/repo/patches/openshift-tinygltf-bazel-headers.patch
+COPY patches/openshift-glib-gmodule-header.patch /opt/intrinsic/repo/patches/openshift-glib-gmodule-header.patch
+COPY patches/openshift-grpc-proto-path-order.patch /opt/intrinsic/repo/patches/openshift-grpc-proto-path-order.patch
+COPY patches/openshift-dumb-init-version-header.patch /opt/intrinsic/repo/patches/openshift-dumb-init-version-header.patch
+COPY patches/openshift-gz-common-cdt-headers.patch /opt/intrinsic/repo/patches/openshift-gz-common-cdt-headers.patch
+COPY patches/openshift-aravis-api-header.patch /opt/intrinsic/repo/patches/openshift-aravis-api-header.patch
+COPY patches/openshift-libzmq-install-libdir.patch /opt/intrinsic/repo/patches/openshift-libzmq-install-libdir.patch
 
 ENV HOME=/opt/intrinsic/home \
     TMPDIR=/opt/intrinsic/tmp \
