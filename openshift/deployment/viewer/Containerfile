@@ -25,7 +25,7 @@ ENV HOME=/tmp/viewer-home \
     XAUTHORITY=/tmp/intrinsic-viewer/Xauthority \
     LIBGL_ALWAYS_SOFTWARE=1 \
     RMW_IMPLEMENTATION=rmw_zenoh_cpp \
-    ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/zenoh-router.arhkp-intrinsic.svc.cluster.local:7447"]'
+    ZENOH_CONFIG_OVERRIDE='mode="client";connect/endpoints=["tcp/zenoh-router.your-project-namespace.svc.cluster.local:7447"]'
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["/opt/intrinsic-viewer/run-viewer.sh"]

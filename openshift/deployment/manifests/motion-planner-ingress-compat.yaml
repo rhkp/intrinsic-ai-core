@@ -1,6 +1,7 @@
+# This project was developed with assistance from AI tools.
 # The pinned upstream motion-planner image still dials the K3s service name
 # `istio-ingressgateway.app-ingress.svc.cluster.local:80` for InstalledAssetsReader.
-# `app-ingress` is absent on dev01. Keep this compatibility alias private to
+# Keep this compatibility alias private to
 # this project and direct it to our dedicated in-project gRPC gateway with
 # Istio mutual TLS; it does not create or modify a shared gateway or Route.
 apiVersion: networking.istio.io/v1beta1
@@ -19,7 +20,7 @@ spec:
       protocol: GRPC
   resolution: DNS
   endpoints:
-    - address: intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local
+    - address: intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local
       ports:
         grpc: 80
 ---

@@ -1,7 +1,8 @@
+# This project was developed with assistance from AI tools.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: intrinsic-registry-service-ca
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"

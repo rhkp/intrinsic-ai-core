@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: omts-deployer
-  namespace: arhkp-intrinsic
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-deployer
     app.kubernetes.io/part-of: intrinsic-openshift-demo
@@ -12,7 +13,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: omts-deployer-image-push
-  namespace: arhkp-intrinsic
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-deployer
     app.kubernetes.io/part-of: intrinsic-openshift-demo
@@ -23,4 +24,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: omts-deployer
-    namespace: arhkp-intrinsic
+    namespace: ${OPENSHIFT_NAMESPACE}

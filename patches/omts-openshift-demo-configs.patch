@@ -8,17 +8,17 @@ diff --git a/configs/BUILD b/configs/BUILD
 +# Keep the OpenShift demo runner limited to the sanitized lab BB-01 inputs.
 +# The upstream all_configs group includes robot-specific network addresses.
 +filegroup(
-+    name = "openshift_lab_bb_01_configs",
++    name = "openshift_your-workcell_configs",
 +    srcs = glob(
 +        [
 +            "common/*.pbtxt",
 +            "common/*.textproto",
 +            "common/*.yaml",
-+            "lab_bb_01/*.pbtxt",
-+            "lab_bb_01/*.textproto",
-+            "lab_bb_01/*.yaml",
++            "your-workcell/*.pbtxt",
++            "your-workcell/*.textproto",
++            "your-workcell/*.yaml",
 +        ],
-+        exclude = ["lab_bb_01/ur_module_config.textproto"],
++        exclude = ["your-workcell/ur_module_config.textproto"],
 +    ),
 +)
 +
@@ -32,7 +32,7 @@ diff --git a/src/BUILD b/src/BUILD
      name = "omts_app",
      srcs = ["main.py"],
 -    data = ["//configs:all_configs"],
-+    data = ["//configs:openshift_lab_bb_01_configs"],
++    data = ["//configs:openshift_your-workcell_configs"],
      main = "main.py",
      deps = [
          "//src/behaviors",

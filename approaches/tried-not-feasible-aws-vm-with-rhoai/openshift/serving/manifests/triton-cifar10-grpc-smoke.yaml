@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   name: triton-cifar10-grpc-smoke
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
   annotations:
     security.opendatahub.io/enable-auth: "true"
     serving.kserve.io/deploymentMode: Standard

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Read-only, low-output inventory for the AWS VM + RHOAI pilot."""
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections import defaultdict
 from typing import Any
@@ -38,7 +40,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--context-fragment",
-        default="dev01",
+        default=os.environ.get("OPENSHIFT_CONTEXT"),
         help="Local context-name hint; the selected context is never printed.",
     )
     args = parser.parse_args()

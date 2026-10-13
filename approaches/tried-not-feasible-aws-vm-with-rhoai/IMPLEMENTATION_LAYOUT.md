@@ -19,7 +19,7 @@ approaches/
     │   ├── README.md                     # verified versions, workflow, serving gates
     │   ├── common.py                     # quiet context-resolution helpers
     │   ├── preflight.py                  # read-only sanitized inventory
-    │   ├── bootstrap_project.py          # creates only arhkp-intrinsic with --apply
+    │   ├── bootstrap_project.py          # creates only your-project-namespace with --apply
     │   └── serving/
     │       └── README.md                 # serving prerequisites and ownership
     ├── vm-client/                        # future resource endpoint config / adapter if needed

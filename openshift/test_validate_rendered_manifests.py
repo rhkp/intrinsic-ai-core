@@ -1,11 +1,12 @@
+# This project was developed with assistance from AI tools.
 import unittest
 
 from validate_rendered_manifests import ValidationError, validate_documents
 
 
 class RenderedManifestValidationTest(unittest.TestCase):
-    namespace = "arhkp-intrinsic"
-    image = "quay.io/rhkp/intrinsic/demo@sha256:" + "a" * 64
+    namespace = "your-project-namespace"
+    image = "quay.io/your-registry-org/intrinsic/demo@sha256:" + "a" * 64
 
     def deployment(self):
         return {

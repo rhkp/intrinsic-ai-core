@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: omts-build-tools
-  namespace: arhkp-intrinsic
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-demo
     app.kubernetes.io/component: build-tools
@@ -15,7 +16,7 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   name: omts-build-tools
-  namespace: arhkp-intrinsic
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-demo
     app.kubernetes.io/component: build-tools

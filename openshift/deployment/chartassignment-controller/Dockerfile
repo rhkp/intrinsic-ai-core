@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 FROM golang:1.25.4-alpine3.22 AS build
 RUN apk add --no-cache ca-certificates git
 WORKDIR /src

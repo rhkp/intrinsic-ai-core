@@ -1,5 +1,6 @@
-# Lab BB-01 Machine Tending Cell Configuration
-cell_name: "lab_bb_01"
+# This project was developed with assistance from AI tools.
+# Example simulated workcell configuration
+cell_name: "your-workcell"
 
 robot:
   arm_part_name: "ur_module"

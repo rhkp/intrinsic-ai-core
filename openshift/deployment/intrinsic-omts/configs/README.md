@@ -1,4 +1,9 @@
 # Workcell Configurations (`configs/`)
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 Per-cell application YAML configurations, SBL `ObjectWorldUpdates` (`.pbtxt`),
 and hardware/service configuration manifests (`.textproto`).
@@ -9,7 +14,7 @@ and hardware/service configuration manifests (`.textproto`).
 | :--- | :--- | :--- |
 | [`common/`](common/) | Shared across cells | Asset manifests and service configs shared by all cells (`flowstate_ros_bridge`, `hande_gripper_service`, `orbbec_gemini_driver`, `pose_estimator_config`). |
 | [`omts/`](omts/) | Production OMTS Cell | UR5e arm, Robotiq Hand-E gripper, Orbbec Gemini 335Le camera, CNC enclosure, and Schunk EGP 64 pneumatic vise. Selected by default (`--//:setup=omts`). |
-| [`lab_bb_01/`](lab_bb_01/) | Lab BB-01 Cell | UR3e arm, Robotiq Hand-E gripper, Orbbec Gemini 335Le camera, CAW enclosure, without CNC machine/vise hardware. Selected via `--//:setup=lab_bb_01`. |
+| [`your-workcell/`](your-workcell/) | Example cell | Example simulated-workcell configuration. Replace it with an approved local workcell configuration before use. |
 | [`kr_10/`](kr_10/) | KUKA KR10 (Stub) | Placeholder ICON config for KUKA KR10; not wired into `//:omts_solution`. |
 
 ## Configuration File Types

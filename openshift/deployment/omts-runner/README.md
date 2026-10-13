@@ -1,4 +1,9 @@
 # OMTS OpenShift build/deployer experiment — superseded
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 **Do not run `build-tool-image.sh` or `deploy-simulation.sh` from this
 prototype.** OpenShift Build 13 failed during a CycloneDDS CMake action, and
@@ -28,10 +33,10 @@ separately from the OpenShift adaptation.
 
 The upstream operation order is:
 
-1. `bazel run //:omts_solution --config=lab_bb_01 -- --address=<gateway>:80 --operation_mode=sim`
+1. `bazel run //:omts_solution --config=your-workcell -- --address=<gateway>:80 --operation_mode=sim`
 2. `bazel run //tools/world:apply_scene_updates -- --address=<gateway>:80 --reset_sim`
 3. Register the pinned pose estimator with `//tools/pose_estimation:register_using_train_service`.
-4. `bazel run //src:omts_app -- --address=<gateway>:80 --config=configs/lab_bb_01/app_config.yaml --num_cycles=1`
+4. `bazel run //src:omts_app -- --address=<gateway>:80 --config=configs/your-workcell/app_config.yaml --num_cycles=1`
 
 The commands are a proposed runbook, not yet verified on OpenShift. Require a
 successful solution start and generated resource/skill lifecycle before

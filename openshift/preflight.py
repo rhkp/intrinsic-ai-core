@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Sanitized readiness snapshot for deploying Intrinsic on dev01."""
+# This project was developed with assistance from AI tools.
+"""Sanitized readiness snapshot for deploying Intrinsic on a configured cluster."""
 
 from __future__ import annotations
 

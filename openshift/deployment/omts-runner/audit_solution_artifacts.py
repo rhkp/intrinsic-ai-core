@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Check user-owned OMTS solution outputs without printing matched values.
 
 Pass the generated solution descriptor, runfiles manifest, and sanitized

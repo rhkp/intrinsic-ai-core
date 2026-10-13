@@ -24,7 +24,7 @@ The pinned copy now includes **129 Core files and 27 OMTS files** (156 upstream 
 
 ## Exclusions
 
-- `configs/lab_bb_01/ur_module_config.textproto` and `configs/omts/ur_module_config.textproto` are excluded because they contain fixed robot network addresses. Supply a reviewed, lab-local hardware configuration only if a real robot is needed; do not put that address in Git.
+- `configs/your-workcell/ur_module_config.textproto` and `configs/omts/ur_module_config.textproto` are excluded because they contain fixed robot network addresses. Supply a reviewed, lab-local hardware configuration only if a real robot is needed; do not put that address in Git.
 - Host setup scripts for K3s, NVIDIA Container Toolkit, and real-time kernel configuration are intentionally excluded; they configure Ubuntu hosts and are not an OpenShift deployment mechanism.
 - Generated image tarballs, build outputs, vendored dependencies, and unrelated Core runtime/application source are not copied. Reuse upstream images/APIs where compatible; adapt the deployment layer here.
 

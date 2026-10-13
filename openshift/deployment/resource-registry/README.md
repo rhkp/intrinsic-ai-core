@@ -1,4 +1,7 @@
 # ResourceRegistry OpenShift image
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
 
 The pinned upstream Core ResourceRegistry service renders ResourceSets. The
 OpenShift-only GPU toleration patch therefore has to be present in this service

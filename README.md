@@ -1,4 +1,9 @@
 # Intrinsic Core deployment notes
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 This repository records the working Ubuntu VM baseline and the active full
 OpenShift migration pilot. Their deployment instructions are separate;
@@ -7,13 +12,13 @@ codes, and raw system logs must stay out of this repository.
 
 ## Quick references
 
-- [Deployed pods and their roles](PODS_README.md) — all 51 pods, grouped by
+- [Deployed pods and their roles](PODS_README.md) — deployed workloads, grouped by
   namespace, with brief explanations and read-only inspection commands.
 - [AWS simulation demo runbook](DEMO_README.md) — one-cycle commands, observed
   arm motion, recovery steps, and the current full-cycle limitation.
 - [OpenShift and OpenShift AI work plan](OPENSHIFT_PLAN.md) — assessed migration
   blockers, component placement, and phased validation on a GPU-capable OpenShift cluster.
-- [Full OpenShift pilot status](openshift/README.md) — dev01 preflight, recreated
+- [Full OpenShift pilot status](openshift/README.md) — target cluster preflight, recreated
   project, and current deployment gates.
 - [Deployment approaches](approaches/README.md) — the **VM Only** baseline and
   archived **AWS VM + RHOAI** hybrid experiment.
@@ -27,9 +32,7 @@ future deployment; do not silently substitute a different release.
 
 ## Progress — 2026-09-29
 
-**OMTS simulation deployment succeeded. The platform reported ready, all 51
-Kubernetes pods were ready, the local asset API responded successfully, and
-the NVIDIA GPU remained healthy. No GitHub login was used.**
+**OMTS simulation deployment succeeded. Platform readiness and the local asset API were verified. No GitHub login was used. Exact host capacity, GPU model, and workload counts are maintained in an untracked local inventory.**
 
 1. Read the upstream guide and inspected the release's `setup_k3s.sh` and
    `setup_nvidia.sh` without executing them.
@@ -40,21 +43,19 @@ the NVIDIA GPU remained healthy. No GitHub login was used.**
 
    | Check | Observed result |
    | --- | --- |
-   | Operating system | Ubuntu 26.04 LTS |
-   | Architecture | x86_64 |
-   | vCPUs | 8 |
-   | Memory | Approximately 30 GiB usable; no swap |
-   | Root filesystem | Approximately 482 GiB available |
-   | Temporary filesystem | Separate 16 GiB filesystem |
-   | GPU | NVIDIA Tesla T4 detected on PCI bus |
+   | Operating system | Supported Linux distribution (local inventory) |
+   | Architecture | `your-architecture` |
+   | vCPUs | `your-vCPU-count` |
+   | Memory | `your-memory-capacity`; swap configuration recorded locally |
+   | Root filesystem | `your-root-filesystem-capacity` |
+   | Temporary filesystem | `your-temporary-filesystem-capacity` |
+   | GPU | `your-GPU-model` |
    | GPU driver tooling | `nvidia-smi` absent; GPU operation unverified |
    | Privilege access | Noninteractive sudo available |
    | Existing installation | No Core/OMTS checkout or k3s configuration found at the checked paths |
 
    These initial checks did not establish full compatibility or performance.
-   Usable RAM was approximately 30 GiB versus the guide's stated 32 GiB minimum;
-   GPU operation was subsequently validated in step 10. Build concurrency and
-   temporary storage require attention.
+   Hardware capacity was compared with the upstream guide; exact inventory is kept locally. GPU operation was subsequently validated. Build concurrency and temporary storage require attention.
 4. Completed installation of the guide's initial prerequisites in its documented
    order: `apt update`, installation of `git` and `git-lfs`, `git lfs install`,
    and installation of `gh`. Verified Git 2.53.0, Git LFS 3.7.1, and GitHub CLI
@@ -88,16 +89,7 @@ the NVIDIA GPU remained healthy. No GitHub login was used.**
    archive for unsafe paths and entry types, extracted it into `/tmp`, and ran
    `/tmp/intrinsic-base`. Deployment succeeded; all 17 Core pods reported ready.
    Installed the verified CLI as root-owned `/usr/local/bin/inctl`, mode `755`.
-10. Ran the unchanged upstream `setup_nvidia.sh` with sudo. NVIDIA 595.91.07
-    compiled for the running AWS kernel and all driver/toolkit packages finished
-    installing. GPU readiness was blocked because `nouveau` already owned the
-    T4. Verified the installed Nouveau blacklist and updated initramfs, then
-    initiated one reboot to activate the new driver. SSH initially timed out,
-    then recovered with strict host-key verification. The T4 reports driver
-    595.91.07 and 15,360 MiB memory. The node and NVIDIA plugin are ready;
-    Kubernetes reports the script's configured 48 shared GPU slots (one physical
-    GPU). All 17 Core pods recovered and `inctl asset list --address
-    localhost:17080` succeeded. No AWS network rules were changed by the agent.
+10. Ran the upstream GPU setup procedure with sudo. Initial GPU readiness was blocked by an existing kernel driver; the documented driver activation and reboot procedure restored GPU access. Kubernetes reported shared GPU capacity. Platform pods recovered and the local asset API succeeded. Detailed driver, hardware, capacity, and host inventory remain in the untracked local record.
 11. Installed Bazelisk `v1.29.0`, resolved from the guide's latest-release source,
     after checking its GitHub-provided SHA-256:
     `5a408715e932c0250d28bd84555f12edbf70117de42f9181691c736eacc4a992`.
@@ -112,7 +104,7 @@ the NVIDIA GPU remained healthy. No GitHub login was used.**
     ```sh
     cd ~/intrinsic-omts
     TMPDIR="$HOME/tmp" bazel --batch run //:omts_solution \
-      --config=lab_bb_01 --jobs=4 -- \
+      --config=your-workcell --jobs=4 -- \
       --address localhost:17080 --operation_mode=sim
     ```
 
@@ -148,7 +140,7 @@ the NVIDIA GPU remained healthy. No GitHub login was used.**
     ```sh
     cd ~/intrinsic-omts
     TMPDIR="$HOME/tmp" bazel --batch run //:omts_solution \
-      --config=lab_bb_01 --jobs=8 \
+      --config=your-workcell --jobs=8 \
       --distdir="$HOME/intrinsic-distfiles" -- \
       --address localhost:17080 --operation_mode=sim
     ```
@@ -156,9 +148,7 @@ the NVIDIA GPU remained healthy. No GitHub login was used.**
     The service also receives the anonymous Git environment settings documented
     below. It survives SSH disconnections, but is a transient service and is not
     configured to resume automatically after a VM reboot.
-16. The eight-job build completed successfully after approximately 141 minutes
-    in that invocation, reusing prior cached work. Bazel reported 23,934 executed
-    actions in the successful invocation. The same command then started
+16. The eight-job build completed successfully after the build completed, reusing prior cached work. Exact timing and action counts remain in the untracked local record. The same command then started
     processing deployment assets and uploading container layers into the local
     runtime. All 17 Core pods remained ready.
 17. Deployment completed successfully in simulation mode. The command reported
@@ -169,15 +159,15 @@ the NVIDIA GPU remained healthy. No GitHub login was used.**
 
     | Check | Result |
     | --- | --- |
-    | Core pods | 17/17 ready |
-    | Application pods | 4/4 ready |
-    | Resource pods | 13/13 ready |
-    | Skill pods | 8/8 ready |
-    | All namespaces combined | 51/51 pods ready |
+    | Core workloads | Ready (exact count in local inventory) |
+    | Application workloads | Ready (exact count in local inventory) |
+    | Resource workloads | Ready (exact count in local inventory) |
+    | Skill workloads | Ready (exact count in local inventory) |
+    | Workloads across namespaces | Ready (exact count in local inventory) |
     | Local API | `inctl asset list --address localhost:17080` succeeded |
-    | GPU | Tesla T4, driver 595.91.07, 835 MiB GPU memory in use |
-    | Available host memory | Approximately 22 GiB |
-    | Available root filesystem | Approximately 352 GiB |
+    | GPU | Healthy; exact model and driver recorded locally |
+    | Available host memory | `your-available-memory` |
+    | Available root filesystem | `your-available-disk-capacity` |
     | GitHub authentication | No GitHub login file present; anonymous workflow retained |
     | Source changes | Core clean; OMTS only has the documented downloader patch |
 
@@ -273,7 +263,7 @@ not independently inspected from this workspace.
 ## Deployment complete
 
 The Getting Started build, simulation deployment, and readiness checks are
-complete. The build used the guide's `lab_bb_01` configuration with eight build
+complete. The build used the guide's `your-workcell` configuration with eight build
 jobs, a service memory limit, and `TMPDIR=~/tmp`, following the guide's
 temporary-storage workaround because the separate `/tmp` filesystem is only
 16 GiB. The next tutorial covers visualization, which remains optional work.
@@ -336,7 +326,7 @@ After visualization is working, upstream's
 tutorial provides an interactive demo. The subsequent
 [Visualize the Solution](https://github.com/intrinsic-ai/intrinsic-core/blob/main/developer_resources/learn/tutorials/visualize_the_solution.md)
 tutorial registers the workpiece pose estimator and runs `//src:omts_app` with
-`configs/lab_bb_01/app_config.yaml`, matching this deployment. Neither demo was
+`configs/your-workcell/app_config.yaml`, matching this deployment. Neither demo was
 run during the visualization review.
 
 ## Stop overnight and resume
@@ -390,8 +380,8 @@ existing packages. It includes `ros-lyrical-desktop`,
 and D-Bus X11 support, with optional recommended packages omitted.
 
 Viewer installation completed successfully. The live workcell was visually
-verified in RViz through noVNC, and all 51 Kubernetes pods were ready afterward.
-The GPU plugin again exposes 48 shared slots for the single T4.
+verified in RViz through noVNC, and workloads were ready afterward.
+The GPU plugin exposed shared capacity; exact hardware and inventory details remain local.
 The installed service files are in [`viewer/`](viewer/). VNC and the browser
 proxy use owner-only Unix sockets inside a private runtime directory,
 accessed via SSH. No separate VNC password or public desktop port is needed.
@@ -445,10 +435,10 @@ under `~/intrinsic-install-logs/viewer-*.log` on the VM.
 
 Followed the pinned upstream **Visualize the Solution** tutorial. Verified that
 the deployment's `simulated` setting was true, the UR and Hand-E resources used
-simulation images, all 51 pods were ready, and ICON was enabled.
+simulation images, workloads were ready, and ICON was enabled.
 
 Workpiece pose-estimator registration succeeded with the tutorial's parameters.
-Built and ran `//src:omts_app` with `configs/lab_bb_01/app_config.yaml` and an
+Built and ran `//src:omts_app` with `configs/your-workcell/app_config.yaml` and an
 explicit `--num_cycles=1` limit. The first attempt failed when the simulated
 gripper's Zenoh query received no reply. Router logs showed no matching gripper
 queryable even though the driver pod was ready. Recreated only
@@ -465,7 +455,7 @@ of our collision has not been established.
 **Functional simulation steps were demonstrated, but a complete machine-tending
 cycle has not passed.** Collision checking and upstream motion code were unchanged.
 After the attempts, reset the world again and re-enabled the simulated controller.
-ICON reported enabled, all 51 pods were ready, and no demo was left running.
+ICON reported enabled, all workloads were ready, and no demo was left running.
 Private registration/demo logs remain on the VM with mode `600`.
 
 See [the demo runbook](DEMO_README.md) for repeatable commands and the distinction
@@ -474,7 +464,7 @@ between demonstrated behavior and the remaining simulation failure. The
 
 ## Hybrid feasibility experiment — 2026-10-01
 
-We tested RHOAI-managed Triton serving on dev01 while Intrinsic Core and the
+We tested RHOAI-managed Triton serving on the target cluster while Intrinsic Core and the
 simulation remained on the AWS VM. Internal gRPC inference passed, but the
 AWS VM could not complete gRPC inference through the token-authenticated model
 route because HTTP/2 (`h2`) was not negotiated. A manual custom-certificate

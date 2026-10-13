@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,7 +56,7 @@ class RoutingConfigurationTest(unittest.TestCase):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
-            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "data-science-smcp"}},
+            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "your-service-mesh-control-plane"}},
             "status": {"conditions": [{"type": "Ready", "status": "True"}]},
         }
         with patch("configure_routing.get_json", side_effect=[project, member, rolls]):
@@ -76,7 +77,7 @@ class RoutingConfigurationTest(unittest.TestCase):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
-            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "data-science-smcp"}},
+            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "your-service-mesh-control-plane"}},
             "status": {"conditions": [{"type": "Ready", "status": "False"}]},
         }
         with patch("configure_routing.get_json", side_effect=[project, member]):
@@ -87,7 +88,7 @@ class RoutingConfigurationTest(unittest.TestCase):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
-            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "data-science-smcp"}},
+            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "your-service-mesh-control-plane"}},
             "status": {"conditions": [{"type": "Ready", "status": "True"}]},
         }
         service = {
@@ -107,7 +108,7 @@ class RoutingConfigurationTest(unittest.TestCase):
             "subsets": [{"addresses": [{"ip": "pod-ip", "targetRef": {"kind": "Pod", "name": "gateway-pod"}}]}]
         }
 
-        service_host = "intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local"
+        service_host = "intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local"
 
         def responses(
             mesh_hosts=None,

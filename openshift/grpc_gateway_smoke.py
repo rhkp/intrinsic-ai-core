@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Run a bounded, temporary gRPC ping through the project-owned Istio gateway."""
 
 from __future__ import annotations
@@ -7,9 +8,9 @@ import secrets
 import sys
 import time
 
-from common import PilotError, get_json, resolve_context
+from common import PilotError, TARGET_PROJECT, get_json, resolve_context
 
-PROJECT = "arhkp-intrinsic"
+PROJECT = TARGET_PROJECT
 GATEWAY = "intrinsic-grpc-gateway"
 GATEWAY_RESOURCE = "intrinsic-grpc-internal"
 # Fortio's official multi-architecture image, pinned to its linux/amd64 manifest.
@@ -253,7 +254,7 @@ def main() -> int:
     passed = False
     cleanup_ok = True
     try:
-        access = resolve_context("dev01")
+        access = resolve_context()
         gateway_service = get_json(
             access, "get", "service", GATEWAY, "-n", PROJECT, missing_ok=True
         )

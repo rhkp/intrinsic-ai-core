@@ -1,17 +1,23 @@
 # OpenShift RViz and noVNC viewer
+> [!NOTE]
+> This project was developed with assistance from AI tools.
 
-This is a private viewer for the dev01 OMTS simulation. It packages the
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
+
+This is a private viewer for the target cluster OMTS simulation. It packages the
 upstream `viewer/workcell.rviz` setup in an OpenShift workload and points
-`rmw_zenoh_cpp` at the `zenoh-router` Service in `arhkp-intrinsic`. The ROS
+`rmw_zenoh_cpp` at the `zenoh-router` Service in `your-project-namespace`. The ROS
 desktop image is the official OSRF Lyrical desktop image pinned by digest.
 
-Build and deploy from the repository root. The build script refuses to run
-unless the active cluster API identifies as dev01:
+Build and deploy from the repository root. The build script requires
+`OPENSHIFT_API_SERVER_URL` and refuses to run unless it exactly matches the API
+URL for the active context:
 
 ```sh
 bash openshift/deployment/viewer/build-viewer-image.sh
-oc apply -n arhkp-intrinsic -f openshift/deployment/viewer/deployment.yaml
-oc rollout status -n arhkp-intrinsic deployment/intrinsic-rviz-novnc --timeout=10m
+oc apply -n your-project-namespace -f openshift/deployment/viewer/deployment.yaml
+oc rollout status -n your-project-namespace deployment/intrinsic-rviz-novnc --timeout=10m
 ```
 
 The deployment image is pinned in `deployment.yaml` and `openshift/image-lock.json`.
@@ -22,7 +28,7 @@ The Service is ClusterIP only; no Route is created. Forward it from the Mac on
 loopback and open the noVNC page:
 
 ```sh
-oc -n arhkp-intrinsic port-forward --address 127.0.0.1 \
+oc -n your-project-namespace port-forward --address 127.0.0.1 \
   svc/intrinsic-rviz-novnc 6080:6080
 ```
 

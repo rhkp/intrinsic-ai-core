@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Tests that internal registry credentials stay in mode-0600 temp files."""
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ class PrepareInternalRegistryAuthTest(unittest.TestCase):
                 "DOCKER_CONFIG": str(docker_config),
                 "TMPDIR": str(tmp_dir),
                 "INTRINSIC_REGISTRY_HOST": "image-registry.example.svc:5000",
-                "OPENSHIFT_NAMESPACE": "arhkp-intrinsic",
+                "OPENSHIFT_NAMESPACE": "your-project-namespace",
             }
             result = subprocess.run(
                 [sys.executable, str(SCRIPT)],

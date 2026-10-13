@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Render copied Intrinsic resource/skill Helm templates and check pull wiring."""
 
 from __future__ import annotations

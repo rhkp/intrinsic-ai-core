@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Test project image pulls and restricted pod admission, then self-clean."""
 
 from __future__ import annotations

@@ -1,4 +1,9 @@
 # Intrinsic deployment approaches
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 This directory keeps deployment experiments distinct. The VM deployment remains
 the known baseline. The AWS VM + RHOAI hybrid experiment is archived; the current
@@ -7,7 +12,7 @@ direction is a full OpenShift deployment.
 | Approach | Placement | Status | Reference |
 | --- | --- | --- | --- |
 | **VM Only** | Intrinsic Core, OMTS, simulation, and inference run on the AWS VM's K3s cluster. | Deployed and used as the control case; current demo limitations are documented. | [VM Only reference](vm-only/README.md) |
-| **AWS VM + RHOAI (Hybrid)** | Intrinsic execution and simulation on the AWS VM; RHOAI-managed Triton serving on OpenShift. | Tried and not pursued. Internal gRPC inference worked on dev01, but the AWS VM could not complete external gRPC inference through the token-authenticated route because HTTP/2 (`h2`) was not negotiated. REST/client adaptation and a supported durable custom-certificate route setup were not established. | [Archived hybrid record](tried-not-feasible-aws-vm-with-rhoai/README.md) · [OpenShift notes](tried-not-feasible-aws-vm-with-rhoai/openshift/README.md) · [test record](tried-not-feasible-aws-vm-with-rhoai/TEST_PLAN.md) |
+| **AWS VM + RHOAI (Hybrid)** | Intrinsic execution and simulation on the AWS VM; RHOAI-managed Triton serving on OpenShift. | Tried and not pursued. Internal gRPC inference worked on the target cluster, but the AWS VM could not complete external gRPC inference through the token-authenticated route because HTTP/2 (`h2`) was not negotiated. REST/client adaptation and a supported durable custom-certificate route setup were not established. | [Archived hybrid record](tried-not-feasible-aws-vm-with-rhoai/README.md) · [OpenShift notes](tried-not-feasible-aws-vm-with-rhoai/openshift/README.md) · [test record](tried-not-feasible-aws-vm-with-rhoai/TEST_PLAN.md) |
 
 The [full OpenShift work plan](../OPENSHIFT_PLAN.md) is the active planning
 document. Hybrid notes are retained only as a record of the approach tested and

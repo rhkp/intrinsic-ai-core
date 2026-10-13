@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Verify the pinned upstream-copy and adaptation SHA-256 inventories."""
 
 from __future__ import annotations

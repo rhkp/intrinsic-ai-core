@@ -1,22 +1,22 @@
 # AWS VM + RHOAI historical test plan
 
 **Status:** historical; hybrid work has stopped and full OpenShift is the
-selected direction. This plan records checks considered for dev01 and is not an
+selected direction. This plan records checks considered for target cluster and is not an
 active test sequence. The UI-created gRPC model became Ready and internal
 inference passed. From the AWS VM, DNS/TLS to its token-authenticated route
 worked, but ALPN `h2` was not negotiated and external gRPC inference did not
-pass. REST inference from the VM was not validated end to end. dev02 results
-remain excluded from dev01 evidence.
+pass. REST inference from the VM was not validated end to end. comparison cluster results
+remain excluded from the target cluster evidence.
 
 ## Gate 0 — Confirm the test can be run safely
 
 Before serving-resource writes, record only non-sensitive inventory and get
 the cluster owner's agreement on GPU quota, storage, route type, and test
-window. The target project is `arhkp-intrinsic`; see the safe workflow in
+window. The target project is `your-project-namespace`; see the safe workflow in
 [`openshift/`](openshift/README.md).
 
-- Re-run preflight on dev01 and record its OpenShift/RHOAI/KServe versions,
-  policy, and GPU capacity. Do not reuse dev02's inventory or capacity data.
+- Re-run preflight on the target cluster and record its OpenShift/RHOAI/KServe versions,
+  policy, and GPU capacity. Do not reuse the comparison cluster's inventory or capacity data.
 - Confirm ROSA topology, enabled model-serving
   platform, compatible serving runtimes and deployment mode, GPU type/VRAM,
   available quota, and approved model/object storage. Validate the exact
@@ -24,10 +24,10 @@ window. The target project is `arhkp-intrinsic`; see the safe workflow in
 - Confirm the VM-to-endpoint route, DNS, egress policy, TLS trust, authentication
   mechanism, and which team operates each network boundary. A fixed VM address
   is not proof that the VM can route to a private ROSA service.
-- Confirm dev01's inference-route exposure and authentication before deploying
-  or sending any model input. dev02's external-ingress approval does not apply
-  to dev01. Do not infer source-network allowlisting; obtain the applicable
-  approval for dev01 before non-synthetic inputs or wider use.
+- Confirm the target cluster's inference-route exposure and authentication before deploying
+  or sending any model input. the comparison cluster's external-ingress approval does not apply
+  to target cluster. Do not infer source-network allowlisting; obtain the applicable
+  approval for target cluster before non-synthetic inputs or wider use.
 - Confirm the application endpoint is reachable from the VM. A private ROSA
   route does not itself connect the VM's VPC; validate the required private DNS
   and VPC-to-VPC path with the network and cluster owners.
@@ -61,9 +61,9 @@ privilege.
 
 ## Gate 1 — Prove the RHOAI serving platform
 
-In the `arhkp-intrinsic` project, deploy a minimal Triton model using the
-runtime and deployment mode supported by the installed dev01 release. Verify
-that release's support matrix and instructions; do not assume the dev02 RHOAI
+In the `your-project-namespace` project, deploy a minimal Triton model using the
+runtime and deployment mode supported by the installed target cluster release. Verify
+that release's support matrix and instructions; do not assume the comparison cluster RHOAI
 3.4 workflow or runtime configuration applies. Confirm the applicable support
 scope for the exact use. This status does not validate the Intrinsic image or
 model bundle. Verify storage, GPU assignment, readiness, model identity, and a
@@ -77,12 +77,12 @@ client; readiness and model identity are observable; the service can be stopped
 and recreated from the recorded versioned configuration. **Stop:** the selected
 runtime/model contract or GPU placement is unsupported or not reproducible.
 
-**dev01 observation:** the UI-created Triton gRPC deployment became Ready and
+**target cluster observation:** the UI-created Triton gRPC deployment became Ready and
 returned CIFAR-10 inference through a temporary localhost-only port-forward,
 with output shape `[1, 10]`. This proves internal serving for the synthetic
 model only; it does not prove external inference, GPU acceleration, or
-Intrinsic-model compatibility. The dev02 REST smoke is historical and excluded
-from this gate. Reproduce and record dev01 steps in
+Intrinsic-model compatibility. The comparison cluster REST smoke is historical and excluded
+from this gate. Reproduce and record target cluster steps in
 [`openshift/serving/README.md`](openshift/serving/README.md).
 
 ### Required external-route authentication check
@@ -91,13 +91,13 @@ Before any Gate 2 client testing or increase in traffic, configure the model usi
 RHOAI-supported external model access and token-authentication flow, or an
 approved gateway that provides equivalent controls. Do not treat a manually
 created Route, a TLS certificate, or an obscured URL as caller authentication.
-The dev02 direct-CR smoke used RHOAI's controller-managed Route and token
-authentication, but that configuration/result is out of scope for dev01. On
-dev01, use the current RHOAI-supported UI workflow and verify its route and
+The comparison cluster direct-CR smoke used RHOAI's controller-managed Route and token
+authentication, but that configuration/result is out of scope for target cluster. On
+target cluster, use the current RHOAI-supported UI workflow and verify its route and
 token behavior there. Do not assume annotations, service-account setup, or
 permissions transfer between cluster versions. See
-[`openshift/README.md`](openshift/README.md) for the dev01 status and historical
-dev02 notes.
+[`openshift/README.md`](openshift/README.md) for the target cluster status and historical
+comparison cluster notes.
 
 From a client outside the cluster on the approved network path, verify all of
 the following using synthetic input only:
@@ -133,21 +133,21 @@ It reads the endpoint and token-file path from the ignored `.env`, submits only
 a synthetic zero tensor, and prints sanitized statuses without printing the
 route URL or token.
 
-**dev02 result — excluded:** a local client and the AWS VM received HTTP 401
+**comparison cluster result — excluded:** a local client and the AWS VM received HTTP 401
 for missing/invalid tokens and HTTP 200 with a valid token for synthetic
-CIFAR-10 inference. This is not evidence for dev01. **dev01 status:** the AWS VM
+CIFAR-10 inference. This is not evidence for target cluster. **target cluster status:** the AWS VM
 resolved the route and validated TLS, but the route did not negotiate ALPN
 `h2`; no authorized external inference result has been obtained. Authentication,
 route exposure policy, and source-network restrictions must be tested and
-approved specifically for dev01. Gate 2 has not passed.
+approved specifically for target cluster. Gate 2 has not passed.
 
 ## Gate 2 — Prove secure VM-to-endpoint connectivity
 
 **Outcome when this plan was stopped:** the AWS VM resolved and reached the
 model Route over TLS, but the Route did not negotiate ALPN `h2`, so external
 gRPC inference did not pass. Internal Triton gRPC inference worked. External
-REST inference from the VM was not validated; dev02 REST results are excluded.
-The proposed REST-configured runtime and token-authentication check on dev01
+REST inference from the VM was not validated; comparison cluster REST results are excluded.
+The proposed REST-configured runtime and token-authentication check on the target cluster
 were not carried out. RHOAI documentation for another release is retained below
 as historical reference only; it must not be treated as the selected target's
 procedure.
@@ -158,10 +158,10 @@ response, and a service restart. Record sanitized timings and statuses. Verify
 errors stop the request cleanly and do not advance the behavior tree into
 motion.
 
-**Verified on dev01 so far:** internal Triton gRPC inference succeeds, and the
+**Verified on the target cluster so far:** internal Triton gRPC inference succeeds, and the
 AWS VM can resolve the model Route and validate its TLS certificate. External
 authorized inference has not passed: gRPC lacks negotiated `h2`, and REST has
-not been deployed/tested. The dev02 REST/auth results do not count. The
+not been deployed/tested. The comparison cluster REST/auth results do not count. The
 resilience cases above remain untested. This isolated check needs no new VM
 inbound rule.
 This result does not settle the bidirectional Core dependencies for Gate 3.
@@ -290,8 +290,8 @@ this experiment.
 
 ## References checked 2026-10-01
 
-The versioned RHOAI 3.4 documentation below was consulted during the dev02
-investigation. Confirm dev01's installed release and use its matching docs
+The versioned RHOAI 3.4 documentation below was consulted during the comparison cluster
+investigation. Confirm the target cluster's installed release and use its matching docs
 before treating any version-specific UI, API, or runtime behavior as applicable.
 
 - [RHOAI 3.x supported configurations](https://access.redhat.com/articles/rhoai-supported-configs-3.x), including the RHOAI/OpenShift version matrix and serving-runtime categories.

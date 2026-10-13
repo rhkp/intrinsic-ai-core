@@ -8,11 +8,11 @@ The pinned Core command unconditionally selected the K3s containerd socket for p
 
 The reproducible patch is [`../../patches/intrinsic-openshift-registry.patch`](../../patches/intrinsic-openshift-registry.patch). `ADAPTATIONS.json` lists changed files and hashes.
 
-Validation so far: the patch applies cleanly to the pinned copy, changed Go files pass `gofmt`, and the generic dev01 registry push/pull smoke passed. The focused publisher tests were previously run in a temporary test harness; they have not been rerun from this copied tree. The complete Bazel build and an Intrinsic image publish/deploy through the copied command have not been run.
+Validation so far: the patch applies cleanly to the pinned copy, changed Go files pass `gofmt`, and the generic target cluster registry push/pull smoke passed. The focused publisher tests were previously run in a temporary test harness; they have not been rerun from this copied tree. The complete Bazel build and an Intrinsic image publish/deploy through the copied command have not been run.
 
 ## Image-pull identity and credential removal
 
-Status: applied to the owned Core copy. Resource and skill images reject inline registry usernames/passwords; resource and init-container PodSpecs plus skill templates use the verified `intrinsic-runtime` ServiceAccount with token automount disabled. Generated `.dockercfg` Secrets, chart values containing base64 credentials, and `imagePullSecrets` references were removed. Resource and skill chart namespaces now target the pilot project `arhkp-intrinsic`. The matching ServiceAccount and namespaced `system:image-puller` RoleBinding are recorded in `../manifests/image-pull-access.yaml`.
+Status: applied to the owned Core copy. Resource and skill images reject inline registry usernames/passwords; resource and init-container PodSpecs plus skill templates use the verified `intrinsic-runtime` ServiceAccount with token automount disabled. Generated `.dockercfg` Secrets, chart values containing base64 credentials, and `imagePullSecrets` references were removed. Resource and skill chart namespaces now target the pilot project `your-project-namespace`. The matching ServiceAccount and namespaced `system:image-puller` RoleBinding are recorded in `../manifests/image-pull-access.yaml`.
 
 Validation: `gofmt` and the Helm template check (`python3 openshift/deployment/validate_image_pull_templates.py`) pass. The check confirms both rendered workload templates select the ServiceAccount, disable token automount, and create no registry Secret. The complete Bazel build and live Intrinsic deployment remain unverified; see [`../SECRETS_ADAPTATION.md`](../SECRETS_ADAPTATION.md).
 
@@ -22,7 +22,7 @@ The copied upstream Core workload templates contain no app `Secret` objects or
 Secret references, so no real application secret keys are known yet. Added a
 small helper that takes future values from ignored `openshift/.env` and streams
 an `Opaque` Secret to `oc apply`; the committed `.env.sample` contains only an
-obvious smoke placeholder. A restricted dev01 pod consumed a synthetic key
+obvious smoke placeholder. A restricted target cluster pod consumed a synthetic key
 through `secretKeyRef` without printing it. The pod, Secret, and temporary
 `.env` were removed. This verifies the OpenShift secret mechanism, not the
 application's actual runtime credentials; key mapping remains open until the
@@ -37,15 +37,15 @@ seconds. This is a package build only; it does not validate the full deployment
 or a live Intrinsic workload.
 
 The namespace-scoped ChartAssignment and ResourceSet controller pilot passed on
-dev01 on 2026-10-02. Both CRDs are Namespaced; the controller is limited to
-`arhkp-intrinsic`; a ConfigMap-only ChartAssignment reached Ready and cleaned
+target cluster on 2026-10-02. Both CRDs are Namespaced; the controller is limited to
+`your-project-namespace`; a ConfigMap-only ChartAssignment reached Ready and cleaned
 up through its finalizer. The run details and retained pilot resources are in
 [`chartassignment-controller/deploy/README.md`](chartassignment-controller/deploy/README.md).
 
 Still open: resolve the internal gRPC Gateway design; reproduce the chart
 render from our patched source build; finish storage and asset-lifecycle review;
 validate the runtime-generated resource/skill charts; then apply a minimal Core
-slice on dev01. The Core service image is published and digest-locked, and the
+slice on the target cluster. The Core service image is published and digest-locked, and the
 updated project-scoped controller is built and running. Those checks and the
 offline chart-policy pass do not establish that the full Intrinsic workload is
 ready to deploy.
@@ -54,7 +54,7 @@ ready to deploy.
 
 Status: applied in the OpenShift ChartAssignment adapter after consulting the
 pinned Core renderer. The adapter adds the exact
-`g5-gpu=true:NoSchedule` toleration to workloads that request or limit
+`your-gpu-taint-key=true:NoSchedule` toleration to workloads that request or limit
 `nvidia.com/gpu`, and to ICON/UR workloads whose required pod affinity pins them
 to Gazebo/ICON on the GPU node. Other workloads are unchanged. The earlier Core
 renderer patch was not the live rendering boundary; Asset Deployment is served
@@ -64,8 +64,8 @@ rendered ChartAssignment before apply.
 Validation: controller tests passed for GPU requests, ICON/UR co-location,
 idempotence, and non-GPU workloads. Controller image
 `sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9` is
-deployed and Ready. On dev01, the ChartAssignments are Ready; Gazebo is 2/2,
-ICON 3/3, UR 2/2, and inference 3/3 Running, with inference on an A10G. After
+deployed and Ready. on the target cluster, the ChartAssignments are Ready; Gazebo is 2/2,
+ICON 3/3, UR 2/2, and inference 3/3 Running, with inference on an NVIDIA GPU. After
 scene reset, ICON reconnected to UR and returned to `kMotionEnabled`. The
 one-cycle app reached planning and stopped on the gripper/stock collision also
 seen on AWS; the full pick has not completed.
@@ -73,7 +73,7 @@ seen on AWS; the full pick has not completed.
 
 ## Quay image mirror and digest lock
 
-Status: the selected release images are mirrored to `quay.io/rhkp/intrinsic` and
+Status: the selected release images are mirrored to `quay.io/your-registry-org/intrinsic` and
 recorded by immutable digest in [`image-lock.json`](../../image-lock.json). The
 lock covers the 22 amd64 image tarballs in the verified Core release bundle,
 plus the separately referenced Zenoh daemon and Jupyter sidecar. The copied
@@ -83,7 +83,7 @@ records those source edits. `render_quay_image_values.py` generates the values
 overlay from the lock.
 
 Validation: the base and app Helm charts render with every image reference
-resolved to a digest in the lock. The first dev01 restricted-SCC HTTP gateway
+resolved to a digest in the lock. The first target cluster restricted-SCC HTTP gateway
 pod could not pull anonymously while the Quay repository was private. After the
 repositories were made public, the digest-pinned HTTP gateway, Zenoh daemon,
 and Jupyter sidecar images each pulled and started under the restricted SCC
@@ -111,7 +111,7 @@ match the source patch before rendering. The owned-source build must still
 produce these exact chart values from its patched source before live use.
 
 The policy pass emitted 76 base-chart and 11 app-chart objects, all in
-`arhkp-intrinsic`. Across the charts, all 23 rendered container references
+`your-project-namespace`. Across the charts, all 23 rendered container references
 matched the Quay digest lock. Three upstream ClusterRoles and bindings became
 project Roles and RoleBindings; the render contained no cluster-scoped objects,
 Secret objects, stale upstream namespace/DNS references, hostPath, hostPort,
@@ -128,10 +128,10 @@ simulation, skill-registry, and workcell Services.
 The code-execution NetworkPolicy retains the application peer rules and drops
 the obsolete ingress-gateway peer without creating an allow-all rule.
 
-Five PVCs request about 22.2 GiB combined on `gp3-csi` with `ReadWriteOnce`;
+PVCs use the configured storage class and access mode; exact count and capacity are environment-specific and belong in an untracked local inventory.
 four preserve upstream storage requests and one is the OpenShift data-store
 PVC. A fresh
-read-only dev01 query confirmed `gp3-csi` uses the AWS EBS CSI provisioner,
+read-only target cluster query confirmed `your-block-storage-class` uses the AWS EBS CSI provisioner,
 WaitForFirstConsumer binding, and allows expansion. This confirms render and
 StorageClass availability only: the data-store capacity, original Zenoh
 RWX-to-RWO behavior, retention/backup, and live mount behavior still need
@@ -158,7 +158,7 @@ the upstream gateway address to the dedicated internal Service and retargets
 NetworkPolicy peers to that Service's actual endpoint selector. No external
 OpenShift Route carries the gRPC traffic; the design uses plaintext HTTP/2
 (`h2c`) to a project `ClusterIP` Service on port 80. The project is now enrolled
-with a Ready `ServiceMeshMember` referencing `istio-system/data-science-smcp`;
+with a Ready `ServiceMeshMember` referencing `istio-system/your-service-mesh-control-plane`;
 the reproducible manifest is
 [`manifests/servicemesh-member.yaml`](manifests/servicemesh-member.yaml).
 
@@ -177,7 +177,7 @@ The checked-in routing sample names a new internal `ClusterIP` Service in the
 pilot project. Rather than select the shared ingress pods, the dedicated
 gateway manifest uses the supported OpenShift Service Mesh 2.6 gateway
 injection template to create its own Envoy Deployment, ServiceAccount, and
-Istio Gateway in `arhkp-intrinsic`. It does not edit the shared
+Istio Gateway in `your-project-namespace`. It does not edit the shared
 `ServiceMeshControlPlane`, create an OpenShift Route, or request a LoadBalancer.
 The manifest is applied; its proxy and internal Service endpoint are Ready.
 The local ignored `.env` contains only routing configuration, and the helper
@@ -185,7 +185,7 @@ validated the dedicated Service, selector, exact internal DNS host, and HTTP/2
 listener. The project routing ConfigMap is applied and the controller has been
 restarted to load it. A temporary Fortio gRPC smoke then passed five h2c calls
 through the Gateway and header-matched VirtualService to a sidecar-injected
-backend. The sidecar was required by dev01's existing mesh-wide `STRICT`
+backend. The sidecar was required by the target cluster's existing mesh-wide `STRICT`
 mTLS policy; no mesh policy was changed. All temporary smoke resources were
 removed and verified absent. This proves generic gateway routing, not a live
 Intrinsic application RPC. The repeatable smoke is
@@ -216,7 +216,7 @@ digest-pinned pull succeeded. The project-scoped controller was rebuilt from
 the updated source, rolled out by immutable digest, and verified Ready.
 
 **Runtime update (2026-10-07):** Generated OMTS resource and skill workloads
-are applied in dev01. During recovery, the simulator restarted while ICON and
+are applied in target cluster. During recovery, the simulator restarted while ICON and
 UR retained channels to the old simulator. The pose-estimator Pod was not
 crash-looping; its RPC failed because the project Zenoh router did not contain
 the requested capture result. UR reconnected to the new simulator endpoint,
@@ -246,7 +246,7 @@ configuration. Its native binding defaults to
 `zenoh-router.app-intrinsic-base.svc.cluster.local:7447`, while that namespace
 does not exist in this OpenShift deployment. The upstream skill chart places
 skills outside `app-intrinsic-base` and allows them to reach the base router;
-the OpenShift pilot instead co-locates services in `arhkp-intrinsic`. The
+the OpenShift pilot instead co-locates services in `your-project-namespace`. The
 controller's `ZENOH_CONFIG_OVERRIDE` was ineffective because this skill uses
 Intrinsic's native PubSub binding rather than ROS `rmw_zenoh_cpp`. This explains
 the absent action-stream subscription; it is independent of the 2-second
@@ -277,7 +277,7 @@ with its required namespaced permissions while preserving the controller's
 least-privilege boundary.
 
 Validation: all ChartAssignment controller Go tests pass, including a check
-that rejects unapproved Workcell verbs. The static manifest passed dev01's
+that rejects unapproved Workcell verbs. The static manifest passed the target cluster's
 server-side dry run and was applied. The controller was rebuilt and rolled out
 with an immutable image digest; the fresh reconciliation moved
 `intrinsic-base` to Ready and its latest ResourceSet to Settled. The Workcell
@@ -299,7 +299,7 @@ project-scoped RBAC. The resulting failures cascaded to `world-updater` and
 The controller now applies the OpenShift adapter before Synk writes each
 ChartAssignment render. It pins the registry and Workcell service images by
 digest and normalizes the registry's
-`--configmap_watch_namespace=arhkp-intrinsic` argument to exactly one entry.
+`--configmap_watch_namespace=your-project-namespace` argument to exactly one entry.
 The Workcell image uses namespace-filtered Pod and ConfigMap informers and a
 namespace-scoped dynamic ChartAssignment client. The source patches and image
 provenance are recorded in [`ADAPTATIONS.json`](ADAPTATIONS.json),
@@ -318,7 +318,7 @@ connections. The Jupyter sidecar fix is recorded below.
 
 ## Jupyter writable-home and loopback adaptation
 
-On dev01, the pinned Jupyter image initially failed because its process
+on the target cluster, the pinned Jupyter image initially failed because its process
 resolved its home to `/` while the root filesystem was read-only. The upstream
 pod already mounts a bounded 2 GiB `emptyDir` at `/home/defaultuser`. The
 ChartAssignment adapter now sets `HOME=/home/defaultuser` and
@@ -335,7 +335,7 @@ port 8888 is `::1`, and all three workers created kernels and passed their
 startup requests.
 
 Controller BuildConfig build #11 is pinned at
-`image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1`.
+`image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1`.
 Both Core ChartAssignments are Ready with Settled ResourceSets. The deployment
 is 22/22 Ready, and a before/after comparison found no changes in the 20 Core
 Deployment image references across the two live ChartAssignments.
@@ -343,13 +343,13 @@ Deployment image references across the two live ChartAssignments.
 ## Inference model downloads use the project CAS Service
 
 The inference image's compiled `_CAS_ADDRESS` names the upstream
-`app-intrinsic-base` Service. On dev01, the model objects are available from
+`app-intrinsic-base` Service. on the target cluster, the model objects are available from
 the project `content-addressable-storage` Service, while routing the upstream
 hostname to that Service IP resets at the mesh proxy. The controller now adds
 a narrowly scoped init container to `rs-inference-service` that copies the
 entrypoint module to an `EmptyDir`, changes only the CAS authority to the target
 project Service DNS name, and mounts the patched module over the original. The
-app image, model bytes, and mesh mTLS policy are unchanged. On dev01, the
+app image, model bytes, and mesh mTLS policy are unchanged. on the target cluster, the
 patched pod reached Ready, both Triton models loaded, and a pose-estimator RPC
 completed segmentation and FoundationPose inference.
 
@@ -371,7 +371,7 @@ command are still pending.
 
 The pinned upstream World manifest waits for the Zenoh router before starting,
 and the pinned Workcell chart passes `world.<namespace>.svc.cluster.local:8082`
-to its Conductor client. On dev01, the Zenoh router is not a mesh member, so
+to its Conductor client. on the target cluster, the Zenoh router is not a mesh member, so
 Envoy's automatic mTLS on port 7447 breaks the raw Zenoh connection. The
 OpenShift renderer now excludes only outbound port 7447 from Istio interception
 on recognized Zenoh clients. The OpenShift World chart also exposes a stable

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Run one digest-pinned Quay image under the dev01 restricted SCC and clean up."""
+# This project was developed with assistance from AI tools.
+"""Run one digest-pinned Quay image under the restricted SCC and clean up."""
 
 from __future__ import annotations
 
@@ -40,7 +41,7 @@ def main() -> int:
     created = False
     try:
         image = image_for(args.basename)
-        access = resolve_context("dev01")
+        access = resolve_context()
         if not get_json(access, "get", "namespace", TARGET_PROJECT, missing_ok=True):
             raise PilotError("Target project is absent; no smoke pod was created.")
         if not can_i(access, "create", "pods", TARGET_PROJECT):

@@ -1,4 +1,9 @@
 # Offline OpenShift chart renderer
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 `render-openshift-chart` accepts one inline `ChartAssignment`, runs the same
 Helm rendering and OpenShift adaptation as the pilot controller, and writes
@@ -14,7 +19,7 @@ umask 077
 go run ./cmd/render-openshift-chart < /path/to/inline-chart-assignment.yaml \
   > /private/tmp/intrinsic-rendered.yaml
 python3 ../../validate_rendered_manifests.py \
-  --namespace arhkp-intrinsic /private/tmp/intrinsic-rendered.yaml
+  --namespace your-project-namespace /private/tmp/intrinsic-rendered.yaml
 ```
 
 The input must use the `apps.cloudrobotics.com/v1alpha1` ChartAssignment shape,

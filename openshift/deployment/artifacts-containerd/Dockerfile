@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 FROM docker.io/library/alpine:3.22
 
 # The upstream artifact service always creates a containerd client, even when

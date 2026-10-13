@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 // Copyright 2026 Intrinsic Innovation LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -153,13 +154,13 @@ var startOptionalClusterMonitoring = func(ctx context.Context, factory informers
 
 var getClusterInfo = func(ctx context.Context, crcClient versioned.Interface) transfersvc.ClusterInfo {
 	return transfersvc.ClusterInfo{
-		Name:                   "local",
+		Name: "local",
 		// This OpenShift pilot is simulation-only and must never enable physical execution.
 		CanDoPhysicalExecution: false,
 		// Report the cluster's GPU capability; normal scheduling still enforces available capacity.
-		HasGpu:                 true,
-		GCPProject:             "none",
-		Registry:               "gcr.io/local",
+		HasGpu:     true,
+		GCPProject: "none",
+		Registry:   "gcr.io/local",
 	}
 }
 

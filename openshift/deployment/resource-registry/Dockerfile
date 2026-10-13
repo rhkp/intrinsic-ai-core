@@ -1,3 +1,4 @@
-FROM quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b@sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6
+# This project was developed with assistance from AI tools.
+FROM quay.io/your-registry-org/intrinsic/resource_registry_mz6oamw4xrhc5j4b@sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6
 
 COPY --chmod=0755 resource_registry_main /intrinsic/resources/service/resource_registry_main

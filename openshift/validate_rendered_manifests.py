@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Fail-closed validation for offline-rendered Intrinsic OpenShift manifests."""
 
 from __future__ import annotations
@@ -6,6 +7,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -249,7 +251,9 @@ def validate_documents(documents: list[dict[str, Any]], namespace: str, locked: 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("manifests", nargs="+", type=Path, help="private files emitted by render-openshift-chart")
-    parser.add_argument("--namespace", default="arhkp-intrinsic")
+    parser.add_argument(
+        "--namespace", default=os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
+    )
     parser.add_argument("--image-lock", type=Path, default=IMAGE_LOCK)
     args = parser.parse_args()
 

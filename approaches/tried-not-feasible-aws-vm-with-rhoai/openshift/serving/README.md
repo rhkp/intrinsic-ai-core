@@ -1,8 +1,13 @@
 # AWS VM + RHOAI serving smoke test
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 ## Result
 
-On 2026-10-01, a Triton 26.07 inference smoke test passed in the `arhkp-intrinsic`
+On 2026-10-01, a Triton 26.07 inference smoke test passed in the `your-project-namespace`
 project. The `triton-cifar10-smoke` KServe `InferenceService` became Ready and
 returned a Triton V2 prediction for model `cifar10`, version `1`, with output
 shape `[1, 10]`.
@@ -19,7 +24,7 @@ The test uses KServe's public CIFAR10 TorchScript repository at
 the model configuration specifies `KIND_CPU`. The service therefore reserved
 one GPU for runtime/scheduling validation, while this sample's prediction ran
 on CPU. This test does **not** prove GPU-accelerated inference. The pod needed
-the `g5-gpu=true:NoSchedule` toleration to schedule on the A10G pool. The
+the `your-gpu-taint-key=true:NoSchedule` toleration to schedule on the NVIDIA GPU pool. The
 The initial InferenceService used Standard deployment mode, one replica, and a
 ClusterIP service; its first request was sent through a temporary
 localhost-only `oc port-forward`. A later auth-enabled update caused the RHOAI
@@ -50,7 +55,7 @@ The registered runtime uses this immutable amd64 image digest:
 nvcr.io/nvidia/tritonserver@sha256:551599c0812bb706121410a71abda07f9920d25e6c66edf1ec07a375e49f5f90
 ```
 
-Triton 26.07 is based on CUDA 13.3.4.1. NVIDIA's CUDA compatibility guide
+Triton 26.07 is based on CUDA 13.your-comparison-rhoai-version. NVIDIA's CUDA compatibility guide
 describes minor-version compatibility and its feature limitations. Since the
 sample model is CPU-only, this test does not establish CUDA driver compatibility
 for GPU inference. See the [Triton 26.07 release
@@ -78,7 +83,7 @@ and create a project-scoped `ServingRuntime` and `InferenceService`.
        select(.kind == "ServingRuntime" and
               .metadata.name == "triton-kserve-rest" and
               any(.spec.containers[]; .image == "nvcr.io/nvidia/tritonserver@sha256:551599c0812bb706121410a71abda07f9920d25e6c66edf1ec07a375e49f5f90")) |
-       .metadata.namespace = "arhkp-intrinsic"] |
+       .metadata.namespace = "your-project-namespace"] |
        if length == 1 then .[0] else error("Expected one matching global runtime template") end' |
      oc apply -f -
    ```
@@ -88,7 +93,7 @@ and create a project-scoped `ServingRuntime` and `InferenceService`.
    ```bash
    oc apply -f approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/serving/manifests/triton-cifar10-smoke.yaml
    oc wait --for=condition=Ready inferenceservice/triton-cifar10-smoke \
-     -n arhkp-intrinsic --timeout=10m
+     -n your-project-namespace --timeout=10m
    ```
 
 3. Before enabling external visibility, check Ready state, GPU request, service
@@ -96,21 +101,21 @@ and create a project-scoped `ServingRuntime` and `InferenceService`.
    internal service address:
 
    ```bash
-   oc get isvc triton-cifar10-smoke -n arhkp-intrinsic -o json |
+   oc get isvc triton-cifar10-smoke -n your-project-namespace -o json |
      jq -r '.status.conditions[] | select(.type == "Ready") | .status'
-   oc get pods -n arhkp-intrinsic \
+   oc get pods -n your-project-namespace \
      -l serving.kserve.io/inferenceservice=triton-cifar10-smoke -o json |
      jq -r '.items[] | [.status.phase, .spec.containers[0].resources.limits["nvidia.com/gpu"]] | @tsv'
-   oc get svc triton-cifar10-smoke-predictor -n arhkp-intrinsic -o json |
+   oc get svc triton-cifar10-smoke-predictor -n your-project-namespace -o json |
      jq -r '.spec.type'
-   oc get routes -n arhkp-intrinsic -o json |
+   oc get routes -n your-project-namespace -o json |
      jq '[.items[] | select(.metadata.name | contains("triton-cifar10-smoke"))] | length'
    ```
 
 4. In one terminal, open a temporary local port-forward:
 
    ```bash
-   oc port-forward -n arhkp-intrinsic \
+   oc port-forward -n your-project-namespace \
      service/triton-cifar10-smoke-predictor 18080:80
    ```
 
@@ -128,7 +133,7 @@ and create a project-scoped `ServingRuntime` and `InferenceService`.
 
    ```bash
    oc delete -f approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/serving/manifests/triton-cifar10-smoke.yaml
-   oc delete servingruntime triton-kserve-rest -n arhkp-intrinsic
+   oc delete servingruntime triton-kserve-rest -n your-project-namespace
    oc delete -f approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/serving/manifests/triton-cifar10-grpc-smoke.yaml
    oc delete -f approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/serving/manifests/triton-kserve-grpc-smoke-runtime.yaml
    ```

@@ -1,15 +1,20 @@
 # Tried and set aside: AWS VM + RHOAI (Hybrid)
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 **Status:** hybrid approach stopped; full OpenShift deployment is the selected
 direction. This directory is a historical record, not an active deployment
-runbook. On dev01, the UI-created gRPC model became Ready and internal inference
+runbook. on the target cluster, the UI-created gRPC model became Ready and internal inference
 passed through a local port-forward. From the AWS VM, DNS and TLS to its
 token-authenticated route worked, but HTTP/2 (`h2`) was not negotiated, so
 external gRPC inference did not pass. A custom-certificate change to the
 RHOAI-managed route was not retained, and no supported durable configuration
 was established. REST inference from the AWS VM and the required client
 adaptation were not validated end to end. The OpenShift-specific records below
-preserve the experiment details; dev02 results do not count as dev01 evidence.
+preserve the experiment details; comparison cluster results do not count as target cluster evidence.
 
 ## Goal
 
@@ -27,7 +32,7 @@ working baseline; the active plan is to move the system to OpenShift.
 
 RHOAI operator and platform services remain in the namespaces selected by the
 existing RHOAI installation. Pilot serving resources belong in the selected
-project `arhkp-intrinsic`, not operator or application system namespaces. If
+project `your-project-namespace`, not operator or application system namespaces. If
 workbenches, pipelines, or a registry are added, use their configured
 user-project and registry namespaces. For the first pilot, only serving is on
 the critical path; a workbench, pipeline, and model registry are follow-on
@@ -72,9 +77,9 @@ more than changing a service URL:
 | Issue | What we know | What remains to resolve |
 | --- | --- | --- |
 | Intrinsic client contract | The existing wrapper talks to local Triton through a Unix socket and shared memory. | Add or select a remote client path; map tensor names, shapes, data types, outputs, errors, timeouts, and retries. The actual Intrinsic caller and adapter boundary still need confirmation. |
-| REST or gRPC transport | On dev01, internal gRPC inference passed; the external route did not negotiate ALPN `h2`. The successful dev02 REST smoke is excluded. | Test a REST-configured runtime and token-authenticated route on dev01. The current gRPC endpoint cannot be switched by changing only the client request. |
+| REST or gRPC transport | on the target cluster, internal gRPC inference passed; the external route did not negotiate ALPN `h2`. The successful comparison cluster REST smoke is excluded. | Test a REST-configured runtime and token-authenticated route on the target cluster. The current gRPC endpoint cannot be switched by changing only the client request. |
 | Model and artifact lifecycle | Intrinsic's model controller manages models tied to DataAssets/CAS; RHOAI single-model serving creates a serving deployment per model. | Decide how RF-DETR and FoundationPose artifacts are staged, versioned, authorized, updated, and mapped to RHOAI deployments. Define who owns load/unload and cleanup. |
-| Cross-environment access and identity | The dev01 AWS VM resolves and reaches the route over TLS; no end-to-end authorized inference has passed. Dev02 token-auth results are excluded, and source-network allowlisting is untested. | Confirm the accepted ingress policy, least-privilege service identity, token delivery/rotation, and end-to-end REST/TLS behavior on dev01. |
+| Cross-environment access and identity | The target cluster AWS VM resolves and reaches the route over TLS; no end-to-end authorized inference has passed. comparison cluster token-auth results are excluded, and source-network allowlisting is untested. | Confirm the accepted ingress policy, least-privilege service identity, token delivery/rotation, and end-to-end REST/TLS behavior on the target cluster. |
 | GPU capacity and cost | The CIFAR-10 smoke reserved a GPU but the sample model itself ran on CPU. VM and cluster GPUs are separate pools. | Test the actual perception models on the target accelerator; size VRAM, replicas, quotas, scheduling, and the cost of keeping both local fallback and remote serving available. |
 | Performance and failure behavior | Only synthetic single-request inference is validated. | Measure realistic image payload size, end-to-end latency and throughput; set timeout/retry behavior and verify safe fallback to local inference when the remote endpoint is unavailable. |
 | Support and ownership | RHOAI lists NVIDIA Triton as tested and verified; that does not validate the Intrinsic wrapper or this integration. | Confirm the target release's support boundary, who maintains the runtime/image and endpoint, and which team owns incidents and upgrades. |
@@ -85,7 +90,7 @@ still require client and model-lifecycle integration work. RHOAI documentation
 lists REST as an additional Triton protocol. See the [RHOAI inference
 guide](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/making_inference_requests_to_deployed_models)
 and [supported configurations](https://access.redhat.com/articles/rhoai-supported-configs-3.x).
-These 3.4 docs are version-specific references from the dev02 investigation;
+These 3.4 docs are version-specific references from the comparison cluster investigation;
 use documentation for the selected cluster's release for any future work.
 
 ## High-level collaboration
@@ -112,14 +117,14 @@ flowchart LR
   OPT -. "versioned artifact / evaluation flow" .-> STORE
 ```
 
-`*` The RHOAI 3.4.1 inventory was from dev02 only and is not evidence about
-dev01. Its support matrix lists NVIDIA Triton as Tested and verified in Standard (Raw) mode,
+`*` The RHOAI your-comparison-rhoai-version inventory was from comparison cluster only and is not evidence about
+target cluster. Its support matrix lists NVIDIA Triton as Tested and verified in Standard (Raw) mode,
 with gRPC as the default protocol and REST as an additional protocol. The matrix
 places it in a separate Tested and verified category, outside the Supported
 model-serving runtimes table. Confirm the applicable support scope for the
 target version and intended use. This entry does not cover the Intrinsic
-wrapper, a custom paired runtime, or this integration. The dev02 runtime
-inventory and UI behavior are historical only; inspect dev01's runtime list
+wrapper, a custom paired runtime, or this integration. The comparison cluster runtime
+inventory and UI behavior are historical only; inspect the target cluster's runtime list
 and release-specific requirements before serving tests.
 
 RHOAI's documented single-model serving platform creates a dedicated model
@@ -151,16 +156,16 @@ model access from token authentication. The current demo route has both enabled
 and was tested with synthetic input; do not infer source allowlisting.
 Keep actual addresses and connection material outside this repository.
 
-The dev01 gRPC `InferenceService` has a controller-managed external Route. From
+The target cluster gRPC `InferenceService` has a controller-managed external Route. From
 the AWS VM, DNS resolution and TLS certificate validation succeeded, but the
 route did not negotiate ALPN `h2`; no external gRPC inference or successful
-token-authenticated model request has been verified on dev01. The REST/auth
-success recorded for dev02 is out of scope. Re-run all endpoint, exposure, and
-authentication checks against dev01 before sending any application input.
+token-authenticated model request has been verified on the target cluster. The REST/auth
+success recorded for comparison cluster is out of scope. Re-run all endpoint, exposure, and
+authentication checks against the target cluster before sending any application input.
 
 OpenShift Routes can carry HTTP/2, but this is conditional on Route and
-Ingress Controller configuration. Read-only inventory on dev01 identified
-OpenShift `4.20.26`; its InferenceService-owned Route uses `reencrypt`, has no
+Ingress Controller configuration. Read-only inventory on the target cluster identified
+OpenShift `your-openshift-version`; its InferenceService-owned Route uses `reencrypt`, has no
 custom certificate, and redirects insecure HTTP to HTTPS. The cluster and
 IngressController HTTP/2 override annotations are unset, so backend HTTP/2
 enablement still needs verification. OpenShift 4.20 documents that client-side
@@ -180,14 +185,14 @@ Route that preserves token authentication, must be established before retrying.
 
 Treat transport and caller authentication as separate controls: configure TLS
 and leave certificate verification enabled, then require endpoint
-authentication. The dev02 RHOAI 3.4 model deployment workflow offered an external
+authentication. The comparison cluster RHOAI 3.4 model deployment workflow offered an external
 `Model access` route and `Require token authentication` for a selected service
-account. The dev02 smoke deployment showed the model controller honoring its
+account. The comparison cluster smoke deployment showed the model controller honoring its
 `security.opendatahub.io/enable-auth` annotation and
 `networking.kserve.io/visibility=exposed` label, creating an admitted HTTPS
-reencrypt Route. This is historical behavior, not validated on dev01. The
+reencrypt Route. This is historical behavior, not validated on the target cluster. The
 [test plan](TEST_PLAN.md#required-external-route-authentication-check) describes
-checks to repeat on dev01. The AWS VM must use a fresh short-lived token stored
+checks to repeat on the target cluster. The AWS VM must use a fresh short-lived token stored
 in a protected runtime file; never put the token value in `.env`, shell history,
 logs, manifests, or Git.
 
@@ -209,12 +214,12 @@ by Git. The existing bootstrap and smoke-test scripts do not load dotenv, so
 this is a configuration template until the eventual VM-side client is
 implemented.
 
-On dev01, a `grpc-v2` InferenceService proves Triton gRPC metadata, readiness,
+on the target cluster, a `grpc-v2` InferenceService proves Triton gRPC metadata, readiness,
 and inference internally through a temporary localhost-only port-forward, with
 output shape `[1, 10]`. The external route reached from the AWS VM did not
 negotiate ALPN `h2`, so external gRPC is not proven. REST inference and token
-authentication from the VM remain to be tested on dev01; the successful dev02
-REST result is explicitly excluded. After the dev01 REST smoke passes, validate
+authentication from the VM remain to be tested on the target cluster; the successful comparison cluster
+REST result is explicitly excluded. After the target cluster REST smoke passes, validate
 the Intrinsic client contract, then stage the actual RF-DETR/FoundationPose
 artifacts under an approved model-storage and licensing path. Keep the local
 inference pair as the rollback baseline while comparing identical simulation
@@ -241,8 +246,8 @@ than instructions to resume the cross-environment path.
 
 The topology is a proposal based on the current [VM deployment journal](../../README.md)
 and [pod inventory](../../PODS_README.md).
-The following product documentation was checked on 2026-10-01 during the dev02
-investigation; it is a reference only until dev01's installed release is
+The following product documentation was checked on 2026-10-01 during the comparison cluster
+investigation; it is a reference only until the target cluster's installed release is
 confirmed:
 
 - [RHOAI 3.4 model-serving platform](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/configuring_your_model-serving_platform/configuring_model_servers)

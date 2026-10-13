@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
 readonly runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +24,7 @@ TMPDIR="${build_tmp}" bazel --batch build \
   --distdir="${HOME}/intrinsic-distfiles" \
   --spawn_strategy=local \
   --genrule_strategy=local \
-  --config=lab_bb_01 \
+  --config=your-workcell \
   //:omts_solution
 
 python3 "${runner_dir}/audit_solution_artifacts.py" \

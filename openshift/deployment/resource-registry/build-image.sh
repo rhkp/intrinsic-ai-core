@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
-readonly namespace="arhkp-intrinsic"
+readonly namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
 readonly workspace_deployment="omts-build-workspace"
 readonly source_dir="/workspace/source/intrinsic-omts"
 readonly image_target="@intrinsic-core//intrinsic/resources/service:resource_registry_main"

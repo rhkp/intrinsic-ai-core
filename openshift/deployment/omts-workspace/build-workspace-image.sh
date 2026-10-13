@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
-readonly namespace="arhkp-intrinsic"
+readonly namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
 readonly workspace_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly repo_root="$(cd "${workspace_dir}/../../.." && pwd)"
 readonly runner_dir="${repo_root}/openshift/deployment/omts-runner"
 readonly context="$(mktemp -d "${TMPDIR:-/tmp}/omts-workspace-context.XXXXXX")"
 trap 'rm -rf "${context}"' EXIT
 
+expected_api_server="${OPENSHIFT_API_SERVER_URL:-}"
+if [[ -z "${expected_api_server}" ]]; then
+  echo "Set OPENSHIFT_API_SERVER_URL to the intended cluster API URL before building." >&2
+  exit 2
+fi
 cluster_api="$(oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}')"
-if [[ "${cluster_api}" != *ai-dev01* ]]; then
-  echo "Refusing to build: the current OpenShift target is not dev01." >&2
+if [[ "${cluster_api}" != "${expected_api_server}" ]]; then
+  echo "Refusing to build: the current OpenShift API does not match OPENSHIFT_API_SERVER_URL." >&2
   exit 1
 fi
 oc get namespace "${namespace}" >/dev/null
@@ -18,7 +24,7 @@ oc get namespace "${namespace}" >/dev/null
 mkdir -p \
   "${context}/openshift/deployment/omts-workspace" \
   "${context}/openshift/deployment/omts-runner" \
-  "${context}/openshift/deployment/intrinsic-omts/configs/lab_bb_01" \
+  "${context}/openshift/deployment/intrinsic-omts/configs/your-workcell" \
   "${context}/patches"
 
 cp "${workspace_dir}/Containerfile" \
@@ -38,8 +44,8 @@ chmod 0555 \
   "${context}/openshift/deployment/omts-runner/prepare-internal-registry-auth.py" \
   "${context}/openshift/deployment/omts-runner/prepare-omts-source.sh" \
   "${context}/openshift/deployment/omts-runner/audit_solution_artifacts.py"
-cp "${repo_root}/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml" \
-  "${context}/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml"
+cp "${repo_root}/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml" \
+  "${context}/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml"
 for patch_file in \
   omts-anonymous-releases.patch \
   omts-openshift-core-registry-keychain.patch \
@@ -72,8 +78,9 @@ for patch_file in \
   cp "${patch_source_dir}/${patch_file}" "${context}/patches/${patch_file}"
 done
 
-oc apply -n "${namespace}" \
-  -f "${workspace_dir}/build-workspace-image.yaml"
+sed "s|\${OPENSHIFT_NAMESPACE}|${namespace}|g" \
+  "${workspace_dir}/build-workspace-image.yaml" \
+  | oc apply -n "${namespace}" -f -
 oc start-build omts-build-tools \
   -n "${namespace}" \
   --from-dir="${context}" \

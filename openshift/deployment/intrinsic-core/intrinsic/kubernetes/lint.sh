@@ -1,4 +1,5 @@
 #!/bin/bash
+# This project was developed with assistance from AI tools.
 
 # Copyright 2026 Intrinsic Innovation LLC
 #

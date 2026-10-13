@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -12,7 +13,7 @@ metadata:
   namespace: app-intrinsic-base
 spec:
   type: ExternalName
-  externalName: zenoh-router.arhkp-intrinsic.svc.cluster.local
+  externalName: zenoh-router.your-project-namespace.svc.cluster.local
   ports:
     - name: zenoh-router
       protocol: TCP

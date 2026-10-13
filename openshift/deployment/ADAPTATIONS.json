@@ -5,12 +5,12 @@
       "status": "upstream renderer patch was built and checked, but it was not the live Asset Deployment rendering boundary; runtime fix is recorded in openshift-gpu-node-toleration-adapter",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "patch_path": "patches/intrinsic-openshift-registry.patch",
-      "patch_sha256": "d3fa7e7133b3173b897b4417722078f4c083082fa67cf40abf6a2b591ea16b35",
+      "patch_sha256": "a648580f8c94b8f028fbf6cc421d4c34731e1fc217fd9f9388a1d036bb5799ea",
       "applied_tree": "openshift/deployment/intrinsic-core",
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/chart_executable.go",
-          "current_sha256": "9198fb787ba003322c269c1e65fa3db1d279a0ca662ab3fa689f9756a90861cb"
+          "current_sha256": "aba2a588eef52ad4c3007b1da91371df2f642e2d955df2a02a0cafd555921934"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/production/BUILD",
@@ -18,17 +18,17 @@
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/production/image_publisher.go",
-          "current_sha256": "e2580688eaa3bc6ecf650a91da2715804af47903a41fefa5e9a0e1301187bdef"
+          "current_sha256": "94ebdbf383d386af4d5f0b5597e859bea1ba76b5f49ef471fcecaaea74ce8ce8"
         }
       ],
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/production/openshift_registry_publisher.go",
-          "sha256": "b17942856ef5c89c23bf50b4547f425c94336e59dff14da60d1bff4b30e10021"
+          "sha256": "1df0eb06fb7ac665919649e7c8eb8bc84cbcc1db6461343d11a1313020c4d722"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/production/openshift_registry_publisher_test.go",
-          "sha256": "502a7bc6f3e1b685f03e64ba1fdeda7e7b0e889263caad1d56da7f74d68fbff2"
+          "sha256": "6fc57c780935b746814a05c4d4c909a141b6a70e5a55e11837273fcd214ee0d4"
         }
       ],
       "validation": {
@@ -48,31 +48,31 @@
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/renderutil.go",
-          "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+          "current_sha256": "b222645be1a4a7c0c0539149179fc80dacdbdde4a6cb3aed3ddb39e139cb0412"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/resources.yaml",
-          "current_sha256": "92d3440631c695b32d7321ae898b973769b95360c8f429d64e79750625fb3e50"
+          "current_sha256": "8d3180b22624107caf94cd655b4343e86bbf52da155ee1348199c932b5c75807"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/skills.yaml",
-          "current_sha256": "231e39e93b48dcf2113f544a7885c25c3506d78b43e3f7afb64055d474254721"
+          "current_sha256": "9de75a7e7d2c34082367df5978f7915baa36379b6f4d60bbea1033b6762881a5"
         }
       ],
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/manifests/image-pull-access.yaml",
-          "sha256": "7f12afb3d09edcb68488250ac1ef970771342fe8df6657e14621c20af3338225"
+          "sha256": "301e8064255f6ae9f3a16cc61553d797b78c22b834b52cf14136a2d15124a589"
         },
         {
           "path": "openshift/deployment/validate_image_pull_templates.py",
-          "sha256": "2c6e416ea143bca21f4c3b43dd523607f37e16d33a5408edf631a631fcf29bff"
+          "sha256": "4b194bbdfa610cc9c83609b00b91a8319107499dbc55dc8c57308362e720b785"
         }
       ],
       "validation": {
         "gofmt": "passed on changed Go file",
         "helm_template_render": "passed for resource and skill templates; verifies intrinsic-runtime, token automount disabled, and no generated pull Secrets/imagePullSecrets",
-        "live_serviceaccount_pull_smoke": "passed previously in arhkp-intrinsic with a restricted pod and synthetic integrated-registry image; adapted Intrinsic workloads not deployed",
+        "live_serviceaccount_pull_smoke": "passed previously in your-project-namespace with a restricted pod and synthetic integrated-registry image; adapted Intrinsic workloads not deployed",
         "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
         "copied_tree_unit_tests": "not run",
         "full_upstream_bazel_build": "not run; complete Core/OMTS deployment build remains pending",
@@ -87,18 +87,18 @@
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/renderutil.go",
-          "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+          "current_sha256": "b222645be1a4a7c0c0539149179fc80dacdbdde4a6cb3aed3ddb39e139cb0412"
         }
       ],
       "added_adaptation_files": [
         {
           "path": "openshift/gpu_smoke.py",
-          "sha256": "47f3c018eb2c6f247cc501b1392db0a792ae92950df72d8e15d7809ee769a3cd"
+          "sha256": "01cca550f58a6a39c84e4cfba3fa099b202bf0f8565db062afdd71f13a61ba33"
         }
       ],
       "validation": {
         "gofmt": "passed",
-        "dev01_gpu_scheduling_and_device_smoke": "passed with exact g5-gpu=true:NoSchedule toleration; temporary pod cleanup verified",
+        "target_cluster_gpu_scheduling_and_device_smoke": "passed with exact your-gpu-taint-key=true:NoSchedule toleration; temporary pod cleanup verified",
         "resource_skill_renderer_bazel_target": "passed in a clean worktree at pinned Core commit 523f2e03ddf3cb46a19b15be5e81586ae2f538c2; //intrinsic/assets/deploy:render; 2,217 actions; 1,105.56 seconds",
         "copied_tree_unit_tests": "not run; Go/Bazel build context is not present in the selected deployment copy",
         "full_upstream_bazel_build": "not run; complete Core/OMTS deployment build remains pending",
@@ -107,17 +107,17 @@
     },
     {
       "id": "openshift-gpu-node-toleration-adapter",
-      "status": "deployed and verified on dev01; Gazebo, ICON, UR, and inference are Ready; the one-cycle app reaches planning and stops on the known gripper/stock collision",
+      "status": "deployed and verified on target cluster; Gazebo, ICON, UR, and inference are Ready; the one-cycle app reaches planning and stops on the known gripper/stock collision",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "upstream_reference": "intrinsic/assets/deploy/renderutil.go podSpecForResource creates GPU requests but has no OpenShift node-taint policy",
       "adaptation_path": "openshift/deployment/chartassignment-controller/controller/openshift.go adaptPodSpec",
-      "controller_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9",
+      "controller_image": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9",
       "validation": {
         "controller_tests": "passed for GPU requests, ICON/UR required co-location, idempotence, and unchanged non-GPU workloads",
-        "dev01_base_and_resources": "intrinsic-base generation 4 Ready; resources generation 10, skills generation 3, and intrinsic-app-chart generation 10 Ready",
-        "dev01_runtime": "Gazebo 2/2, ICON 3/3, UR 2/2, and inference 3/3 Ready; inference uses an A10G GPU",
-        "dev01_inference": "project-registry image and GPU toleration; models loaded and inference completed during the one-cycle app",
-        "demo_scene_and_cycle": "documented lab_bb_01 scene reset succeeded; ICON returned to kMotionEnabled; app reached planning and stopped on gripper.gripper_finger2 versus raw_stock_2x3x5.base_link collision"
+        "target_cluster_base_and_resources": "intrinsic-base generation 4 Ready; resources generation 10, skills generation 3, and intrinsic-app-chart generation 10 Ready",
+        "target_cluster_runtime": "Gazebo 2/2, ICON 3/3, UR 2/2, and inference 3/3 Ready; inference uses an NVIDIA GPU",
+        "target_cluster_inference": "project-registry image and GPU toleration; models loaded and inference completed during the one-cycle app",
+        "demo_scene_and_cycle": "documented your-workcell scene reset succeeded; ICON returned to kMotionEnabled; app reached planning and stopped on gripper.gripper_finger2 versus raw_stock_2x3x5.base_link collision"
       }
     },
     {
@@ -130,36 +130,36 @@
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/platform/pubsub/fds_core.yaml",
-          "current_sha256": "f51550b7f37be8da61dd29e18d8bfa179f5207e15abab189973fdd4977d4586b"
+          "current_sha256": "da233f581bacbfcafd4dcab8fba27d80430dbc3ab4bd6f8165071e3fca83104e"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/executive/templates/code-execution.yaml",
-          "current_sha256": "768a0bb18d88edc8ff4bc21eccd12bf8dd9b6ada4b4d417d5a10db8a1c02cad4"
+          "current_sha256": "b44b9de6f9e7c7bce897c864587fc1eab3bdae9aad9d61d0d802478c4d9910e5"
         }
       ],
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "786bae6cec0bb7b316cf4df7afafd73bffd0263117ca5cbb2dfdc439e3601c36"
+          "sha256": "ca92d7dbc740eb199798b5e293ce68faec74e83aa56223046f50ddcb87708126"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "4bd2ba4fe1c2d1021e63cb39efaebd70d5826561d41c1f6f8a050d09740f9eaf"
+          "sha256": "a2ab7686ffead0e8689330d9f4c58636e583614fdb8f70ab64438dc095c3ec8c"
         },
         {
           "path": "openshift/render_quay_image_values.py",
-          "sha256": "80b3c18bd954e2b12dcf499cac13801aca7d77695e9d338a88425afc653ed9ae"
+          "sha256": "dd05507fb4051bb526012b9da8f768b3fd1c6dd8f1494a5fcd382b39c487d19e"
         },
         {
           "path": "openshift/smoke_quay_image.py",
-          "sha256": "0a281f390981662c36adb330c569695373f3a5cfc5b4d561016ec408c6e1ea39"
+          "sha256": "bb4f89f67ce9221c2e5f6746e9f00aefc5785f01853d5678e2fda348bf6da7f2"
         }
       ],
       "validation": {
         "upstream_release_archive_checksum": "passed for release 20260922.0",
         "mirrored_images": "24 images mirrored to Quay and recorded by immutable digest (22 release tarballs plus zenohd and Jupyter sidecar)",
         "base_and_app_helm_template_render": "passed; all rendered image references resolve to Quay digests in image-lock.json",
-        "dev01_restricted_scc_image_smoke": "passed for HTTP gateway, Zenoh daemon, and Jupyter sidecar images after Quay repositories were made public; each pulled and started with assigned non-root UID, and pod cleanup verified; this does not validate full workload behavior",
+        "target_cluster_restricted_scc_image_smoke": "passed for HTTP gateway, Zenoh daemon, and Jupyter sidecar images after Quay repositories were made public; each pulled and started with assigned non-root UID, and pod cleanup verified; this does not validate full workload behavior",
         "full_intrinsic_workload": "not deployed; this image smoke is not a workload compatibility claim"
       }
     },
@@ -171,65 +171,65 @@
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/renderutil.go",
-          "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+          "current_sha256": "b222645be1a4a7c0c0539149179fc80dacdbdde4a6cb3aed3ddb39e139cb0412"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/deploy/asset_deployment_service.go",
-          "current_sha256": "926ed09cdd1db3a31df6d1427275705eeeb688f0ea92b8702427b815097cab91"
+          "current_sha256": "701c19b418e1177f9517b0902f789778eb03d6a3fdfc1ef77aa7fed5450774cf"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/instances/instance_conversion.go",
-          "current_sha256": "230ad4a883adad0fb08f41381375c41655e9d566817ed7d34b0cffc14dfc82e5"
+          "current_sha256": "ba7efec359be69b98d58fd7f9b2825a3572e55111b25e5d4dcca8274ad2e4ff9"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/assets/instances/asset_instances_service.go",
-          "current_sha256": "d45f46118c6094972df66717779647727c70a0047f934d52f1a4787029fa3165"
+          "current_sha256": "918a5e77d8a45f2bde4ed2b091cc9e50172527ef896dac562a524b4ce25daf14"
         },
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/deploy_service.go",
-          "current_sha256": "8b62a4619dac1aa71a9e44a52ff0d6bfbd4a4a336e28b4a279794e70cdacde5f"
+          "current_sha256": "307fdca3ce85578b1a6cee810482c17737e73989431cf96ffdb1890a7e5091af"
         }
       ],
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "d731b2b8cc0da3aabe2610fac25ad2465f4b0e4e66db62ce06c71b11848148de"
+          "sha256": "dd45e6e39f7ca867ef718ef06165b754a2e44330b9643356ab11941fedd21f38"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "0911cc5c6003adbd22bd0d5a82df1dbf531b4b17c2af642923d5c00dc721c37d"
+          "sha256": "5d652ce4a320015f1ed253700a853dacf351ca69cfeadb4bde3a369d5b620a50"
         },
         {
           "path": "openshift/configure_routing.py",
-          "sha256": "3e94b077d4716f7200dcb3df408d6297043f23be998b8f3264ba37fdba6d786e"
+          "sha256": "c0820f645e4795b820f1af2be79c17fe46787615c4c94f51a281dd9e8470894f"
         },
         {
           "path": "openshift/test_configure_routing.py",
-          "sha256": "17805a2a979bdd2b8baeb19d0eea266092197823c692cdb7ac137bc2b5db2895"
+          "sha256": "f6211dd8aa0f42f4e4444b300a1f1a0aa5dcc3a1b33bf82ee23228831901f466"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "c84901922b6c953d5e517e2c623ab8a7ef55a443290554ea76b3244a720fa8c5"
+          "sha256": "e78df6dabfae88b21feced7fcbf3a5dc61e3c3e0ebab02f858c5fb867bf67826"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-rbac.yaml",
-          "sha256": "a79f67a62023b7346358650287106e183f38f97946d238603532d928cb704b23"
+          "sha256": "840e2227c20420322a753ba673866de6a79e9c8e7921d1718689e37364d5c12a"
         },
         {
           "path": "openshift/validate_source_manifest.py",
-          "sha256": "29fa691ae7dbf531209389a904d512724d9535d307a378b16ef2bf2d54e2e656"
+          "sha256": "055862d262e17e3414f60ae12b4299e63d650a72cd2298e023869948c70db140"
         },
         {
           "path": "openshift/.env.sample",
-          "sha256": "e97a8bcdc3f24014e3cd22e02639c6250ebc46617119209d919aa94c242ba5cf"
+          "sha256": "2c632946740e3d21280fc9775b22fccf9dad0a4fbc49887caffb098b43bb25a6"
         },
         {
           "path": "openshift/deployment/manifests/servicemesh-member.yaml",
-          "sha256": "b64961765ea238cd4072272b343a400ee1f69ffd34b89de27cfde9c86577f8cc"
+          "sha256": "d4142de04e1231815d0b09512216304a0b55e18237a01d5138f93ae24d2b0c3f"
         },
         {
           "path": "openshift/deployment/manifests/intrinsic-dedicated-grpc-gateway.yaml",
-          "sha256": "736180ac91362312625a718cd3208ed5e52892d04ae1ec15b7471a5a06035208"
+          "sha256": "8e539a48d1850cbce71f5af420271eeed5f40b62b60e23a89fe93d158915664e"
         }
       ],
       "validation": {
@@ -249,7 +249,7 @@
         "controller_build": "passed; project BuildConfig build #5 completed",
         "controller_rollout": "passed; one Ready replica uses the new immutable image digest",
         "routing_configmap": "applied from the ignored local .env using the dedicated gateway Service and Gateway",
-        "dedicated_gateway_manifest_server_dry_run": "passed against dev01 admission",
+        "dedicated_gateway_manifest_server_dry_run": "passed against target cluster admission",
         "dedicated_gateway_deployment": "passed; gateway injection produced a Ready Envoy proxy and internal ClusterIP endpoint",
         "external_route_check": "passed; no project OpenShift Route exists and Service Mesh automatic route creation is disabled",
         "shared_gateway_or_control_plane_change": "none; the shared ingress gateway and ServiceMeshControlPlane were not changed",
@@ -259,7 +259,7 @@
     },
     {
       "id": "resource-registry-namespace-configmap-watch",
-      "status": "durable ChartAssignment override deployed; registry, world-updater, and scene-object-import recovered on dev01",
+      "status": "durable ChartAssignment override deployed; registry, world-updater, and scene-object-import recovered on target cluster",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "patch_path": "openshift/deployment/patches/resource-registry-namespace-configmaps.patch",
       "patch_sha256": "dc1cfeffaac0e807903c497639eabbaef584b29f71ef5b3140579d155dcef7fb",
@@ -267,32 +267,32 @@
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/resources/resource-registry.yaml",
-          "current_sha256": "9fbe287c393a1e3a8edeefbdc7b0a0b92dcacdd3c23f9607c14fd9ae6c0753a9"
+          "current_sha256": "1a3e30927b21ec16f17442a33ee5a2405e7aca410faaef551912cab2da215dc7"
         }
       ],
       "validation": {
         "pinned_upstream_source_build_linux_amd64": "passed on AWS build VM",
         "configmap_watch_namespace_flag": "verified in image help output",
         "quay_publish": "passed; immutable digest recorded in openshift/image-lock.json",
-        "dev01_rollout": "durable controller adapter now reapplies the immutable registry image and namespace flag after every base ChartAssignment reconciliation",
+        "target_cluster_rollout": "durable controller adapter now reapplies the immutable registry image and namespace flag after every base ChartAssignment reconciliation",
         "world_readiness": "passed; world-updater 1/1 and logs confirm its gRPC connection to resource-registry",
-        "dev01_registry_rollout": "passed; 1/1 ready on locked adapted digest",
-        "dev01_in_project_http2_probe": "passed from a restricted, token-disabled temporary pod; cleanup verified",
+        "target_cluster_registry_rollout": "passed; 1/1 ready on locked adapted digest",
+        "target_cluster_in_project_http2_probe": "passed from a restricted, token-disabled temporary pod; cleanup verified",
         "world_registry_grpc_connection": "passed; current world logs report successful connection and Deployment is 1/1 ready",
         "base_chartassignment": "Ready; intrinsic-base.v6 ResourceSet Settled after the adapted controller re-render",
         "dependent_scene_object_import": "passed; scene-object-import 1/1 and current logs confirm its gRPC connection to asset-deployment",
-        "dev01_deployment_snapshot": "22/22 Deployments Ready; registry, Workcell, world-updater, scene-object-import, and code-execution are Ready; Jupyter binds only to pod loopback and all three workers initialized",
+        "target_cluster_deployment_snapshot": "22/22 Deployments Ready; registry, Workcell, world-updater, scene-object-import, and code-execution are Ready; Jupyter binds only to pod loopback and all three workers initialized",
         "informer_rbac_denials": "zero current Forbidden log lines from resource-registry and workcell-cluster-service"
       }
     },
     {
       "id": "resource-registry-project-gateway-address",
-      "status": "built and published by immutable digest; dev01 rollout and live verification complete",
+      "status": "built and published by immutable digest; target cluster rollout and live verification complete",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "patch_path": "openshift/deployment/patches/resource-registry-openshift-ingress.patch",
       "patch_sha256": "76b8bc2a8ea8ab024ee702be817fbebfc98b2480a37cc17276ed3ea4e777af63",
       "upstream_image_digest": "sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512",
-      "quay_repository": "quay.io/rhkp/intrinsic/resource_registry_mz6oamw4xrhc5j4b",
+      "quay_repository": "quay.io/your-registry-org/intrinsic/resource_registry_mz6oamw4xrhc5j4b",
       "quay_tag": "openshift-grpc-ingress-20261005-76b8bc2a8ea8",
       "quay_digest": "sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6",
       "build_target": "//intrinsic/resources/service:resource-registry-image.tar",
@@ -302,7 +302,7 @@
         "focused_resource_reader_test": "passed on AWS x86-64 build VM",
         "linux_amd64_image_build": "passed on isolated pinned-source worktree",
         "quay_publish": "passed; image pushed under unique tag and pinned by immutable digest",
-        "dev01_rollout": "in progress",
+        "target_cluster_rollout": "in progress",
         "resource_handle_address_verification": "pending",
         "world_robot_subscription": "pending"
       }
@@ -315,19 +315,19 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/manifests/workcell-cluster-service-rbac.yaml",
-          "sha256": "78ba78b1b63788e95e7b6fbd216559faa4bca920095aae970a249508a55796e8"
+          "sha256": "98ef6d1483dc6500592259362ad0b4d5848468e9f2a1576b374e399056de59cc"
         }
       ],
       "validation": {
         "chartassignment_controller_go_tests": "passed",
-        "manifest_scope_structure": "passed; one Role and one RoleBinding, both limited to arhkp-intrinsic and the workcell-cluster-service ServiceAccount",
-        "dev01_server_side_dry_run": "passed",
-        "dev01_role_and_binding_apply": "passed",
+        "manifest_scope_structure": "passed; one Role and one RoleBinding, both limited to your-project-namespace and the workcell-cluster-service ServiceAccount",
+        "target_cluster_server_side_dry_run": "passed",
+        "target_cluster_role_and_binding_apply": "passed",
         "controller_rebuild_and_rollout": "passed; immutable image digest pinned and rollout Ready",
         "base_chartassignment_reconciliation": "passed; intrinsic-base Ready and latest ResourceSet Settled",
         "controller_role_unchanged": "passed; controller still lacks pods/delete and ChartAssignment create/delete",
         "external_rbac_ownership": "passed; Role and RoleBinding have no ResourceSet owner references",
-        "dev01_full_slice": "22/22 Deployments Ready; world-updater, scene-object-import, and code-execution are Ready; the Jupyter sidecar starts all three worker kernels"
+        "target_cluster_full_slice": "22/22 Deployments Ready; world-updater, scene-object-import, and code-execution are Ready; the Jupyter sidecar starts all three worker kernels"
       }
     },
     {
@@ -340,15 +340,15 @@
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/workcell_cluster_service.go",
-          "current_sha256": "2025c7b1fad13e1b79b8aa6ccc017fa253ac15c09406f6cc7ef54af87c7af1be"
+          "current_sha256": "ce0b1d0be841638e38012be3221ffce552677f092ed6fa21142ece86f8a864fa"
         }
       ],
       "validation": {
         "namespace_informer_source": "passed; both Pod and ConfigMap informers use the pilot namespace",
         "linux_amd64_image_build": "passed on pinned x86 build VM; target //intrinsic/kubernetes/workcell_spec:workcell-spec-service-image.tar; archive sha256 a1892dc13373f4dbf6a8f4b962f5bc6d481191254afada54d60cd087de81af49",
-        "quay_image": "quay.io/rhkp/intrinsic/workcell_spec_service_cziekbodmacxdi73@sha256:8b87d30b0d47bfe8da52be3647076790b2793ca7ce928301379d5cd9752eae0c",
+        "quay_image": "quay.io/your-registry-org/intrinsic/workcell_spec_service_cziekbodmacxdi73@sha256:8b87d30b0d47bfe8da52be3647076790b2793ca7ce928301379d5cd9752eae0c",
         "anonymous_digest_pull": "passed; linux/amd64",
-        "dev01_rollout": "passed; Workcell Deployment uses adapted digest and is Ready 1/1",
+        "target_cluster_rollout": "passed; Workcell Deployment uses adapted digest and is Ready 1/1",
         "workcell_rbac_logs": "zero current cluster-scope Forbidden lines"
       }
     },
@@ -374,12 +374,12 @@
       "status": "namespace-scoped Core ChartAssignment client compiled into the deployed Workcell image",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "patch_path": "openshift/deployment/patches/chartassignment-namespace-scope.patch",
-      "patch_sha256": "2d3c259c0d43cd59656b2c2e9b995ab9ac5f70322690ccf91a2afcec7aa0d603",
+      "patch_sha256": "eb26f0d1c4bc7a3fd28e25cc13fde1c505b02a33d1a46f6760169805ff5ab8bc",
       "applied_tree": "openshift/deployment/intrinsic-core",
       "changed_upstream_files": [
         {
           "path": "openshift/deployment/intrinsic-core/intrinsic/kubernetes/workcell_spec/chartassignment.go",
-          "current_sha256": "d79fc9f877ed422b4f24b99f8fd48da2f2bcdbc3af21cd5d0c2a0f98826f7244"
+          "current_sha256": "789a9f15a3c23745c6665603ebd43838ce200a4e3fc3e0b96c0857e3e04e6652"
         }
       ],
       "validation": {
@@ -388,37 +388,37 @@
     },
     {
       "id": "durable-chartassignment-deployment-adapter",
-      "status": "deployed on dev01; both Core ChartAssignments reconcile with adapted images, namespace-scoped registry watch, and Jupyter loopback settings",
+      "status": "deployed on target cluster; both Core ChartAssignments reconcile with adapted images, namespace-scoped registry watch, and Jupyter loopback settings",
       "upstream_commit": "523f2e03ddf3cb46a19b15be5e81586ae2f538c2",
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "d731b2b8cc0da3aabe2610fac25ad2465f4b0e4e66db62ce06c71b11848148de"
+          "sha256": "dd45e6e39f7ca867ef718ef06165b754a2e44330b9643356ab11941fedd21f38"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "0911cc5c6003adbd22bd0d5a82df1dbf531b4b17c2af642923d5c00dc721c37d"
+          "sha256": "5d652ce4a320015f1ed253700a853dacf351ca69cfeadb4bde3a369d5b620a50"
         },
         {
           "path": "openshift/image-lock.json",
-          "sha256": "786bae6cec0bb7b316cf4df7afafd73bffd0263117ca5cbb2dfdc439e3601c36"
+          "sha256": "ca92d7dbc740eb199798b5e293ce68faec74e83aa56223046f50ddcb87708126"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "4bd2ba4fe1c2d1021e63cb39efaebd70d5826561d41c1f6f8a050d09740f9eaf"
+          "sha256": "a2ab7686ffead0e8689330d9f4c58636e583614fdb8f70ab64438dc095c3ec8c"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "c84901922b6c953d5e517e2c623ab8a7ef55a443290554ea76b3244a720fa8c5"
+          "sha256": "e78df6dabfae88b21feced7fcbf3a5dc61e3c3e0ebab02f858c5fb867bf67826"
         }
       ],
       "validation": {
         "controller_go_tests": "passed; full controller module test suite covers image overrides, namespace flag normalization, Jupyter writable-home validation, loopback binding, and idempotence",
-        "controller_build": "dev01 Binary BuildConfig chartassignment-controller-11 completed",
-        "controller_image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/chartassignment-controller@sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1",
+        "controller_build": "target cluster Binary BuildConfig chartassignment-controller-11 completed",
+        "controller_image": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:97ac26ba62714f25f96c6ba36d61b424e50493fa6bd5e843796ef5ce7695b0a1",
         "controller_rollout": "passed; single replica Ready on immutable build #11 digest",
         "base_chartassignment": "intrinsic-base.v6 Ready; latest ResourceSet Settled",
-        "registry_deployment": "adapted Quay digest and --configmap_watch_namespace=arhkp-intrinsic verified",
+        "registry_deployment": "adapted Quay digest and --configmap_watch_namespace=your-project-namespace verified",
         "workcell_deployment": "adapted Quay digest verified",
         "dependent_workloads": "resource-registry, workcell-cluster-service, world-updater, scene-object-import, and code-execution Ready; 22/22 Deployments Ready",
         "current_core_snapshot": "22/22 Deployments Ready; both ChartAssignments Ready with Settled ResourceSets; zero Core Deployment image-set changes in the before/after comparison",

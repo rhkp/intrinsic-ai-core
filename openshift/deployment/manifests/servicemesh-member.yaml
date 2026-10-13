@@ -1,9 +1,10 @@
+# This project was developed with assistance from AI tools.
 apiVersion: maistra.io/v1
 kind: ServiceMeshMember
 metadata:
   name: default
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 spec:
   controlPlaneRef:
     namespace: istio-system
-    name: data-science-smcp
+    name: your-service-mesh-control-plane

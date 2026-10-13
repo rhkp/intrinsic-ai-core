@@ -22,14 +22,14 @@ OpenShift mechanisms.
 
 - Namespaced Deployments, StatefulSets, Services, ConfigMaps, PVCs,
   NetworkPolicies, and routes, with one reviewed namespace map for
-  `arhkp-intrinsic`.
+  `your-project-namespace`.
 - Adapted copies of the needed upstream charts/templates, with provenance and
   a recorded review of every removed or changed controller assumption.
 - OpenShift service accounts, secret references, restricted-SCC compatibility,
   registry access, GPU placement, storage, and resource requests/limits.
 - RHOAI-managed serving resources only for components that pass the Intrinsic
   protocol, model, lifecycle, and performance checks.
-- Versioned dev01 configuration and reproducible deployment/verification
+- Versioned target cluster configuration and reproducible deployment/verification
   commands in this repository.
 
 The registry push and private image-pull mechanisms passed bounded live
@@ -64,7 +64,7 @@ destinations to the pilot project. The project is enrolled; the gateway uses a
 separate internal `ClusterIP` Service with plaintext HTTP/2 (`h2c`) and has no
 OpenShift Route. The routing ConfigMap is applied and the controller restarted.
 A temporary five-call h2c smoke passed through the Gateway and header-matched
-VirtualService to a sidecar-injected backend under dev01's existing STRICT mTLS
+VirtualService to a sidecar-injected backend under the target cluster's existing STRICT mTLS
 policy; all smoke resources were removed. No Core resource/skill `VirtualService`
 workload has been deployed, so an actual Intrinsic RPC remains untested. The
 mesh-generated NetworkPolicy permits pod traffic from enrolled mesh namespaces;

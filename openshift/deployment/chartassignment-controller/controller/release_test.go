@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 package chartassignment
 
 import (
@@ -42,9 +43,9 @@ func newTestAssignment(t *testing.T) *apps.ChartAssignment {
 	unmarshalYAML(t, &as, `
 metadata:
   name: test-assignment-1
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 spec:
-  namespaceName: arhkp-intrinsic
+  namespaceName: your-project-namespace
   chart:
     values:
 `)
@@ -91,7 +92,7 @@ func Test_updateSynkUsesAssignmentNamespace(t *testing.T) {
 	if fake.applyName != as.Name {
 		t.Fatalf("Apply name = %q, want %q", fake.applyName, as.Name)
 	}
-	if fake.applyOptions == nil || fake.applyOptions.Namespace != "arhkp-intrinsic" || !fake.applyOptions.EnforceNamespace {
+	if fake.applyOptions == nil || fake.applyOptions.Namespace != "your-project-namespace" || !fake.applyOptions.EnforceNamespace {
 		t.Fatalf("Apply options = %#v, want namespace-bound apply", fake.applyOptions)
 	}
 }
@@ -103,7 +104,7 @@ func Test_deleteSynkUsesAssignmentNamespace(t *testing.T) {
 
 	r.delete(as)
 
-	if fake.deleteNamespace != "arhkp-intrinsic" || fake.deleteName != as.Name {
-		t.Fatalf("Delete target = %q/%q, want arhkp-intrinsic/%q", fake.deleteNamespace, fake.deleteName, as.Name)
+	if fake.deleteNamespace != "your-project-namespace" || fake.deleteName != as.Name {
+		t.Fatalf("Delete target = %q/%q, want your-project-namespace/%q", fake.deleteNamespace, fake.deleteName, as.Name)
 	}
 }

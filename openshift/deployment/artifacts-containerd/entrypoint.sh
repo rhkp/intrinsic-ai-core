@@ -1,4 +1,5 @@
 #!/bin/sh
+# This project was developed with assistance from AI tools.
 set -eu
 
 uid="$(id -u)"

@@ -39,7 +39,7 @@ RUN set -eux; \
     rm -rf /tmp/bazelisk-amd64.deb /tmp/usr
 
 COPY openshift/deployment/omts-runner/ /opt/intrinsic/repo/openshift/deployment/omts-runner/
-COPY openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml
+COPY openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml
 COPY patches/omts-anonymous-releases.patch /opt/intrinsic/repo/patches/omts-anonymous-releases.patch
 COPY patches/omts-openshift-core-registry-keychain.patch /opt/intrinsic/repo/patches/omts-openshift-core-registry-keychain.patch
 COPY patches/intrinsic-openshift-gpu-toleration.patch /opt/intrinsic/repo/patches/intrinsic-openshift-gpu-toleration.patch
@@ -109,7 +109,7 @@ COPY --from=builder --chown=1001:0 /opt/intrinsic /opt/intrinsic
 COPY --from=builder /usr/local/bin/bazel /usr/local/bin/bazel
 COPY --from=builder --chown=1001:0 --chmod=0444 /opt/intrinsic/home/intrinsic-omts/bazel-bin/src/omts_app.zip /opt/intrinsic/omts_app.zip
 COPY --from=builder --chown=1001:0 --chmod=0444 /opt/intrinsic/home/intrinsic-omts/bazel-bin/tools/pose_estimation/register_using_train_service.zip /opt/intrinsic/register_using_train_service.zip
-COPY --from=builder --chmod=0444 /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml /etc/intrinsic/lab_bb_01/app_config.yaml
+COPY --from=builder --chmod=0444 /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml /etc/intrinsic/your-workcell/app_config.yaml
 COPY --from=builder --chmod=0444 /opt/intrinsic/home/intrinsic-omts/LICENSE /licenses/LICENSE.omts
 COPY --from=builder --chmod=0444 /opt/intrinsic/home/intrinsic-omts/TRADEMARK.md /licenses/TRADEMARK.omts.md
 COPY --from=builder --chmod=0555 /opt/intrinsic/repo/openshift/deployment/omts-runner/omts-runner /usr/local/bin/omts-runner
@@ -125,7 +125,7 @@ RUN /usr/local/bin/omts-runner app-help >/dev/null \
 # system runtime.
 RUN cd "${INTRINSIC_OMTS_SRC}" \
     && if ! bazel --batch build \
-      --config=lab_bb_01 \
+      --config=your-workcell \
       //:omts_solution >/tmp/omts-solution-smoke.log 2>&1; then \
       tail -n 100 /tmp/omts-solution-smoke.log; \
       exit 1; \

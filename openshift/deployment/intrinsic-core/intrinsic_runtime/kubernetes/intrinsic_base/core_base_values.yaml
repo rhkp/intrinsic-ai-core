@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 # Copyright 2026 Intrinsic Innovation LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +15,7 @@
 
 # Namespace of the TimescaleDB pod. The default value provided here can be
 # overridden in tests.
-tsdb_namespace: "arhkp-intrinsic"
+tsdb_namespace: "your-project-namespace"
 
 intrinsic_ai:
   organization: intrinsic

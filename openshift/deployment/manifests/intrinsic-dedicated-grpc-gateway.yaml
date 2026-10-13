@@ -1,14 +1,15 @@
+# This project was developed with assistance from AI tools.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: intrinsic-grpc-gateway
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: intrinsic-grpc-gateway
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
   labels:
     app.kubernetes.io/name: intrinsic-grpc-gateway
 spec:
@@ -32,7 +33,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: intrinsic-grpc-gateway
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
   labels:
     app.kubernetes.io/name: intrinsic-grpc-gateway
 spec:
@@ -66,7 +67,7 @@ apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: intrinsic-grpc-internal
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 spec:
   selector:
     app.kubernetes.io/name: intrinsic-grpc-gateway
@@ -77,7 +78,7 @@ spec:
         name: grpc-mtls
         protocol: HTTPS
       hosts:
-        - intrinsic-grpc-gateway.arhkp-intrinsic.svc.cluster.local
+        - intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local
         - "*"
       tls:
         mode: ISTIO_MUTUAL

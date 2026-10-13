@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Prepare pinned upstream ChartAssignments for local OpenShift render checks.
 
 This is a preflight helper only. Deployment uses the adapted chart executable,
@@ -15,8 +16,8 @@ from pathlib import Path
 import yaml
 
 
-DEFAULT_PROJECT = "arhkp-intrinsic"
-DEFAULT_REGISTRY = "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic"
+DEFAULT_PROJECT = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
+DEFAULT_REGISTRY = "image-registry.openshift-image-registry.svc:5000/your-project-namespace"
 CLUSTER_NAME = "openshift-pilot"
 
 

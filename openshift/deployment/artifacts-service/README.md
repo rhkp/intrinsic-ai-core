@@ -1,4 +1,7 @@
 # OpenShift ArtifactService image
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
 
 The pinned upstream `oci_image.go` writer imports OCI content into containerd
 and then unpacks it with `containerd.DefaultSnapshotter` (`overlayfs`). Upstream

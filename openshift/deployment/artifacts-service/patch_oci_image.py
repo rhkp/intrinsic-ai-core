@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Apply the reviewed OpenShift-only OCI image writer adaptation."""
 
 from __future__ import annotations

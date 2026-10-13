@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Bounded dev01 GPU scheduling/device smoke; always deletes its temporary pod."""
+# This project was developed with assistance from AI tools.
+"""Bounded GPU scheduling/device smoke; always deletes its temporary pod."""
 
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import sys
 from decimal import Decimal
@@ -64,18 +66,19 @@ def main() -> int:
         if free < 1:
             raise PilotError("No aggregate GPU request headroom remains; no smoke pod was created.")
 
-        expected_taint = {"key": "g5-gpu", "value": "true", "effect": "NoSchedule"}
+        gpu_taint_key = os.environ.get("OPENSHIFT_GPU_TAINT_KEY", "your-gpu-taint-key")
+        expected_taint = {"key": gpu_taint_key, "value": "true", "effect": "NoSchedule"}
         for node in gpu_nodes:
             gpu_taints = [
                 {key: taint.get(key) for key in ("key", "value", "effect")}
                 for taint in node.get("spec", {}).get("taints", [])
-                if taint.get("key") == "g5-gpu"
+                if taint.get("key") == gpu_taint_key
             ]
             if gpu_taints != [expected_taint]:
-                raise PilotError("GPU-node taint differs from the reviewed g5-gpu=true:NoSchedule policy.")
+                raise PilotError("GPU-node taint differs from OPENSHIFT_GPU_TAINT_KEY=true:NoSchedule.")
 
         tolerations = [
-            {"key": "g5-gpu", "operator": "Equal", "value": "true", "effect": "NoSchedule"}
+            {"key": gpu_taint_key, "operator": "Equal", "value": "true", "effect": "NoSchedule"}
         ]
         manifest = {
             "apiVersion": "v1",

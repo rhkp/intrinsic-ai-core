@@ -2,7 +2,7 @@
 
 **Created:** 2026-10-01 · **Updated:** 2026-10-07
 **Status (2026-10-07):** Core and OMTS workloads are applied in
-`arhkp-intrinsic`; all four ResourceSets are currently settled. The
+`your-project-namespace`; all four ResourceSets are currently settled. The
 `move_to_contact` image fix is deployed: the native PubSub client now targets
 the project Zenoh router, and the skill Pod is Ready with zero restarts. That
 fix has not passed an actual skill execution. The current run is blocked earlier
@@ -15,9 +15,9 @@ A read-only inspection found the recreated socket is owned by UID/GID
 or `DAC_OVERRIDE` because the OpenShift SCC drops all capabilities. The local
 controller/SCC change requests that capability for the exact ICON container,
 but it is not yet deployed or verified. One attempted reset also used the
-upstream updater's default CNC-cell file list against `lab_bb_01`; three files
+upstream updater's default CNC-cell file list against `your-workcell`; three files
 were applied before it failed on the absent `cnc_enclosure`. The correct
-`lab_bb_01` updates were applied afterward, but the live world may retain extra
+`your-workcell` updates were applied afterward, but the live world may retain extra
 CNC-cell frames. No complete OpenShift cycle or viewer pass is verified.
 [OpenShift deployment journal](openshift/README.md) · [Current pod reference](PODS_README.md) · [Demo results](DEMO_README.md)
 [Deployment approaches](approaches/README.md) · [Archived hybrid experiment](approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
@@ -42,10 +42,9 @@ readiness as proof that ICON's realtime loop and HWM are healthy.
 
 ## 1. Recommendation
 
-Target the selected GPU-capable **dev01 OpenShift** cluster after confirming
-its provider/topology, product versions, and available capacity. ROSA remains a
-likely context, but the current inventory has not established whether dev01 is
-ROSA or self-managed.
+Target the selected GPU-capable OpenShift cluster after confirming its
+provider/topology, product versions, and available capacity. Verify whether the
+target is managed or self-managed before deployment.
 The immediate goal is to stabilize and prove the Intrinsic simulation as native
 OpenShift workloads. Then integrate the perception model lifecycle with **Red Hat OpenShift AI
 (RHOAI)** on that cluster.
@@ -71,7 +70,7 @@ integration must use appropriate serving, workbench, registry, or pipeline APIs.
 
 There are two separate deliverables:
 
-1. **Simulation parity:** Intrinsic Core, the `lab_bb_01` simulated workcell,
+1. **Simulation parity:** Intrinsic Core, the `your-workcell` simulated workcell,
    GPU-backed inference, and the RViz view work on ROSA.
 2. **Red Hat AI integration:** a validated OpenShift AI serving integration,
    reproducible perception evaluation, and versioned model promotion are connected
@@ -90,11 +89,11 @@ go/no-go questions.
 
 | Area | Observed baseline | Still unproven |
 | --- | --- | --- |
-| Platform | Upstream comparison ran on Ubuntu/K3s on the separate AWS VM; dev01 is a distinct OpenShift 4.20 target using CRI-O and project-scoped resources | High availability, node-loss recovery, and behavior under representative multi-user load |
-| Deployment | Core and OMTS ChartAssignments are Ready; required simulation, inference, and viewer Pods are Running in `arhkp-intrinsic` | Full pick completion and recovery after OpenShift node or storage failure |
-| GPU | dev01 inference is 3/3 Ready on an A10G; the demo reached camera capture and pose estimation | Quantitative model accuracy, latency, and capacity under a representative workload |
+| Platform | Upstream comparison ran on Ubuntu/K3s on the separate AWS VM; the target is a distinct OpenShift environment using CRI-O and project-scoped resources | High availability, node-loss recovery, and behavior under representative multi-user load |
+| Deployment | Core and OMTS ChartAssignments are Ready; required simulation, inference, and viewer Pods are Running in `your-project-namespace` | Full pick completion and recovery after OpenShift node or storage failure |
+| GPU | GPU-backed inference was Ready and the demo reached camera capture and pose estimation | Quantitative model accuracy, latency, and capacity under a representative workload |
 | Visualization | Namespace-local RViz/noVNC is verified through a loopback-only port-forward; Gazebo supplies the simulation state | Longer-running viewer stability and measured render performance |
-| Application | A bounded dev01 simulation cycle connects, perceives the stock, and reaches motion planning; planner reports the same gripper/stock collision observed on AWS | Completed machine-tending cycle; successful `move_to_contact` and changed simulator state |
+| Application | A bounded target cluster simulation cycle connects, perceives the stock, and reaches motion planning; planner reports the same gripper/stock collision observed on AWS | Completed machine-tending cycle; successful `move_to_contact` and changed simulator state |
 | Recovery | Existing VM recovered after stop/start and the documented device-plugin fix | OpenShift rescheduling, storage reattachment, or high availability |
 
 We have now run bounded, one-cycle simulation attempts. A missing gripper command
@@ -103,11 +102,11 @@ demonstrated perception and motion but stopped on a repeatable workpiece/enclosu
 collision during unloading, including after a world reset. See the
 [demo runbook](DEMO_README.md). **No complete cycle has passed.**
 
-On dev01, the pinned solution and all four `lab_bb_01` scene updates were
+on the target cluster, the pinned solution and all four `your-workcell` scene updates were
 applied, the simulator reset successfully, ICON returned to `kMotionEnabled`,
 and the one-cycle app reached motion planning. It stopped on a gripper-finger /
 raw-stock collision, consistent with the AWS behavior. The private RViz/noVNC
-viewer is deployed in `arhkp-intrinsic`; see the
+viewer is deployed in `your-project-namespace`; see the
 [OpenShift viewer runbook](openshift/deployment/viewer/README.md). This verifies
 the OpenShift deployment and visual demo path, not a completed pick.
 
@@ -115,59 +114,36 @@ Use the successful intermediate steps as reproducible platform checks, and track
 the existing simulation failure separately. A full-cycle pass remains an
 acceptance goal; reproducing the existing failure does not satisfy that goal.
 
-### Observed resource snapshot — 2026-09-30
+### Resource sizing
 
-With the simulator running, models loaded, and no demo cycle active, the 51-pod
-deployment used **1.055 CPU cores and 10.37 GiB working set** by independently
-aggregated Kubernetes metrics. The separate viewer is not included.
-
-| Group | Pods | CPU cores | Memory GiB |
-| --- | ---: | ---: | ---: |
-| Core/state/execution, including the deployment controller | 22 | 0.219 | 1.86 |
-| Skills | 8 | 0.012 | 0.92 |
-| Simulation/control | 9 | 0.684 | 4.11 |
-| Perception/inference | 3 | 0.024 | 2.90 |
-| ROS bridge | 1 | 0.095 | 0.19 |
-| Platform/ingress | 8 | 0.020 | 0.39 |
-
-The host had 8 vCPU and 30.97 GiB RAM. The single T4 reported 11,225 MiB of
-15,360 MiB memory in use with 0% utilization at that instant; the VM's 48 GPU
-time-slicing slots are not 48 devices or memory-isolated GPU allocations. PVC
-requests total 20.195 GiB, excluding additional host data, image/model caches,
-and future AI object storage. These are snapshot observations, not capacity
-requirements or peak values. Several workloads lack resource requests, and
-Gazebo's existing `12Gi` limit has no memory request.
-
-Use **16 vCPU, 48 GiB RAM, and one exclusive 16 GB-class GPU** only as an initial
-capacity-check hypothesis for a trial. It is neither an upstream minimum nor a
-Red Hat sizing recommendation, and excludes platform overhead, concurrent AI
-jobs, image/build caches, extra replicas, and high availability. P0 must measure
-active-cycle CPU/RAM/GPU peaks and model load/reload behavior, then compare the
-measured envelope with free allocatable capacity and set per-container
-requests/limits. Do not size the OpenShift cluster from the VM snapshot alone.
+Exact node and pod counts, CPU/RAM/GPU usage, and storage requests are
+environment-specific and belong in local inventory, not tracked documentation.
+Measure active-cycle CPU/RAM/GPU peaks and model load/reload behavior, compare
+the results with currently available capacity, and set per-container
+requests/limits. Do not size the OpenShift cluster from a separate VM snapshot.
 
 ## 3. Target assumptions and prerequisites
 
-dev01 is now the selected target. A read-only preflight on 2026-10-02 confirmed
-OpenShift 4.20.26, RHOAI 2.25.9, and KServe in `Managed` state. The hybrid
-experiment still does not validate full simulation capacity or policy there;
-dev02 results do not establish dev01 readiness. Capacity and policy can change,
-so treat this as a dated inventory, not a reservation:
+The target cluster is selected. Read-only preflight checked the OpenShift and
+RHOAI releases, KServe state, capacity, and policy. Keep exact versions and live
+inventory in an untracked local record; comparison-environment results do not
+establish target-cluster readiness. Capacity and policy can change, so recheck
+before deployment:
 
 | Input | Confirmed state / remaining check |
 | --- | --- |
-| Provider/topology | dev01 selected; confirm whether it is ROSA or self-managed, its topology, and application administration ownership |
-| OpenShift and AI releases | OpenShift 4.20.26, RHOAI 2.25.9, KServe `Managed`; verify exact support/lifecycle and serving APIs before implementation |
+| Provider/topology | target cluster selected; confirm whether it is ROSA or self-managed, its topology, and application administration ownership |
+| OpenShift and AI releases | Record exact versions locally; verify support/lifecycle and serving APIs before implementation |
 | Architecture | Worker architecture not included in this preflight; confirm x86-64 for current Linux amd64 artifacts |
-| GPU | 5 allocatable, 4 requested, 1 estimated free across the cluster: four A10G GPUs and one unspecified product. All five GPU nodes are Ready and tainted `g5-gpu=true:NoSchedule`. A restricted one-GPU pod using that exact toleration scheduled, saw `/dev/nvidia0`, and self-cleaned on 2026-10-02. This is cluster-wide estimated capacity, not a reservation; project GPU quota is absent. |
-| CPU and RAM | 207 cores / 811.32 GiB allocatable; active pod requests 82.37 cores / 198.84 GiB; aggregate request headroom 124.63 cores / 612.48 GiB. GPU nodes alone show 19.93 cores / 118.10 GiB estimated headroom. Per-node placement, taints, affinity, and platform reservations can still block scheduling. |
-| Storage | `gp2-csi`, `gp3-csi`, `ocs-storagecluster-ceph-rbd`, `ocs-storagecluster-cephfs`, and `openshift-storage.noobaa.io` are present. Confirm access mode, topology, snapshots, quota, and approved object storage. |
+| GPU | GPU scheduling was checked with a restricted smoke pod. Keep node counts, GPU product, taints, and capacity in local inventory; project quota and reservation must be checked separately. |
+| CPU and RAM | Keep allocatable capacity and request headroom in local inventory. Per-node placement, taints, affinity, and platform reservations can still block scheduling. |
+| Storage | `your-legacy-block-storage-class`, `your-block-storage-class`, `your-shared-block-storage-class`, `your-shared-filesystem-storage-class`, and `your-object-storage-class` are present. Confirm access mode, topology, snapshots, quota, and approved object storage. |
 | Registry | First test the OpenShift integrated registry through a loopback-only port-forward, with the service CA and project-scoped push/pull access verified; use a platform-approved private OCI registry if this path is unavailable |
 | Networking | Confirm private service connectivity, an approved viewer ingress path, DNS, gRPC, and access to required registries |
-| Governance | `arhkp-intrinsic` is the selected application project and has the RHOAI dashboard marker. Five application PVCs are Bound; quota and LimitRange are not configured. Service Mesh enrollment created mesh-managed NetworkPolicies. The upstream cluster-scoped ChartAssignment/controller path is not used; Namespaced ChartAssignment/ResourceSet CRDs and a project-scoped controller are installed. Core RBAC was reviewed for the deployed slice; generated resource/skill lifecycle permissions and broader runtime inventory still need validation. |
-| OpenShift AI | Seven ServingRuntimes are visible; no Triton runtime is currently detected. Reconfirm entitlement, serving mode, runtime, and release-specific dependencies before the RHOAI phase. |
+| Governance | `your-project-namespace` is the application-project placeholder. Check dashboard eligibility, PVC state, quota, LimitRange, Service Mesh policies, and project-scoped RBAC before use. |
+| OpenShift AI | Check ServingRuntime and Triton availability locally. Reconfirm entitlement, serving mode, runtime, and release-specific dependencies before the RHOAI phase. |
 
-For this pilot, the selected application namespace is `arhkp-intrinsic`, as
+For this pilot, the selected application namespace is `your-project-namespace`, as
 requested. This is not yet supported by the unmodified upstream installer:
 source/controller namespace creation, cleanup, labels, and cross-service DNS
 must be adapted and verified to keep every Intrinsic-owned resource in this
@@ -180,11 +156,11 @@ OpenShift 4.16–4.20 for x86-64; verify the exact installed patch versions and
 platform before selecting a target.
 
 Make **stay on 2.25.x versus migrate to 3.x** an explicit P0 decision. The
-preflight reconfirmed dev01 at 2.25.9; dev02's 3.4.1 inventory is not a
+preflight reconfirmed target cluster at your-rhoai-version; the comparison cluster's your-comparison-rhoai-version inventory is not a
 drop-in target or compatibility proof. Red Hat's current migration guidance
 does not list 3.4 as a supported migration target from 2.25.x: it lists 3.3.2+
 from 2.25.4 and 3.5 from 2.25.10, with a required migration assessment. Thus a
-2.25.9 source would not meet the stated 3.5 minimum without first reaching
+your-rhoai-version source would not meet the stated 3.5 minimum without first reaching
 2.25.10. Do not start an RHOAI upgrade as an implicit part of this application
 migration; follow the matching [supported migration guidance](https://access.redhat.com/articles/7133758),
 including the required `rhai-cli` migration assessment, and obtain the platform
@@ -210,7 +186,7 @@ not treat the presence of a GPU node as proof that GPU workloads are enabled.
 Use existing OpenShift platform services and Operator-managed GPU integration. Do not
 run the Ubuntu `setup_k3s.sh` or `setup_nvidia.sh` installers on OpenShift nodes.
 OpenShift uses CRI-O. The linked [OpenShift 4.20 architecture documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/architecture/architecture)
-matches dev01's reported 4.20 release. Changing a containerd
+matches the target cluster's reported 4.20 release. Changing a containerd
 socket path to a CRI-O socket does not make Intrinsic's containerd client
 compatible. After the target release is selected, use that release's docs
 throughout implementation.
@@ -234,7 +210,7 @@ flowchart TB
     Git[Reviewed source and configuration] --> Build[Build and publish immutable images]
     Build --> Registry[Approved OCI registry]
     Git --> GitOps[OpenShift GitOps]
-    subgraph ROSA[Selected dev01 OpenShift cluster]
+    subgraph ROSA[Selected target OpenShift cluster]
         GitOps --> Desired[OpenShift-native manifests and overlays]
         Desired --> Core[Core APIs / executive / skills / world]
         Core --> Robot[Motion planner / ICON / simulated robot adapters]
@@ -274,8 +250,8 @@ selected cluster's naming, RBAC, and DNS constraints.
 | --- | --- | --- |
 | OpenShift platform | `openshift-*` and operator-selected namespaces | OpenShift networking, storage, monitoring, and GPU Operators; cluster-admin owned, not application projects. |
 | RHOAI platform | RHOAI release defaults such as `redhat-ods-operator`, `redhat-ods-applications`, and `rhods-notebooks` | RHOAI Operator, dashboard/controllers, and default basic workbenches. See the [2.25 namespace architecture](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/installing_and_uninstalling_openshift_ai_self-managed/architecture-of-openshift-ai-self-managed_install); names vary with release and configuration. Keep Intrinsic runtime workloads out of these namespaces. |
-| Intrinsic application | `arhkp-intrinsic` | All Intrinsic Core, OMTS, and viewer resources for this pilot, grouped by service account and labels. Requires source/controller changes to eliminate upstream namespace creation and rewrite fixed DNS and namespace selectors. |
-| RHOAI project | `arhkp-intrinsic` (subject to dashboard and policy validation) | Candidate home for the model-serving deployment and, if permitted, SDK workbench/evaluation jobs. The dashboard marker exists; verify project eligibility and serving support before using RHOAI APIs. |
+| Intrinsic application | `your-project-namespace` | All Intrinsic Core, OMTS, and viewer resources for this pilot, grouped by service account and labels. Requires source/controller changes to eliminate upstream namespace creation and rewrite fixed DNS and namespace selectors. |
+| RHOAI project | `your-project-namespace` (subject to dashboard and policy validation) | Candidate home for the model-serving deployment and, if permitted, SDK workbench/evaluation jobs. The dashboard marker exists; verify project eligibility and serving support before using RHOAI APIs. |
 | RHOAI model registry | Release-configured namespace, commonly `rhoai-model-registries` in 2.25 | Optional registry service and metadata. See the [2.25 namespace configuration](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/enabling_the_model_registry_component/enabling-the-model-registry-component_model-registry-config). Registry metadata does not hold the model bytes or replace Intrinsic registries. |
 
 RHOAI operator, dashboard, registry, workbench, and serving workloads can span
@@ -285,7 +261,7 @@ guarantee node colocation, or provide isolation by themselves. Enforce those
 requirements through scheduler constraints, quotas, service accounts, RBAC,
 SCCs, and network policies.
 
-Keep Intrinsic application resources in `arhkp-intrinsic` for this pilot. Some
+Keep Intrinsic application resources in `your-project-namespace` for this pilot. Some
 DNS names are compiled into source, and upstream chart code can create and later
 delete chart-specific namespaces; patch these behaviors and reject any rendered
 manifest that escapes the selected project. If RHOAI policy requires a separate
@@ -295,7 +271,7 @@ creating it.
 ## 5. Component placement
 
 This mapping covers the existing workload groups. It supplements, rather than
-duplicates, the complete 51-pod reference.
+duplicates, the complete reference deployment.
 
 | Current component(s) | First OpenShift placement | OpenShift AI opportunity / boundary |
 | --- | --- | --- |
@@ -335,10 +311,10 @@ environment dump, or private address is included here.
 | B5 | `data-store` mounts `/var/apps/intrinsic-db`; four PVCs use K3s local storage classes. | Move durable files to suitable CSI volumes; classify ephemeral caches separately; prove restart and restore behavior. |
 | B6 | Inference wrapper and Triton share `/models`, memory-backed `/dev/shm`, a Unix socket, and explicit model load/unload operations. | Keep the pair colocated for parity. An independently deployed Triton endpoint requires adapter changes, not just a new Service name. |
 | B7 | Source contains an explicit `app-intrinsic-base` CAS DNS name; live services include Istio, Zenoh TCP, and an HTTP gateway UDP NodePort. | Preserve or parameterize DNS/routing contracts; establish protocol-by-protocol network policy. Do not assume an HTTPS Route transports raw TCP or UDP. |
-| B8 | The upstream Cloud Robotics `ChartAssignment` CRD/controller path is absent on dev01 and its original RBAC is cluster-scoped. Intrinsic services generate resource and skill charts dynamically. | The Namespaced `ChartAssignment`/`ResourceSet` pilot is installed in `arhkp-intrinsic`. Its 13-rule Role covers only project workload kinds; live impersonated authorization checks confirmed workload creation and denied Secret, Namespace, ClusterRole, and ClusterRoleBinding creation. The smoke itself used only a ConfigMap. The owned adapter rejects cluster-scoped output. Runtime-generated resource/skill charts and cleanup still need validation. Never install the upstream cluster-wide controller. |
+| B8 | The upstream Cloud Robotics `ChartAssignment` CRD/controller path is absent on the target cluster and its original RBAC is cluster-scoped. Intrinsic services generate resource and skill charts dynamically. | The Namespaced `ChartAssignment`/`ResourceSet` pilot is installed in `your-project-namespace`. Its 13-rule Role covers only project workload kinds; live impersonated authorization checks confirmed workload creation and denied Secret, Namespace, ClusterRole, and ClusterRoleBinding creation. The smoke itself used only a ConfigMap. The owned adapter rejects cluster-scoped output. Runtime-generated resource/skill charts and cleanup still need validation. Never install the upstream cluster-wide controller. |
 | B9 | Many application containers have no CPU/memory requests; Gazebo has a `12Gi` limit with a zero memory request. | Measure demand and set realistic requests/limits before shared-cluster scheduling. Account for memory-backed volumes as well. |
 | B10 | The reference viewer is a VM systemd service; it relies on ROS, X11, software OpenGL, private Unix sockets, and SSH. | Package a non-root container with writable runtime directories; use a private Service and loopback-only Mac port-forward for the demo. |
-| B11 | The upstream applier creates per-chart namespaces; resource/skill renderers also hard-code namespaces, and base/app chart snapshots refer to several old Service DNS names and namespace selectors. | The local no-apply adapter rendered the pinned base/app snapshots into `arhkp-intrinsic`, replaced the known gateway-dependent gRPC paths, retargeted NetworkPolicy namespace selectors, and fails on remaining legacy namespace references. Reproduce this result from the owned patched-source build and validate generated resource/skill charts before apply; application cleanup must never create/delete projects or shared namespaces. |
+| B11 | The upstream applier creates per-chart namespaces; resource/skill renderers also hard-code namespaces, and base/app chart snapshots refer to several old Service DNS names and namespace selectors. | The local no-apply adapter rendered the pinned base/app snapshots into `your-project-namespace`, replaced the known gateway-dependent gRPC paths, retargeted NetworkPolicy namespace selectors, and fails on remaining legacy namespace references. Reproduce this result from the owned patched-source build and validate generated resource/skill charts before apply; application cleanup must never create/delete projects or shared namespaces. |
 
 All 70 inspected application/infrastructure containers use `IfNotPresent`, not
 `Never`. The image portability problem is how images reach the runtime, not an
@@ -363,7 +339,7 @@ pull credentials and inject them through approved secret management.
 
 Target the cluster's `restricted-v2` SCC policy and SELinux enforcement. The
 linked [OpenShift 4.20 SCC documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/authentication_and_authorization/managing-pod-security-policies)
-matches dev01's reported release; use the matching guide if the target changes.
+matches the target cluster's reported release; use the matching guide if the target changes.
 SCCs constrain UIDs and host access. Read-only root filesystems
 alone do not establish compatibility. Test image startup, model downloads,
 shared memory, and socket permissions under the actual admitted identity.
@@ -409,7 +385,7 @@ and CAS. The [controller](https://github.com/intrinsic-ai/intrinsic-core/blob/20
 issues model load/unload requests.
 
 RHOAI's single-model serving platform uses KServe `ServingRuntime` and
-`InferenceService` resources. For the previously reported dev01 candidate,
+`InferenceService` resources. For the previously reported target cluster candidate,
 consult the [RHOAI 2.25 serving guide](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/configuring_your_model-serving_platform/configuring_model_servers_on_the_single_model_serving_platform)
 and [2.x support matrix](https://access.redhat.com/articles/rhoai-supported-configs).
 The matrix places NVIDIA Triton in the separate **Tested and verified**
@@ -417,7 +393,7 @@ category, not **Supported model-serving runtimes**; it lists gRPC as the default
 protocol, REST as additional, and Standard/advanced deployment modes. Verify
 the exact runtime/mode and support scope for the selected release. This listing
 does not certify the Intrinsic wrapper, images, models, or integration. RHOAI
-3.4.1 was observed on dev02 only and is not evidence about dev01 or the full
+your-comparison-rhoai-version was observed on comparison cluster only and is not evidence about target cluster or the full
 deployment target. Recheck live RHOAI/KServe state and select version-matched
 procedures before implementation.
 
@@ -487,7 +463,7 @@ Keep its permissions and GPU quota distinct from the robot runtime.
 
 Validate a [custom workbench image](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/managing_openshift_ai/managing_openshift_ai)
 against the SDK's Python and native-library requirements. This is the candidate
-dev01 guide; use the selected target release's guide after P0. Preserve the embedded
+target cluster guide; use the selected target release's guide after P0. Preserve the embedded
 application Jupyter/code-execution service until its runtime contract is separately
 understood. Adding a workbench is useful even before inference extraction succeeds.
 
@@ -526,14 +502,14 @@ cluster permits it. Keep workbench experiments and training from competing with
 the baseline run. With only one usable GPU, schedule these activities serially.
 Introduce sharing only after measuring memory headroom and latency under load.
 
-The VM's 48 advertised slots represent one physical GPU, not 48 GPUs or isolated
+The VM's advertised shared slots represent one physical GPU, not isolated
 memory partitions. NVIDIA documents that
 [time slicing](https://docs.nvidia.com/datacenter/cloud-native/openshift/latest/time-slicing-gpus-in-openshift.html)
 does not provide memory/fault isolation. Preserve neither that replica count nor
 the VM driver version by default; use the target's validated Operator stack.
 
 Confirm [GPU Operator platform support](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/platform-support.html).
-If dev01 or a later target uses a different GPU, verify TensorRT engine compatibility and rebuild
+If target cluster or a later target uses a different GPU, verify TensorRT engine compatibility and rebuild
 engines when required; [serialized engines are hardware/version dependent](https://docs.nvidia.com/deeplearning/tensorrt/latest/getting-started/support-matrix.html).
 Do not substitute a new model or preprocessing pipeline during platform parity.
 
@@ -548,7 +524,7 @@ Do not substitute a new model or preprocessing pipeline during platform parity.
   network policies and the required application-level identity/TLS controls.
 - Preserve the upstream gRPC path/header dispatch with namespace-scoped Istio
   `VirtualService` resources attached to a dedicated injected Service Mesh
-  gateway Deployment in `arhkp-intrinsic`. The adapted Core resource renderer
+  gateway Deployment in `your-project-namespace`. The adapted Core resource renderer
   requires `INTRINSIC_INGRESS_ADDRESS` to use the Gateway Service's internal
   port 80; that listener speaks HTTP/2, and the port-80 gRPC smoke passed. The
   separate port-443 `ISTIO_MUTUAL` listener remains available to clients such as
@@ -565,7 +541,7 @@ Do not substitute a new model or preprocessing pipeline during platform parity.
   Prove which are needed for this simulation; avoid exposing unused ports.
 - Apply service-account RBAC and network policies for the actual graph, including
   DNS, Core APIs, registry pulls, CAS, model storage, viewer/ROS, and observability.
-- RViz/noVNC is deployed in `arhkp-intrinsic` with software rendering. Its
+- RViz/noVNC is deployed in `your-project-namespace` with software rendering. Its
   ClusterIP Service has no public Route. Access it from the Mac with
   `oc port-forward` bound to `127.0.0.1`; an AWS VM or SSH tunnel is not part
   of this path. The `simulation-service` remains gRPC on 8088 and is not a
@@ -620,9 +596,9 @@ behavioral baseline; the immediate task is to recover one failing runtime path.
    current world mutations visible in the notes; do not reset or restart while
    diagnosing the socket error.
 2. **Match the cell setup.** The deployed solution is built with
-   `--config=lab_bb_01`. The upstream `apply_scene_updates` tool defaults to the
+   `--config=your-workcell`. The upstream `apply_scene_updates` tool defaults to the
    `omts` CNC update files independently of that Bazel build setting. For this
-   solution, pass the four `configs/lab_bb_01/*.updates.pbtxt` files explicitly
+   solution, pass the four `configs/your-workcell/*.updates.pbtxt` files explicitly
    in upstream order; do not use the default file list.
 3. **Fix the measured socket permission mismatch.** Upstream/K3s uses the
    node-local `/tmp/intrinsic_icon` hostPath; OpenShift maps it to
@@ -630,7 +606,7 @@ behavioral baseline; the immediate task is to recover one failing runtime path.
    socket is mode `0755`, so the shared group cannot connect. The local
    adaptation requests `DAC_OVERRIDE` only for the ICON main container. STRICT
    mTLS and `simulation-server` routing are not implicated by this `EACCES`.
-4. **Restore a deterministic `lab_bb_01` baseline.** Use the pinned solution
+4. **Restore a deterministic `your-workcell` baseline.** Use the pinned solution
    and matching cell updates, then prove the ICON HWM is active and remains
    connected after any required simulator reset. Do not count Pod readiness as
    this gate.
@@ -665,7 +641,7 @@ OpenShift constraint it resolves, and a verification result.
 | Admission and tenancy | All application pods start under documented SCCs/service accounts; any exception is narrow and explicitly accepted |
 | Project and namespace ownership | Required projects are RHOAI-discoverable; generated resources stay within the reviewed namespace map; no unapproved namespace is created or deleted |
 | Core functionality | API calls, asset/resource/skill discovery, executive, world, and simulation status work without external public access |
-| Visible parity | Same `lab_bb_01` geometry/frames visible in RViz; ROS bridge updates continue |
+| Visible parity | Same `your-workcell` geometry/frames visible in RViz; ROS bridge updates continue |
 | GPU inference | Expected models become ready and process the agreed inputs; GPU use is observed, not inferred from pod readiness |
 | Perception parity | Fixed RGB-D/geometry/calibration inputs give comparable detections and 6D poses within tolerances defined in P0 |
 | Motion regression | A bounded, simulation-only sequence completes and world/robot state updates agree; resolve or explicitly scope the existing unload collision rather than counting it as a pass |
@@ -705,7 +681,7 @@ physical robot's real-time control loop to a remote cluster.
 
 ## 13. Remaining repository outputs and next action
 
-The plan, [current dev01 pilot status](openshift/README.md),
+The plan, [current target cluster pilot status](openshift/README.md),
 [deployment model](openshift/DEPLOYMENT_MODEL.md), [source inventory](openshift/deployment/UPSTREAM_SOURCES.md),
 [adaptation record](openshift/deployment/ADAPTATIONS.md), and
 [registry adaptation](openshift/REGISTRY_ADAPTATION.md) are maintained in the
@@ -714,10 +690,10 @@ does not mean the corresponding workload behavior has been validated:
 
 ```text
 openshift/
-  README.md                  # dev01 status, preflight, smoke checks, and gates
+  README.md                  # target cluster status, preflight, smoke checks, and gates
   DEPLOYMENT_MODEL.md        # OpenShift-owned packaging and controller boundary
   REGISTRY_ADAPTATION.md     # first source-patch spike and verification status
-  overlays/dev01/            # security, registry, storage, networking, placement
+  overlays/target-cluster/                  # security, registry, storage, networking, placement
   gitops/                    # reviewed desired state and controller boundaries
 rhoai/
   serving/                   # validated custom runtime and inference service
@@ -748,7 +724,7 @@ port 80. The separate `ISTIO_MUTUAL` listener on port 443 remains available to
 clients configured for that path, including the OMTS deployer. Neither listener
 uses an external OpenShift Route.
 
-The Gateway routing adaptation is built and applied to dev01. The project
+The Gateway routing adaptation is built and applied to target cluster. The project
 reports Ready mesh membership; the injected Gateway proxy and internal endpoint
 are Ready; the port-80 h2c and port-443 `ISTIO_MUTUAL` listeners and project
 Gateway listeners are verified. The 2026-10-06 correction aligned
@@ -757,7 +733,7 @@ re-rendered both Core charts. The shared Gateway, control plane, and public Rout
 slice is deployed, with all four ChartAssignments Ready and all five PVCs
 Bound. Controller build 22 includes the named OpenShift DNS endpoint ports and
 the World Conductor Service port; RuntimeDB and the other injected clients are
-Ready under strict mesh mTLS. The pinned OMTS client populated RuntimeDB and stored `lab_bb_01` in
+Ready under strict mesh mTLS. The pinned OMTS client populated RuntimeDB and stored `your-workcell` in
 HSS, but `StartSolution` failed with gRPC `UNAVAILABLE` before dynamic resource
 or skill charts were applied. The World Service now exposes port 8082 and the
 current `gzserver` proxy runs with `--sleep`, confirming there is no active

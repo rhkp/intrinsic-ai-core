@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
-readonly namespace="arhkp-intrinsic"
+readonly namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
 readonly runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly repo_root="$(cd "${runner_dir}/../../.." && pwd)"
 readonly context="$(mktemp -d "${TMPDIR:-/tmp}/omts-build-context.XXXXXX")"
@@ -9,7 +10,7 @@ trap 'rm -rf "${context}"' EXIT
 
 mkdir -p \
   "${context}/openshift/deployment/omts-runner" \
-  "${context}/openshift/deployment/intrinsic-omts/configs/lab_bb_01" \
+  "${context}/openshift/deployment/intrinsic-omts/configs/your-workcell" \
   "${context}/patches"
 for source_file in \
   Containerfile.toolchain \
@@ -24,8 +25,8 @@ for source_file in \
   cp "${runner_dir}/${source_file}" \
     "${context}/openshift/deployment/omts-runner/${source_file}"
 done
-cp "${repo_root}/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml" \
-  "${context}/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml"
+cp "${repo_root}/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml" \
+  "${context}/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml"
 for patch_file in \
   omts-anonymous-releases.patch \
   omts-openshift-core-registry-keychain.patch \

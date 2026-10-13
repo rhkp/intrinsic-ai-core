@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 // Copyright 2026 Intrinsic Innovation LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,7 +53,7 @@ import (
 
 const (
 	// Namespace is the single project used by the OpenShift pilot.
-	Namespace = "arhkp-intrinsic"
+	Namespace = "your-project-namespace"
 
 	// PartOfAppLabel is the name of the label containing the app name that a chart belongs to.
 	PartOfAppLabel    = "app.kubernetes.io/part-of"

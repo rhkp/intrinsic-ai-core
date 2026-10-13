@@ -46,7 +46,7 @@
       "source_sha256": "ef40926e4fee1b4bd26e26f53759eb1e3d6b5c8c00733ef6a109244a7d1a4d20",
       "transformations": [],
       "baseline_sha256": "ef40926e4fee1b4bd26e26f53759eb1e3d6b5c8c00733ef6a109244a7d1a4d20",
-      "current_sha256": "926ed09cdd1db3a31df6d1427275705eeeb688f0ea92b8702427b815097cab91"
+      "current_sha256": "701c19b418e1177f9517b0902f789778eb03d6a3fdfc1ef77aa7fed5450774cf"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -57,7 +57,7 @@
       "source_sha256": "96cf1a6e7560e3b3ab4a1693d9ae32df67c836a08217442b92c29603f50e3e7f",
       "transformations": [],
       "baseline_sha256": "96cf1a6e7560e3b3ab4a1693d9ae32df67c836a08217442b92c29603f50e3e7f",
-      "current_sha256": "96cf1a6e7560e3b3ab4a1693d9ae32df67c836a08217442b92c29603f50e3e7f"
+      "current_sha256": "e484eeb5a43e82b363a1e4834d5a02ff9ad65250aed4c21a0a9167fa743189d9"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -68,7 +68,7 @@
       "source_sha256": "360bb761b6d23fc7bf6ae1b13efa013f9329801acb5c77d23ce84893e3b87bf9",
       "transformations": [],
       "baseline_sha256": "360bb761b6d23fc7bf6ae1b13efa013f9329801acb5c77d23ce84893e3b87bf9",
-      "current_sha256": "360bb761b6d23fc7bf6ae1b13efa013f9329801acb5c77d23ce84893e3b87bf9"
+      "current_sha256": "7e24fca06ad4008a0fe3697d2ca93e02cf7fa15865ebce8c944eb9cf766050ba"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -79,10 +79,10 @@
       "source_sha256": "58f8045626cf9a559d01f365fc7595eeed80590845d7515b75023224f9bb2419",
       "transformations": [
         "replaced 1 upstream example email literal(s) with non-routable placeholder",
-        "OpenShift: reject inline image auth; use intrinsic-runtime in arhkp-intrinsic; remove generated dockercfg credentials"
+        "OpenShift: reject inline image auth; use intrinsic-runtime in your-project-namespace; remove generated dockercfg credentials"
       ],
       "baseline_sha256": "ac89e0b17149b731205a572727918243c188602d3c8715ae1162f9188f46b54c",
-      "current_sha256": "373feaccccd0d1b71aeab8e93f78e8f8d04f595260bea9aae9535c5297a9b499"
+      "current_sha256": "b222645be1a4a7c0c0539149179fc80dacdbdde4a6cb3aed3ddb39e139cb0412"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -93,7 +93,7 @@
       "source_sha256": "85f0b123b7d348e934e31931adf2216ffb794b8d3573dd43232cdb1aa2132bf9",
       "transformations": [],
       "baseline_sha256": "85f0b123b7d348e934e31931adf2216ffb794b8d3573dd43232cdb1aa2132bf9",
-      "current_sha256": "85f0b123b7d348e934e31931adf2216ffb794b8d3573dd43232cdb1aa2132bf9"
+      "current_sha256": "98aa0dbd318745df492ed9cbfd722e804927063d974625c0629c8d2d8607de0a"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -106,7 +106,7 @@
         "OpenShift: remove generated per-resource dockercfg Secret template; use the ServiceAccount on the rendered PodSpec"
       ],
       "baseline_sha256": "fd2d75f5f592887e2590e4de2f1f6fa834ecfc813dfeedeb031578415ed6ed49",
-      "current_sha256": "92d3440631c695b32d7321ae898b973769b95360c8f429d64e79750625fb3e50"
+      "current_sha256": "8d3180b22624107caf94cd655b4343e86bbf52da155ee1348199c932b5c75807"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -117,7 +117,7 @@
       "source_sha256": "ef45111a5ec3fbe0eafe440363101fca44c8aec47e1112363c26806d0f8b213c",
       "transformations": [],
       "baseline_sha256": "ef45111a5ec3fbe0eafe440363101fca44c8aec47e1112363c26806d0f8b213c",
-      "current_sha256": "ef45111a5ec3fbe0eafe440363101fca44c8aec47e1112363c26806d0f8b213c"
+      "current_sha256": "b71014cb7c40998c51bd0b87ceae0498f1a3e623a149dbb9a92fbf1aa1207891"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -130,7 +130,7 @@
         "OpenShift: use the project ServiceAccount and remove imagePullSecrets and generated dockercfg Secret template"
       ],
       "baseline_sha256": "53859b1a2201a74a0c15cff5e6cabe846d0964bcab0211adb6e1f7f338591589",
-      "current_sha256": "231e39e93b48dcf2113f544a7885c25c3506d78b43e3f7afb64055d474254721"
+      "current_sha256": "9de75a7e7d2c34082367df5978f7915baa36379b6f4d60bbea1033b6762881a5"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -154,7 +154,7 @@
         "Use the digest-pinned Jupyter sidecar image from the OpenShift Quay image lock."
       ],
       "baseline_sha256": "0b5e6502cc63e1fd2f8260a48030621cb16d8d23d0f112c173133ea1c4b7be33",
-      "current_sha256": "768a0bb18d88edc8ff4bc21eccd12bf8dd9b6ada4b4d417d5a10db8a1c02cad4"
+      "current_sha256": "b44b9de6f9e7c7bce897c864587fc1eab3bdae9aad9d61d0d802478c4d9910e5"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -165,7 +165,7 @@
       "source_sha256": "7a450114a0434373fe4b301ffb65dd0ee1f3f9d69dcdc10f01ea9440a052dfed",
       "transformations": [],
       "baseline_sha256": "7a450114a0434373fe4b301ffb65dd0ee1f3f9d69dcdc10f01ea9440a052dfed",
-      "current_sha256": "7a450114a0434373fe4b301ffb65dd0ee1f3f9d69dcdc10f01ea9440a052dfed"
+      "current_sha256": "e42a1e12cd431b9358614468f6829a671cf9d19c12a387da4c3d56879952feb0"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -176,7 +176,7 @@
       "source_sha256": "fbcc457d726dd3320312f2babe83831a39e060f7bad4535f463ebe0919613326",
       "transformations": [],
       "baseline_sha256": "fbcc457d726dd3320312f2babe83831a39e060f7bad4535f463ebe0919613326",
-      "current_sha256": "fbcc457d726dd3320312f2babe83831a39e060f7bad4535f463ebe0919613326"
+      "current_sha256": "c3f6dbea1120203578e38193c18e315710967783b555f93efa20df806a9c7a24"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -198,7 +198,7 @@
       "source_sha256": "f7594e475eab5ed8b491ffbc69fc56f047c5ea7d36a239856c6ae63bd6c0e75c",
       "transformations": [],
       "baseline_sha256": "f7594e475eab5ed8b491ffbc69fc56f047c5ea7d36a239856c6ae63bd6c0e75c",
-      "current_sha256": "f7594e475eab5ed8b491ffbc69fc56f047c5ea7d36a239856c6ae63bd6c0e75c"
+      "current_sha256": "438ca857d098585cb7aad42c3705f31f0f3f5abb3a12d42c0b64e2b24d4bced0"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -297,7 +297,7 @@
       "source_sha256": "a28916d99bd4c8027b2168c63ce93cc32d0335372ddee899bfb1c104a2efc08b",
       "transformations": [],
       "baseline_sha256": "a28916d99bd4c8027b2168c63ce93cc32d0335372ddee899bfb1c104a2efc08b",
-      "current_sha256": "a28916d99bd4c8027b2168c63ce93cc32d0335372ddee899bfb1c104a2efc08b"
+      "current_sha256": "ce0785634383d87aa35cc41424c2ab5404cdfdffecd00ace08e7d02968898ae1"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -308,7 +308,7 @@
       "source_sha256": "b37f36830d049e0c64300aeaa2dc67d287a356cb8be564bf8401f77abc9a4655",
       "transformations": [],
       "baseline_sha256": "b37f36830d049e0c64300aeaa2dc67d287a356cb8be564bf8401f77abc9a4655",
-      "current_sha256": "b37f36830d049e0c64300aeaa2dc67d287a356cb8be564bf8401f77abc9a4655"
+      "current_sha256": "eb53887ccb84fe9c53409f48e49f1e373c3336baeedb48cc063d908f2de46e38"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -321,7 +321,7 @@
         "replaced 1 upstream example email literal(s) with non-routable placeholder"
       ],
       "baseline_sha256": "11b9ca7e830bb6ab6f6d35abe651530ebf6f5971b2ba4efeb03633e9c71a9e47",
-      "current_sha256": "11b9ca7e830bb6ab6f6d35abe651530ebf6f5971b2ba4efeb03633e9c71a9e47"
+      "current_sha256": "301249eb8c0e0d4ad9adbbdcec7728a5f9ab74664a28c56c1d90eb86be092d13"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -332,7 +332,7 @@
       "source_sha256": "69e1925116a7eb623ad789452085c07fed798266712ec9167534c2bd9129fd08",
       "transformations": [],
       "baseline_sha256": "69e1925116a7eb623ad789452085c07fed798266712ec9167534c2bd9129fd08",
-      "current_sha256": "69e1925116a7eb623ad789452085c07fed798266712ec9167534c2bd9129fd08"
+      "current_sha256": "60428ed54d61a7b1b6c538d68559044088640b569df871b575a291a26e29645b"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -343,7 +343,7 @@
       "source_sha256": "4d14a40f88deef12c34f53c9db9723ac55270010760763d8f1445573ea2d14f2",
       "transformations": [],
       "baseline_sha256": "4d14a40f88deef12c34f53c9db9723ac55270010760763d8f1445573ea2d14f2",
-      "current_sha256": "4d14a40f88deef12c34f53c9db9723ac55270010760763d8f1445573ea2d14f2"
+      "current_sha256": "04b8e483b06651f02734c77acd1d72634e363505e792138b0d800bee2137fb66"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -365,7 +365,7 @@
       "source_sha256": "41b83823ab8593312b8a07d6b2f6065d7b1ad2fb0d45300ea1f5f5cfd023eb35",
       "transformations": [],
       "baseline_sha256": "41b83823ab8593312b8a07d6b2f6065d7b1ad2fb0d45300ea1f5f5cfd023eb35",
-      "current_sha256": "41b83823ab8593312b8a07d6b2f6065d7b1ad2fb0d45300ea1f5f5cfd023eb35"
+      "current_sha256": "4463700d4d7f6b6445d385fb851e83915b2ac20a0d1264438ffa242f6ad87eb6"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -376,7 +376,7 @@
       "source_sha256": "33c4aee4e59eef4640a2786971ce1c8006dcad5f50e72e9285dc49071306b43a",
       "transformations": [],
       "baseline_sha256": "33c4aee4e59eef4640a2786971ce1c8006dcad5f50e72e9285dc49071306b43a",
-      "current_sha256": "33c4aee4e59eef4640a2786971ce1c8006dcad5f50e72e9285dc49071306b43a"
+      "current_sha256": "bf8697fdc41170994937450649fbfa699837ceda1304b8fc3256d08b8575e1b7"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -387,7 +387,7 @@
       "source_sha256": "5f83b6d809f14c34fc2f9f3243537964c1fa776e41196793169f9fbd07f4bca9",
       "transformations": [],
       "baseline_sha256": "5f83b6d809f14c34fc2f9f3243537964c1fa776e41196793169f9fbd07f4bca9",
-      "current_sha256": "5f83b6d809f14c34fc2f9f3243537964c1fa776e41196793169f9fbd07f4bca9"
+      "current_sha256": "1e5cb0cce3d2d8be5ddf8a8e6e781df871331b6a925e36c68dea4b618a5c20d8"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -400,7 +400,7 @@
         "Integrated the OpenShift registry publisher option and explicit registry settings."
       ],
       "baseline_sha256": "471c9fe9b23e2e9600f4b9cb9bf14ad3df81df4e384d22ab762f10eb5f697d59",
-      "current_sha256": "9198fb787ba003322c269c1e65fa3db1d279a0ca662ab3fa689f9756a90861cb"
+      "current_sha256": "aba2a588eef52ad4c3007b1da91371df2f642e2d955df2a02a0cafd555921934"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -411,7 +411,7 @@
       "source_sha256": "0357109b902adb23d3e5310a496f01c1687593af913e4bf05da0039c92280b4a",
       "transformations": [],
       "baseline_sha256": "0357109b902adb23d3e5310a496f01c1687593af913e4bf05da0039c92280b4a",
-      "current_sha256": "0357109b902adb23d3e5310a496f01c1687593af913e4bf05da0039c92280b4a"
+      "current_sha256": "09ebee5c5a4e0a5ec5e9935122936ac69a36dc1f2fe7a8c6b6877fda64952d91"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -422,7 +422,7 @@
       "source_sha256": "c0e316e359353b06c0136e38b1e290b4a2b9857c6451ed3d412f66c1d6095015",
       "transformations": [],
       "baseline_sha256": "c0e316e359353b06c0136e38b1e290b4a2b9857c6451ed3d412f66c1d6095015",
-      "current_sha256": "c0e316e359353b06c0136e38b1e290b4a2b9857c6451ed3d412f66c1d6095015"
+      "current_sha256": "810b0e33c0869eeadaa60f8afe6a992be87877521ec84d35e375dc8bd9ce6441"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -433,7 +433,7 @@
       "source_sha256": "b6d83e9f9f741da0a491fbefdd6db8e6261865240e858ca6a4f11bf140bd0fc6",
       "transformations": [],
       "baseline_sha256": "b6d83e9f9f741da0a491fbefdd6db8e6261865240e858ca6a4f11bf140bd0fc6",
-      "current_sha256": "b6d83e9f9f741da0a491fbefdd6db8e6261865240e858ca6a4f11bf140bd0fc6"
+      "current_sha256": "49fc4e950ddf29deab4ef603cfed2d3bc0852cfa92838b9ae9ddf7afa85d2fca"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -444,7 +444,7 @@
       "source_sha256": "64752b332e19ecf9b88e575da4c8978b57b0645cbe717769dc72bed43060260a",
       "transformations": [],
       "baseline_sha256": "64752b332e19ecf9b88e575da4c8978b57b0645cbe717769dc72bed43060260a",
-      "current_sha256": "64752b332e19ecf9b88e575da4c8978b57b0645cbe717769dc72bed43060260a"
+      "current_sha256": "bae6e3e61ef8ec193638a070975316dd5f9cd722f025a892c3992106949309ae"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -466,7 +466,7 @@
       "source_sha256": "9cd89a5e3b0a125e094e54eafa1c4dc265e512e347e828401119f31e6322d5ea",
       "transformations": [],
       "baseline_sha256": "9cd89a5e3b0a125e094e54eafa1c4dc265e512e347e828401119f31e6322d5ea",
-      "current_sha256": "9cd89a5e3b0a125e094e54eafa1c4dc265e512e347e828401119f31e6322d5ea"
+      "current_sha256": "801911a17c43899953366c176608487668ef2d38e2691c31291c6a637d067c7f"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -477,7 +477,7 @@
       "source_sha256": "596d2fd2af13f9ea2367c15a33c1820802bdc36c70b83ca856efab0b0c610ad1",
       "transformations": [],
       "baseline_sha256": "596d2fd2af13f9ea2367c15a33c1820802bdc36c70b83ca856efab0b0c610ad1",
-      "current_sha256": "596d2fd2af13f9ea2367c15a33c1820802bdc36c70b83ca856efab0b0c610ad1"
+      "current_sha256": "3a07684cbb36a5ef585fc2d3712fb6b128b5ea1f0de090e0f132254a3907b0a1"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -499,7 +499,7 @@
       "source_sha256": "27d897a21d8ade4f57ad1fe1cb861bee1347223f5713d1c41e1caab1373eaf93",
       "transformations": [],
       "baseline_sha256": "27d897a21d8ade4f57ad1fe1cb861bee1347223f5713d1c41e1caab1373eaf93",
-      "current_sha256": "27d897a21d8ade4f57ad1fe1cb861bee1347223f5713d1c41e1caab1373eaf93"
+      "current_sha256": "95c71ae1a22a47623da718d1e53cc298e430849f19ec3e31d10d8dac0713c71b"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -532,7 +532,7 @@
       "source_sha256": "919f7c752c9dbade353138c75a4ccfe449b3d874012fe4fde747644e63a7bc40",
       "transformations": [],
       "baseline_sha256": "919f7c752c9dbade353138c75a4ccfe449b3d874012fe4fde747644e63a7bc40",
-      "current_sha256": "919f7c752c9dbade353138c75a4ccfe449b3d874012fe4fde747644e63a7bc40"
+      "current_sha256": "3690cdf00c08fee4eb16a4d8fb419a145aef1b364191d0c41823886a6c74eb62"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -554,7 +554,7 @@
       "source_sha256": "4f3b15ac217115eb222731a0db8373acc1492a5c4661dea2825a7355d0e07c0f",
       "transformations": [],
       "baseline_sha256": "4f3b15ac217115eb222731a0db8373acc1492a5c4661dea2825a7355d0e07c0f",
-      "current_sha256": "4f3b15ac217115eb222731a0db8373acc1492a5c4661dea2825a7355d0e07c0f"
+      "current_sha256": "b2ffc36e1bb1af278c7d29387c0ae80dee84d32ac13a50b7037aae1aef897063"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -565,7 +565,7 @@
       "source_sha256": "e8cfa752ed2c5d36ec0ba9dce8322c44ac9f8301d4d92bd465b8e5321ab1faf4",
       "transformations": [],
       "baseline_sha256": "e8cfa752ed2c5d36ec0ba9dce8322c44ac9f8301d4d92bd465b8e5321ab1faf4",
-      "current_sha256": "e8cfa752ed2c5d36ec0ba9dce8322c44ac9f8301d4d92bd465b8e5321ab1faf4"
+      "current_sha256": "b6da7602844edad9c835acafd9ad7a5b3a8f5f3cd9fb9561557fd2e247e4e27f"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -576,7 +576,7 @@
       "source_sha256": "0606ae4d1eb7d315ebee1b39d717c1e8bfc8fd92383487e8855ab9dc2b5676c2",
       "transformations": [],
       "baseline_sha256": "0606ae4d1eb7d315ebee1b39d717c1e8bfc8fd92383487e8855ab9dc2b5676c2",
-      "current_sha256": "0606ae4d1eb7d315ebee1b39d717c1e8bfc8fd92383487e8855ab9dc2b5676c2"
+      "current_sha256": "de2accbda6b5ce7eb1a256e6266e15708ac9723d83859274eb3d2b2648eea340"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -598,7 +598,7 @@
       "source_sha256": "3e4831d7beedbf957e8bc76924736902cf189a23e4e48996c884b2984e3c6fdf",
       "transformations": [],
       "baseline_sha256": "3e4831d7beedbf957e8bc76924736902cf189a23e4e48996c884b2984e3c6fdf",
-      "current_sha256": "3e4831d7beedbf957e8bc76924736902cf189a23e4e48996c884b2984e3c6fdf"
+      "current_sha256": "de4d5356d57def4f8e66c2cfe0348d9cc85632d9496c0155c722e26910eebc47"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -642,7 +642,7 @@
       "source_sha256": "eccccf1fb4babfa5ba9b2461055305668090be7af7ab36131c9c2f5db33877bd",
       "transformations": [],
       "baseline_sha256": "eccccf1fb4babfa5ba9b2461055305668090be7af7ab36131c9c2f5db33877bd",
-      "current_sha256": "eccccf1fb4babfa5ba9b2461055305668090be7af7ab36131c9c2f5db33877bd"
+      "current_sha256": "6340f7b6f9fc404617147f3b898040f3a9d6ed498c6f6da1dd5bcd64c2891eee"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -664,7 +664,7 @@
       "source_sha256": "5197458490587bafffb4b2fa79193aafc2387570bee783d105e344cc4ffbf0dc",
       "transformations": [],
       "baseline_sha256": "5197458490587bafffb4b2fa79193aafc2387570bee783d105e344cc4ffbf0dc",
-      "current_sha256": "5197458490587bafffb4b2fa79193aafc2387570bee783d105e344cc4ffbf0dc"
+      "current_sha256": "276f28c435ea4c42566e297d5d0a34a4bd259c5dfb9fded95a005527b2a87ef4"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -697,7 +697,7 @@
       "source_sha256": "68830621774f644c7b5b7d07f04a702c438095591a43e2b19d102d3512109a59",
       "transformations": [],
       "baseline_sha256": "68830621774f644c7b5b7d07f04a702c438095591a43e2b19d102d3512109a59",
-      "current_sha256": "68830621774f644c7b5b7d07f04a702c438095591a43e2b19d102d3512109a59"
+      "current_sha256": "6d2f2cee147fa4a14ce60c882dca2d07809dc48c700f391c66c3a19576675497"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -708,7 +708,7 @@
       "source_sha256": "ffb303eabc14eeb94ba9e148600639e667215b0502d4886e7f073ed79eea3119",
       "transformations": [],
       "baseline_sha256": "ffb303eabc14eeb94ba9e148600639e667215b0502d4886e7f073ed79eea3119",
-      "current_sha256": "ffb303eabc14eeb94ba9e148600639e667215b0502d4886e7f073ed79eea3119"
+      "current_sha256": "ae1d967982811c76cbe747bd7f162e5674bc076ac2beb5931fb9a825678376a9"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -752,7 +752,7 @@
       "source_sha256": "cb49072d382464cff30eb72fd480d69cb6c7f8ffee8fffda10c9d19b2eb0c76f",
       "transformations": [],
       "baseline_sha256": "cb49072d382464cff30eb72fd480d69cb6c7f8ffee8fffda10c9d19b2eb0c76f",
-      "current_sha256": "cb49072d382464cff30eb72fd480d69cb6c7f8ffee8fffda10c9d19b2eb0c76f"
+      "current_sha256": "1ca837f4cac2d8ec7bd55ba5cd5d1b4347e7d073df04ac39d2b736d677536164"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -774,7 +774,7 @@
       "source_sha256": "3b970b0dc1548f07e3e6762f975666bcbb0fe01f27fdca1fe367e3ad9550d34c",
       "transformations": [],
       "baseline_sha256": "3b970b0dc1548f07e3e6762f975666bcbb0fe01f27fdca1fe367e3ad9550d34c",
-      "current_sha256": "3b970b0dc1548f07e3e6762f975666bcbb0fe01f27fdca1fe367e3ad9550d34c"
+      "current_sha256": "c93f4f5a9ef9fd94010ec9937552f76b78140af0c38d1f8e97544a07a19752ee"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -796,7 +796,7 @@
       "source_sha256": "0274055b1da1b4fcd21062c495e8c19a7b2a0a019e2b650a304da698656515cc",
       "transformations": [],
       "baseline_sha256": "0274055b1da1b4fcd21062c495e8c19a7b2a0a019e2b650a304da698656515cc",
-      "current_sha256": "0274055b1da1b4fcd21062c495e8c19a7b2a0a019e2b650a304da698656515cc"
+      "current_sha256": "75faa74e11f29e0338f9b5dc2db8ac253e70f082b93370f1adb26a8138dc57fa"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -807,7 +807,7 @@
       "source_sha256": "d7af5de2043d04a314458a6288e49406eacedaa58ad06396ce73f3e9cb2da31c",
       "transformations": [],
       "baseline_sha256": "d7af5de2043d04a314458a6288e49406eacedaa58ad06396ce73f3e9cb2da31c",
-      "current_sha256": "d7af5de2043d04a314458a6288e49406eacedaa58ad06396ce73f3e9cb2da31c"
+      "current_sha256": "539ef8122c80ec8ed0cb3216f1daf16a96f09ef5b979fb1085e3340250d3fbc4"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -831,7 +831,7 @@
       "source_sha256": "2427278b7aea1b9cac01f0c49388b52ca26d35f4bc323e158f96f9ac8282f5f8",
       "transformations": [],
       "baseline_sha256": "2427278b7aea1b9cac01f0c49388b52ca26d35f4bc323e158f96f9ac8282f5f8",
-      "current_sha256": "2427278b7aea1b9cac01f0c49388b52ca26d35f4bc323e158f96f9ac8282f5f8"
+      "current_sha256": "9ef322bb2682170940fa9cf8871c864450adbd95900e7ae522011fc2403f7787"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -844,7 +844,7 @@
         "OpenShift: scope ChartAssignment operations to the pilot namespace and use the unstructured deletion-timestamp accessor."
       ],
       "baseline_sha256": "b949d2af946422a1b7b10aa5eeafe1cfdca8ce4c64174d13937a8a5a4e13aa4f",
-      "current_sha256": "d79fc9f877ed422b4f24b99f8fd48da2f2bcdbc3af21cd5d0c2a0f98826f7244"
+      "current_sha256": "789a9f15a3c23745c6665603ebd43838ce200a4e3fc3e0b96c0857e3e04e6652"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -855,7 +855,7 @@
       "source_sha256": "24dd449924130ea495cec525477046225a9a97bb899ea02ec9b75b675b534921",
       "transformations": [],
       "baseline_sha256": "24dd449924130ea495cec525477046225a9a97bb899ea02ec9b75b675b534921",
-      "current_sha256": "24dd449924130ea495cec525477046225a9a97bb899ea02ec9b75b675b534921"
+      "current_sha256": "77cdb95a3fe6887d66c7182ae1db126dacf7da8f2190d8abca2d809380b4c1d6"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -866,7 +866,7 @@
       "source_sha256": "487b07c8f6b97158660c6932d738c79d698fe8bae823a3d87f2b1b545e18b210",
       "transformations": [],
       "baseline_sha256": "487b07c8f6b97158660c6932d738c79d698fe8bae823a3d87f2b1b545e18b210",
-      "current_sha256": "487b07c8f6b97158660c6932d738c79d698fe8bae823a3d87f2b1b545e18b210"
+      "current_sha256": "41d5077a5cab18ed2ee19b585d6f8e41392087f629e435ec2b69efdb7347b33f"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -879,7 +879,7 @@
         "OpenShift: propagate configured resource gRPC address validation errors while assembling solution instances"
       ],
       "baseline_sha256": "27f51b809d3cd88e26494001133ec6516918ee44e99363b896f18e75111a1c22",
-      "current_sha256": "8b62a4619dac1aa71a9e44a52ff0d6bfbd4a4a336e28b4a279794e70cdacde5f"
+      "current_sha256": "307fdca3ce85578b1a6cee810482c17737e73989431cf96ffdb1890a7e5091af"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -890,7 +890,7 @@
       "source_sha256": "1b90fcf51e0c49470120a664272af0b7660060d4b97e3651db02d28d0c5fef79",
       "transformations": [],
       "baseline_sha256": "1b90fcf51e0c49470120a664272af0b7660060d4b97e3651db02d28d0c5fef79",
-      "current_sha256": "1b90fcf51e0c49470120a664272af0b7660060d4b97e3651db02d28d0c5fef79"
+      "current_sha256": "306ed6f317f8534c4025ddc6f19abbc603abd2ef2879e4fddf912b2c01bce99c"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -901,7 +901,7 @@
       "source_sha256": "1ff155f57d4ec651481cdc16f896b59ac9ba906a8e006fe125e79c5d076a3a4e",
       "transformations": [],
       "baseline_sha256": "1ff155f57d4ec651481cdc16f896b59ac9ba906a8e006fe125e79c5d076a3a4e",
-      "current_sha256": "1ff155f57d4ec651481cdc16f896b59ac9ba906a8e006fe125e79c5d076a3a4e"
+      "current_sha256": "fa4d2847d61f4eba398ae8ba9c740a7ad1596c3e0668b3bac412f12d3bc259a2"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -912,7 +912,7 @@
       "source_sha256": "b18baea55137f1511b04962ed2c21f73cfcb482e58cd4fe070097f6c1da65dda",
       "transformations": [],
       "baseline_sha256": "b18baea55137f1511b04962ed2c21f73cfcb482e58cd4fe070097f6c1da65dda",
-      "current_sha256": "b18baea55137f1511b04962ed2c21f73cfcb482e58cd4fe070097f6c1da65dda"
+      "current_sha256": "648c25eb6174a76f1fb0c0d23bac4cc961fc4e398c635faa2e9e1778df13e7d2"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -956,7 +956,7 @@
       "source_sha256": "69e789cbd482815b339f625ab740b08adeecb7d6f4300970ef533fcda288d9ec",
       "transformations": [],
       "baseline_sha256": "69e789cbd482815b339f625ab740b08adeecb7d6f4300970ef533fcda288d9ec",
-      "current_sha256": "69e789cbd482815b339f625ab740b08adeecb7d6f4300970ef533fcda288d9ec"
+      "current_sha256": "074e2236d8a42a4ea9c1f85194473fd257739f4194b00432a3380d250d24a5e9"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -967,7 +967,7 @@
       "source_sha256": "178752074bd81f5108e52f77e051b5f6808af7dec45c5977743567a4bb91f17e",
       "transformations": [],
       "baseline_sha256": "178752074bd81f5108e52f77e051b5f6808af7dec45c5977743567a4bb91f17e",
-      "current_sha256": "178752074bd81f5108e52f77e051b5f6808af7dec45c5977743567a4bb91f17e"
+      "current_sha256": "2c98034e653af643cd10b6a66ea4af94728b6783b6041fecb587e95b90977f2a"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -978,7 +978,7 @@
       "source_sha256": "cbbfeade415ac4691486e69ddb01188583f598acb7fed537a295e4b1d2c169f5",
       "transformations": [],
       "baseline_sha256": "cbbfeade415ac4691486e69ddb01188583f598acb7fed537a295e4b1d2c169f5",
-      "current_sha256": "ee9568e9198c4fb82b369d0434460dfe6426022d2094a69aa6cd5dbb5ddd5508"
+      "current_sha256": "550a1045b3375be950cfac0dde60958fa3989525cabe0a0874ccbeaac8cfca69"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -989,7 +989,7 @@
       "source_sha256": "9749189f9e2d3c3150226ec80aee3396772a95db7e84e4c66f8db43255fed687",
       "transformations": [],
       "baseline_sha256": "9749189f9e2d3c3150226ec80aee3396772a95db7e84e4c66f8db43255fed687",
-      "current_sha256": "9749189f9e2d3c3150226ec80aee3396772a95db7e84e4c66f8db43255fed687"
+      "current_sha256": "3a80b0b44af1f85da85547ac5bd83b20beb83774174aa8988e7ef86552daf29b"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1000,7 +1000,7 @@
       "source_sha256": "13580d1d57d06008b52716436a907ada6f475413067775b1c9cef9b8389037b1",
       "transformations": [],
       "baseline_sha256": "13580d1d57d06008b52716436a907ada6f475413067775b1c9cef9b8389037b1",
-      "current_sha256": "e1be1c4ecce4fc1e5f775aa43ed7c32ab80c63c8b2ba786ea1946123816ec19f"
+      "current_sha256": "82c298f4acd8ab63abdc2ad51308a65aefd15ed870173abbb13e562503d16a24"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1011,7 +1011,7 @@
       "source_sha256": "13b086fb32c5057c50f6e95d60f7419b6ba371bbb10584521094477157553027",
       "transformations": [],
       "baseline_sha256": "13b086fb32c5057c50f6e95d60f7419b6ba371bbb10584521094477157553027",
-      "current_sha256": "13b086fb32c5057c50f6e95d60f7419b6ba371bbb10584521094477157553027"
+      "current_sha256": "566d12f0f31d6025b416de8127cccba5b0dc9aeaf5c6edef0e4f810edb48130c"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1024,7 +1024,7 @@
         "OpenShift: scope Workcell Pod and ConfigMap informers to the pilot namespace."
       ],
       "baseline_sha256": "640e86e84d589287d60379c80aeead285838fd27413f13ac232f3fcde28dcd93",
-      "current_sha256": "2025c7b1fad13e1b79b8aa6ccc017fa253ac15c09406f6cc7ef54af87c7af1be"
+      "current_sha256": "ce0b1d0be841638e38012be3221ffce552677f092ed6fa21142ece86f8a864fa"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1035,7 +1035,7 @@
       "source_sha256": "23a8e7e884db6e68f90f5f54b1c12e95901bce29801db39c61a51f3ab868d976",
       "transformations": [],
       "baseline_sha256": "23a8e7e884db6e68f90f5f54b1c12e95901bce29801db39c61a51f3ab868d976",
-      "current_sha256": "23a8e7e884db6e68f90f5f54b1c12e95901bce29801db39c61a51f3ab868d976"
+      "current_sha256": "540ac6248f6d139662f9e68ac38f63924c918f6321b9b39a5983ce0ce83cc821"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1057,7 +1057,7 @@
       "source_sha256": "953f9bf9b4232344a641745f9fd99c56da0b8636e69ec9cd97e72761d119b4e9",
       "transformations": [],
       "baseline_sha256": "953f9bf9b4232344a641745f9fd99c56da0b8636e69ec9cd97e72761d119b4e9",
-      "current_sha256": "953f9bf9b4232344a641745f9fd99c56da0b8636e69ec9cd97e72761d119b4e9"
+      "current_sha256": "9546d0a7a8641493d6381f5d28e2c4399fe8cc6aed6cd0cda27ec2d126285b38"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1081,7 +1081,7 @@
         "Use the digest-pinned zenohd image from the OpenShift Quay image lock."
       ],
       "baseline_sha256": "fb555527b9469bc33343c2b3a4c72e4afad9bd9c3b9977d4bc584914912d842f",
-      "current_sha256": "f51550b7f37be8da61dd29e18d8bfa179f5207e15abab189973fdd4977d4586b"
+      "current_sha256": "da233f581bacbfcafd4dcab8fba27d80430dbc3ab4bd6f8165071e3fca83104e"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1103,7 +1103,7 @@
       "source_sha256": "fc1272d375eb1ef34634a13d2e83f7fa2e274012f20db33772f334cda3f251db",
       "transformations": [],
       "baseline_sha256": "fc1272d375eb1ef34634a13d2e83f7fa2e274012f20db33772f334cda3f251db",
-      "current_sha256": "fc1272d375eb1ef34634a13d2e83f7fa2e274012f20db33772f334cda3f251db"
+      "current_sha256": "f1441a75fcd194434bbebd96edabd698d0180d1e7571b92fcf65e7bd3192ae16"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1126,7 +1126,7 @@
       "destination_path": "intrinsic-core/intrinsic/production/containerd_publisher.go",
       "source_sha256": "62ced168f740e2976df93cef8d4960d3db047477073131572063ebce2729bbb1",
       "baseline_sha256": "62ced168f740e2976df93cef8d4960d3db047477073131572063ebce2729bbb1",
-      "current_sha256": "62ced168f740e2976df93cef8d4960d3db047477073131572063ebce2729bbb1",
+      "current_sha256": "8b6892aae753a933fbbd7000822e1b53067029354bc5002b0f058c0813fa1c03",
       "transformations": []
     },
     {
@@ -1137,7 +1137,7 @@
       "destination_path": "intrinsic-core/intrinsic/production/image_publisher.go",
       "source_sha256": "77956da403125ecd37dc89c9984d45dd8d362edcb17cc291605afd4fa697d9c2",
       "baseline_sha256": "77956da403125ecd37dc89c9984d45dd8d362edcb17cc291605afd4fa697d9c2",
-      "current_sha256": "e2580688eaa3bc6ecf650a91da2715804af47903a41fefa5e9a0e1301187bdef",
+      "current_sha256": "94ebdbf383d386af4d5f0b5597e859bea1ba76b5f49ef471fcecaaea74ce8ce8",
       "transformations": [
         "Generalized image push options for the OpenShift transport."
       ]
@@ -1164,7 +1164,7 @@
         "OpenShift namespace-scoped ConfigMap informer and Role/RoleBinding"
       ],
       "baseline_sha256": "a4ff65890da27b8a007c4426b5c3588f613cfcb63ae328e80cc9562b8bc41e28",
-      "current_sha256": "9fbe287c393a1e3a8edeefbdc7b0a0b92dcacdd3c23f9607c14fd9ae6c0753a9"
+      "current_sha256": "1a3e30927b21ec16f17442a33ee5a2405e7aca410faaef551912cab2da215dc7"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1186,7 +1186,7 @@
       "source_sha256": "fc5f9c272b9569b8cf5e0bbfc94809bdf54179e2f37ba29178dbe42b643f0c8c",
       "transformations": [],
       "baseline_sha256": "fc5f9c272b9569b8cf5e0bbfc94809bdf54179e2f37ba29178dbe42b643f0c8c",
-      "current_sha256": "fc5f9c272b9569b8cf5e0bbfc94809bdf54179e2f37ba29178dbe42b643f0c8c"
+      "current_sha256": "bb760ae0fb9ac063731602b45bf73f003c7b60e505d9b49f2589eb50c90cbfcb"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1208,7 +1208,7 @@
       "source_sha256": "3873655e06eef2f38cd315876640e0e40dc5fcb89c24980d5ea90d40a5f9c5d9",
       "transformations": [],
       "baseline_sha256": "3873655e06eef2f38cd315876640e0e40dc5fcb89c24980d5ea90d40a5f9c5d9",
-      "current_sha256": "3873655e06eef2f38cd315876640e0e40dc5fcb89c24980d5ea90d40a5f9c5d9"
+      "current_sha256": "684485c0008f3dad2a7d73e47e99f9e554cee00f9b3fb348c6ec323e41b15bbb"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1230,7 +1230,7 @@
       "source_sha256": "ec7ace5ac71834556089639e874266b2116f008849a4b5e807996019ead51cc4",
       "transformations": [],
       "baseline_sha256": "ec7ace5ac71834556089639e874266b2116f008849a4b5e807996019ead51cc4",
-      "current_sha256": "ec7ace5ac71834556089639e874266b2116f008849a4b5e807996019ead51cc4"
+      "current_sha256": "1eb93984e503460cea66e3b0d5ce114538f53d5366cd7bffccafe797520f8bbd"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1241,7 +1241,7 @@
       "source_sha256": "324dafda6356513bec12d3cd3f5f5e80dc6ce9b1e2c8c6dc489c18bd45b8d48e",
       "transformations": [],
       "baseline_sha256": "324dafda6356513bec12d3cd3f5f5e80dc6ce9b1e2c8c6dc489c18bd45b8d48e",
-      "current_sha256": "324dafda6356513bec12d3cd3f5f5e80dc6ce9b1e2c8c6dc489c18bd45b8d48e"
+      "current_sha256": "e4b36d577ef1e502c022095977b8a22de8838f7421dcf75b51b2503847b14cfe"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1263,7 +1263,7 @@
       "source_sha256": "39f2e89fc55e4f7eb604611c838267a86628fada3684c1a4519525fa2ca76f3e",
       "transformations": [],
       "baseline_sha256": "39f2e89fc55e4f7eb604611c838267a86628fada3684c1a4519525fa2ca76f3e",
-      "current_sha256": "39f2e89fc55e4f7eb604611c838267a86628fada3684c1a4519525fa2ca76f3e"
+      "current_sha256": "e547f4f0fbdca7c68c4026689a310bd0117ba426db642dd51c95f8176ae1dc86"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1274,7 +1274,7 @@
       "source_sha256": "9fd24497007ba760c040586ed6487d4ef511d132bd1b6e988ddfb8b077c66c57",
       "transformations": [],
       "baseline_sha256": "9fd24497007ba760c040586ed6487d4ef511d132bd1b6e988ddfb8b077c66c57",
-      "current_sha256": "9fd24497007ba760c040586ed6487d4ef511d132bd1b6e988ddfb8b077c66c57"
+      "current_sha256": "e6aeae1c0871aca7a41bb74ed1a1bf7edf827394287bace1ce15c1c10fee2027"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1296,7 +1296,7 @@
       "source_sha256": "d10536618918a3ae31908eb623fb50b59b87b83f0a098a3838573b231e0bc699",
       "transformations": [],
       "baseline_sha256": "d10536618918a3ae31908eb623fb50b59b87b83f0a098a3838573b231e0bc699",
-      "current_sha256": "d10536618918a3ae31908eb623fb50b59b87b83f0a098a3838573b231e0bc699"
+      "current_sha256": "d49dec496304292f1426cb0a97ea35ef01b5a1c7d0e8c5038bae24e7f71a270d"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1318,7 +1318,7 @@
       "source_sha256": "00114933710bb6f75c7d60ccf1ed63b1721beb71146e6787a651b09fa0800b41",
       "transformations": [],
       "baseline_sha256": "00114933710bb6f75c7d60ccf1ed63b1721beb71146e6787a651b09fa0800b41",
-      "current_sha256": "00114933710bb6f75c7d60ccf1ed63b1721beb71146e6787a651b09fa0800b41"
+      "current_sha256": "53dcdb159801efd31386f9f70582e932f16b52db7df975c77db238b9fee78319"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1340,7 +1340,7 @@
       "source_sha256": "db709d7a110c4077bbd5bdbe8f88dbd8f4cb477a58f1ac3086e6aad429a4be88",
       "transformations": [],
       "baseline_sha256": "db709d7a110c4077bbd5bdbe8f88dbd8f4cb477a58f1ac3086e6aad429a4be88",
-      "current_sha256": "db709d7a110c4077bbd5bdbe8f88dbd8f4cb477a58f1ac3086e6aad429a4be88"
+      "current_sha256": "1d862d3cbae5134373fe11a55668ee65e4fcf6f6b012fb65ad7310881c836b56"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1362,7 +1362,7 @@
       "source_sha256": "3c1bf24779c379ef68286f9b663c77d693d63984b16e92b71c0d9c15a3cb1f08",
       "transformations": [],
       "baseline_sha256": "3c1bf24779c379ef68286f9b663c77d693d63984b16e92b71c0d9c15a3cb1f08",
-      "current_sha256": "3c1bf24779c379ef68286f9b663c77d693d63984b16e92b71c0d9c15a3cb1f08"
+      "current_sha256": "c9101df7be2bf5acdfb1e80de09da562c7f689bfb65e5d4e30825cbafb53aea1"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1384,7 +1384,7 @@
       "source_sha256": "9352f7f1cf73eebbdde1461cdc3ca9132ef5a347851fb4a96d16f2ef2c010b01",
       "transformations": [],
       "baseline_sha256": "9352f7f1cf73eebbdde1461cdc3ca9132ef5a347851fb4a96d16f2ef2c010b01",
-      "current_sha256": "9352f7f1cf73eebbdde1461cdc3ca9132ef5a347851fb4a96d16f2ef2c010b01"
+      "current_sha256": "0ecb1eb203979bf37399a0e6d09025257c2bd714f25aa972c8b9448fa4e31180"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1395,7 +1395,7 @@
       "source_sha256": "4b593d9646e85de1293db389c5c1b55561a00a3fe6083dbf4977c645207ae72d",
       "transformations": [],
       "baseline_sha256": "4b593d9646e85de1293db389c5c1b55561a00a3fe6083dbf4977c645207ae72d",
-      "current_sha256": "4b593d9646e85de1293db389c5c1b55561a00a3fe6083dbf4977c645207ae72d"
+      "current_sha256": "5fd54482e5066426f66a33585373702ddd79e718a6ca9da7412292749c2a1e43"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1417,7 +1417,7 @@
       "source_sha256": "4ec749b345fc32f024ab55f5f35b4528b1ab2e7f42b94596ad866e9e1a0cc425",
       "transformations": [],
       "baseline_sha256": "4ec749b345fc32f024ab55f5f35b4528b1ab2e7f42b94596ad866e9e1a0cc425",
-      "current_sha256": "4ec749b345fc32f024ab55f5f35b4528b1ab2e7f42b94596ad866e9e1a0cc425"
+      "current_sha256": "b3b25bf607e78901da68de51a0bc0aeee5e18233edde1368be976a25c1dd5c7b"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1428,7 +1428,7 @@
       "source_sha256": "9f4ba6737f32177ffbd0063e045ca1ca60b10cf0f04c89ee6b7d4b34bd7c8b90",
       "transformations": [],
       "baseline_sha256": "9f4ba6737f32177ffbd0063e045ca1ca60b10cf0f04c89ee6b7d4b34bd7c8b90",
-      "current_sha256": "94fa94a6a1458d59452afa261faa675a389b676d9cddb6a0513e543622fce2c3"
+      "current_sha256": "a80abfaff1d6db9d4922d7c653366758360f2bb3e7daad025a348ac19e5ed22f"
     },
     {
       "upstream_repository": "intrinsic-omts",
@@ -1474,7 +1474,7 @@
       "source_sha256": "4cd69ba3cffa1663c191c3f71508b2479e6b84abc6a96dc1ef06594ee5a35e39",
       "transformations": [],
       "baseline_sha256": "4cd69ba3cffa1663c191c3f71508b2479e6b84abc6a96dc1ef06594ee5a35e39",
-      "current_sha256": "4cd69ba3cffa1663c191c3f71508b2479e6b84abc6a96dc1ef06594ee5a35e39"
+      "current_sha256": "fd81590a6a6d77b9333ce1f8162127c696614aba6424fab36ed9f50ded2200b3"
     },
     {
       "upstream_repository": "intrinsic-omts",
@@ -1535,8 +1535,8 @@
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/align_robot.updates.pbtxt",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/align_robot.updates.pbtxt",
+      "source_path": "configs/your-workcell/align_robot.updates.pbtxt",
+      "destination_path": "intrinsic-omts/configs/your-workcell/align_robot.updates.pbtxt",
       "source_sha256": "29ad345f5b6bffcba000e36c51a31444b41fadd39b4b971797fbdc17e18cb313",
       "transformations": [],
       "baseline_sha256": "29ad345f5b6bffcba000e36c51a31444b41fadd39b4b971797fbdc17e18cb313",
@@ -1546,30 +1546,30 @@
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/app_config.yaml",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/app_config.yaml",
+      "source_path": "configs/your-workcell/app_config.yaml",
+      "destination_path": "intrinsic-omts/configs/your-workcell/app_config.yaml",
       "source_sha256": "e0db511b1ff30253fb0f6ed88a17413d206c836e86d5c24a0da701e8e2811b16",
       "transformations": [],
       "baseline_sha256": "e0db511b1ff30253fb0f6ed88a17413d206c836e86d5c24a0da701e8e2811b16",
-      "current_sha256": "e0db511b1ff30253fb0f6ed88a17413d206c836e86d5c24a0da701e8e2811b16"
+      "current_sha256": "5aeeff486d01cb306a0a4df0a5d8ef7c2cc486fc92004c7c6e371b2dd911fd42"
     },
     {
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/gemini_device_config.textproto",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/gemini_device_config.textproto",
+      "source_path": "configs/your-workcell/gemini_device_config.textproto",
+      "destination_path": "intrinsic-omts/configs/your-workcell/gemini_device_config.textproto",
       "source_sha256": "481cb2dccd83eb3e638f783e5983fc0e1a284e70fd6b2fc57c076aad656b5cc5",
       "transformations": [],
       "baseline_sha256": "481cb2dccd83eb3e638f783e5983fc0e1a284e70fd6b2fc57c076aad656b5cc5",
-      "current_sha256": "481cb2dccd83eb3e638f783e5983fc0e1a284e70fd6b2fc57c076aad656b5cc5"
+      "current_sha256": "7082b666c4d77f189c04b2d95df5fb8ece4fb1efeab316b55be0ecb4e3b56a31"
     },
     {
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/icon_config.textproto",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/icon_config.textproto",
+      "source_path": "configs/your-workcell/icon_config.textproto",
+      "destination_path": "intrinsic-omts/configs/your-workcell/icon_config.textproto",
       "source_sha256": "538fbe682013f21f5090d22568c0c9f01bf8415afd94c122970369ee893cf398",
       "transformations": [],
       "baseline_sha256": "538fbe682013f21f5090d22568c0c9f01bf8415afd94c122970369ee893cf398",
@@ -1579,8 +1579,8 @@
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/orbbec_gemini.updates.pbtxt",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/orbbec_gemini.updates.pbtxt",
+      "source_path": "configs/your-workcell/orbbec_gemini.updates.pbtxt",
+      "destination_path": "intrinsic-omts/configs/your-workcell/orbbec_gemini.updates.pbtxt",
       "source_sha256": "ed2dcaf4a208c4d7dd401c67dae956d82cd79d268fb8b88975e1cc570294959a",
       "transformations": [],
       "baseline_sha256": "ed2dcaf4a208c4d7dd401c67dae956d82cd79d268fb8b88975e1cc570294959a",
@@ -1590,8 +1590,8 @@
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/scene.updates.pbtxt",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/scene.updates.pbtxt",
+      "source_path": "configs/your-workcell/scene.updates.pbtxt",
+      "destination_path": "intrinsic-omts/configs/your-workcell/scene.updates.pbtxt",
       "source_sha256": "2e20b85eb8a8e0eca24714e1672196479dd31c3a0de5c73f5d706d1c3a27d7aa",
       "transformations": [],
       "baseline_sha256": "2e20b85eb8a8e0eca24714e1672196479dd31c3a0de5c73f5d706d1c3a27d7aa",
@@ -1601,8 +1601,8 @@
       "upstream_repository": "intrinsic-omts",
       "upstream_ref": "20260922.0",
       "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
-      "source_path": "configs/lab_bb_01/ur_module.attachments.updates.pbtxt",
-      "destination_path": "intrinsic-omts/configs/lab_bb_01/ur_module.attachments.updates.pbtxt",
+      "source_path": "configs/your-workcell/ur_module.attachments.updates.pbtxt",
+      "destination_path": "intrinsic-omts/configs/your-workcell/ur_module.attachments.updates.pbtxt",
       "source_sha256": "c09ac2ea6a5dedf158d6cbb5f6ac9f7f07bd186015e9d3a7776bdbb847aa1e25",
       "transformations": [],
       "baseline_sha256": "c09ac2ea6a5dedf158d6cbb5f6ac9f7f07bd186015e9d3a7776bdbb847aa1e25",
@@ -1628,7 +1628,7 @@
       "source_sha256": "039233287bc6eafdd695bea969249122bd23b6cfe4158cf8d7f84cab4bfe1e5f",
       "transformations": [],
       "baseline_sha256": "039233287bc6eafdd695bea969249122bd23b6cfe4158cf8d7f84cab4bfe1e5f",
-      "current_sha256": "039233287bc6eafdd695bea969249122bd23b6cfe4158cf8d7f84cab4bfe1e5f"
+      "current_sha256": "43b8553b61b583348301ec1a6012d65840673e5a7145b392d805136f218db46c"
     },
     {
       "upstream_repository": "intrinsic-omts",
@@ -1740,7 +1740,7 @@
         "OpenShift: resolve the resource gRPC address from validated in-cluster ingress configuration and propagate configuration errors"
       ],
       "baseline_sha256": "7299f16f8fc6c44ca014a0ee871916b2e238af55179dfdcd970765ecb09e6c21",
-      "current_sha256": "230ad4a883adad0fb08f41381375c41655e9d566817ed7d34b0cffc14dfc82e5"
+      "current_sha256": "ba7efec359be69b98d58fd7f9b2825a3572e55111b25e5d4dcca8274ad2e4ff9"
     },
     {
       "upstream_repository": "intrinsic-core",
@@ -1753,7 +1753,7 @@
         "OpenShift: propagate resource gRPC ingress configuration errors from asset-instance APIs"
       ],
       "baseline_sha256": "75c4cf6ede6c94c5d57a12a0a0fb511796bca24677d2fb02e24168939e72c332",
-      "current_sha256": "d45f46118c6094972df66717779647727c70a0047f934d52f1a4787029fa3165"
+      "current_sha256": "918a5e77d8a45f2bde4ed2b091cc9e50172527ef896dac562a524b4ce25daf14"
     }
   ]
 }

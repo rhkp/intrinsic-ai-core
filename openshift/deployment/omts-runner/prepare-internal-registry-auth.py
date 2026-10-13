@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Create short-lived Docker auth and CA files from a mounted service account."""
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ def _required_path(name: str, default: str) -> Path:
 
 
 def main() -> None:
-    namespace = os.environ.get("OPENSHIFT_NAMESPACE", "arhkp-intrinsic")
+    namespace = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
     registry_host = os.environ.get(
         "INTRINSIC_REGISTRY_HOST", "image-registry.openshift-image-registry.svc:5000"
     )

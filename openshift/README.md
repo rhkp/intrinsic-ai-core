@@ -1,4 +1,17 @@
 # Intrinsic Core full OpenShift pilot
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
+Copy `openshift/.env.sample` to the ignored `openshift/.env`, replace its placeholder values, then export them before running commands:
+
+```sh
+set -a
+source openshift/.env
+set +a
+```
+
 
 **Status (2026-10-08):** The OpenShift-specific registry and ArtifactService
 fixes are deployed. `intrinsic-base`, `resources`, `skills`, and
@@ -11,8 +24,8 @@ Gazebo sidecar. It also removes a conflicting motion-planner route that sent
 `InstalledAssetsReader` to Resource Registry instead of Workcell. Motion
 planner (3/3), Gazebo (2/2), ICON (3/3), UR (2/2), and gripper (2/2) are
 currently Running; UR and gripper logs confirm simulator connections. Inference
-is 3/3 Ready with the A10G GPU, and the namespace-local RViz/noVNC viewer is
-running. The documented `lab_bb_01` scene updates and reset succeeded. A
+is 3/3 Ready with NVIDIA GPUs, and the namespace-local RViz/noVNC viewer is
+running. The documented `your-workcell` scene updates and reset succeeded. A
 one-cycle simulation reached motion planning, which stopped on the same
 gripper/stock collision observed on AWS. Deployment, inference, and viewing
 work on OpenShift; the pick cycle does not complete. See the
@@ -24,31 +37,15 @@ private-pull and `.env`-to-Secret smokes, plus the remaining app-specific key
 mapping. The AWS VM remains optional comparison context; the OpenShift demo,
 solution deployment, and viewer access must work without it.
 
-## Verified target snapshot — 2026-10-02
+## Verified target snapshot
 
-The read-only preflight found OpenShift `4.20.26`, RHOAI `2.25.9`, and KServe in
-`Managed` state. Seven ServingRuntime resources were visible; no Triton runtime
-was detected. The project `arhkp-intrinsic` was recreated and verified with the
-`opendatahub.io/dashboard=true` label so it is discoverable to RHOAI.
-
-GPU inventory showed five allocatable GPUs, four requested, and one estimated
-free across the cluster: four A10G devices and one GPU with unspecified product.
-These figures are estimates, not a reservation for this project. All five GPU
-nodes are Ready and carry `g5-gpu=true:NoSchedule`. A restricted one-GPU smoke
-pod using the exact taint toleration scheduled successfully and confirmed
-`/dev/nvidia0` visibility; it deleted itself after the test. The project has no
-GPU quota or reservation. Visible StorageClasses were
-`gp2-csi`, `gp3-csi`, `ocs-storagecluster-ceph-rbd`,
-`ocs-storagecluster-cephfs`, and `openshift-storage.noobaa.io`; access modes,
-quota, topology, and approved object storage are not yet selected.
-
-An aggregate scheduler-capacity snapshot showed 207 allocatable CPU cores and
-811.32 GiB memory across the cluster, with active pod requests of 82.37 cores
-and 198.84 GiB. GPU nodes account for 37.50 allocatable cores and 149.48 GiB,
-with active requests of 17.57 cores and 31.38 GiB. These residuals are cluster
-aggregates only; taints, per-node fragmentation, affinities, pod limits, and
-platform reservations can prevent scheduling. They are not a placement or
-capacity guarantee.
+The read-only preflight checked platform versions, serving-runtime availability,
+project eligibility, GPU scheduling, storage classes, permissions, and policy.
+Exact versions, counts, hardware products, capacity, and storage inventory are
+environment-specific; keep them in an untracked local record. The project
+placeholder `your-project-namespace` requires local configuration before use.
+Re-run the preflight before each deployment session because capacity and
+permissions can change:
 
 The inventory and bootstrap used a low-output helper that suppressed raw CLI
 responses and did not print the cluster URL, identity, or raw resources. The
@@ -114,7 +111,7 @@ A manual registry image update initially restored service, but the next
 reverted that Deployment. The controller now applies a durable OpenShift
 adapter before Synk writes rendered resources: it pins the registry and
 Workcell images and ensures exactly one
-`--configmap_watch_namespace=arhkp-intrinsic` argument. The controller was
+`--configmap_watch_namespace=your-project-namespace` argument. The controller was
 rebuilt and rolled out by immutable digest. Its fresh reconciliation left
 `intrinsic-base` Ready and `intrinsic-base.v3` Settled. Registry, Workcell,
 `world-updater`, and `scene-object-import` are each Ready 1/1; their current
@@ -134,7 +131,7 @@ adapted to a namespaced Role and RoleBinding in
 [`deployment/manifests/workcell-cluster-service-rbac.yaml`](deployment/manifests/workcell-cluster-service-rbac.yaml),
 and applied separately. The controller still validates the rendered Workcell
 RBAC against its allowlist, then omits only those two objects from its
-ChartAssignment-managed ResourceSet. The reviewed manifest passed dev01's
+ChartAssignment-managed ResourceSet. The reviewed manifest passed the target cluster's
 server-side dry run and was applied. The controller was rebuilt and rolled out
 with an immutable image digest, triggering a fresh reconciliation of the
 existing base ChartAssignment. `intrinsic-base` is Ready and its latest
@@ -172,7 +169,7 @@ snapshot.
 ## First deployment gate
 
 On 2026-10-02, a temporary, namespace-scoped UBI minimal pod successfully pulled
-its image and ran as a non-root UID in `arhkp-intrinsic`; the pod removed itself
+its image and ran as a non-root UID in `your-project-namespace`; the pod removed itself
 after the check. Rerun the same bounded check with:
 
 ```bash
@@ -187,7 +184,7 @@ images, storage, GPUs, or controllers are ready.
 
 On 2026-10-02, a bounded pod using the project-scoped `intrinsic-runtime`
 ServiceAccount requested one NVIDIA GPU, tolerated only
-`g5-gpu=true:NoSchedule`, and ran under restricted security. It scheduled,
+`your-gpu-taint-key=true:NoSchedule`, and ran under restricted security. It scheduled,
 pulled the public UBI image, confirmed `/dev/nvidia0`, and completed; the script
 deleted the pod and a follow-up check found zero smoke pods remaining. Run it
 again only when checking current capacity and device exposure:
@@ -203,7 +200,7 @@ the exact toleration for GPU-requesting workloads and ICON/UR required
 co-location. Its targeted tests pass, and Gazebo, ICON, and UR are running on a
 GPU node. Inference remains unscheduled until another GPU slot is available.
 
-For this pilot, `arhkp-intrinsic` is the selected application namespace. The
+For this pilot, `your-project-namespace` is the selected application namespace. The
 upstream namespace and DNS assumptions must be rewritten and generated
 manifests checked so all Intrinsic-owned resources remain in this project;
 OpenShift and RHOAI operator namespaces remain platform-managed. This is an
@@ -242,7 +239,7 @@ The pinned Core release bundle's two chart image lists contain 22 image tarballs
 (about 0.77 GiB total); its archive digest was verified against the documented
 release checksum. The charts also reference two images outside the release tarballs: the Zenoh
 daemon and Jupyter sidecar. All 24 pinned upstream images are mirrored to
-`quay.io/rhkp/intrinsic` under the `upstream-20260922.0` tag;
+`quay.io/your-registry-org/intrinsic` under the `upstream-20260922.0` tag;
 [`image-lock.json`](image-lock.json) records Quay digests and source provenance.
 The copied OpenShift templates now get both images from this lock instead of
 using upstream registry references directly.
@@ -257,7 +254,7 @@ pinned upstream baselines, not a claim of OpenShift compatibility. An all-image
 Bazel build was stopped during analysis before producing images; rebuild only
 images with demonstrated image-level issues.
 
-The first dev01 pull smoke was denied while the Quay repositories were private.
+The first target cluster pull smoke was denied while the Quay repositories were private.
 After they were made public, digest-pinned HTTP gateway, Zenoh daemon, and
 Jupyter sidecar images each pulled, passed restricted-SCC admission, started
 with an OpenShift-assigned non-root UID, and were removed; cleanup checks found
@@ -276,20 +273,21 @@ name or API address, then use the exact project name:
 
 ```bash
 ctx=$(oc config current-context)
-case "$ctx" in
-  *dev01*) ;;
-  *) echo "Refusing: current context is not identified as dev01" >&2; exit 1 ;;
-esac
+: "${OPENSHIFT_CONTEXT:?Set OPENSHIFT_CONTEXT to the intended local context name}"
+if [[ "$ctx" != "$OPENSHIFT_CONTEXT" ]]; then
+  echo "Refusing: active context does not match OPENSHIFT_CONTEXT" >&2
+  exit 1
+fi
 
-oc --context "$ctx" new-project arhkp-intrinsic \
+oc --context "$ctx" new-project your-project-namespace \
   --skip-config-write=true \
   --display-name="Intrinsic Core on OpenShift" \
   --description="Project-scoped resources for the Intrinsic Core full OpenShift deployment pilot"
-oc --context "$ctx" label namespace arhkp-intrinsic \
+oc --context "$ctx" label namespace your-project-namespace \
   opendatahub.io/dashboard=true --overwrite=false
-oc --context "$ctx" get project arhkp-intrinsic \
+oc --context "$ctx" get project your-project-namespace \
   -o jsonpath='{.metadata.name}{"\n"}'
-oc --context "$ctx" get namespace arhkp-intrinsic \
+oc --context "$ctx" get namespace your-project-namespace \
   -o jsonpath='{.metadata.labels.opendatahub\.io/dashboard}{"\n"}'
 ```
 
@@ -303,7 +301,7 @@ automatically selectable in every RHOAI UI.
 The copied upstream skill/resource charts route gRPC by method path and
 resource-instance header. The OpenShift adapter preserves those rules through
 an internal Service Mesh Gateway; it does not send gRPC through an OpenShift
-Route. The `arhkp-intrinsic` project is enrolled through the namespaced
+Route. The `your-project-namespace` project is enrolled through the namespaced
 `ServiceMeshMember` in `deployment/manifests/servicemesh-member.yaml`, and the
 updated namespace-scoped controller is built and running. To keep this route
 separate from shared ingress, the dedicated gateway uses OpenShift Service Mesh
@@ -348,7 +346,7 @@ adaptation is applied to the owned copy and documented in
 [REGISTRY_ADAPTATION.md](REGISTRY_ADAPTATION.md); the patch is at
 [`patches/intrinsic-openshift-registry.patch`](../patches/intrinsic-openshift-registry.patch).
 `gofmt`, patch checks, and the local Helm image-pull template check pass; the
-generic dev01 registry smoke passed.
+generic target cluster registry smoke passed.
 On 2026-10-02, the pinned upstream commit
 `523f2e03ddf3cb46a19b15be5e81586ae2f538c2` plus the checked-in OpenShift patch
 successfully built `//intrinsic/kubernetes:chart_executable` on a native x86-64
@@ -359,7 +357,7 @@ x86-64 container. This validates the patched CLI build and publisher tests,
 not an Intrinsic workload deployment. The earlier adapted
 `//intrinsic/assets/deploy:render` target also compiled at the pinned commit.
 The x86-64 build host received source code only; cluster kubeconfig and
-application secrets remain on the authorized local host. Authenticated dev01
+application secrets remain on the authorized local host. Authenticated target cluster
 access was verified for project-scoped smoke checks earlier. The new offline
 renderer and policy adapter now render the pinned base and app chart snapshots
 into the selected project, rewrite their known internal service paths, and
@@ -400,25 +398,25 @@ creates missing chart namespaces and may delete an emptied `app-<chart>`
 namespace on chart removal. The pinned
 [`renderutil.go`](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/intrinsic/assets/deploy/renderutil.go)
 fixes resource and skill namespaces to `app-resources` and `skills`; our owned
-copy points both to `arhkp-intrinsic` for this pilot. The base
+copy points both to `your-project-namespace` for this pilot. The base
 chart also uses `app-intrinsic-base` DNS names. Its generated
 [`workcell-cluster-service` RBAC](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/intrinsic/kubernetes/workcell_spec/templates/workcell-cluster-service.yaml)
 includes a ClusterRole/ClusterRoleBinding. The upstream controller's ClusterRole
 can create, update, patch, and delete cluster-scoped ChartAssignments, and can
 inspect pods and services across namespaces; namespace-specific `Role` rules
 alone cannot constrain those cluster-scoped APIs. The upstream CRD/controller
-path remains absent on dev01. We installed a separate Namespaced ChartAssignment
+path remains absent on the target cluster. We installed a separate Namespaced ChartAssignment
 and ResourceSet pilot with project-only RBAC; its ConfigMap smoke passed, but it
 does not yet deploy Core resources or skills. The checked-in patch changes the
 Core client to use the namespaced API and this patch passed the full CLI build;
 the separate copied source tree still needs to be kept aligned with that patch.
 Use the adapted namespace-scoped controller for dynamic resource/skill charts;
-do not install the broad upstream controller on dev01.
+do not install the broad upstream controller on the target cluster.
 
 No GPU quota or GPU workload should be created until project allocation,
 taint/toleration policy, GPU capacity, and required model/runtime resources are
 confirmed with the cluster owners. Current inventory shows one estimated free
-A10G cluster-wide, with no quota or reservation for this project.
+NVIDIA GPU cluster-wide, with no quota or reservation for this project.
 
 Verify the copied upstream source and adaptation digests before building with:
 

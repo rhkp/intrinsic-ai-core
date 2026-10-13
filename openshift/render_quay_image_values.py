@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Render immutable Helm image values from the Quay image lock."""
 
 from __future__ import annotations

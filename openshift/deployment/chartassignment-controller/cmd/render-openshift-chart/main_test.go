@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 package main
 
 import (
@@ -15,14 +16,14 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const smokeNamespace = "arhkp-intrinsic"
+const smokeNamespace = "your-project-namespace"
 
 func TestRunRendersInlineChartThroughOpenShiftPolicy(t *testing.T) {
 	archive := inlineTestChart(t)
 	input := "apiVersion: apps.cloudrobotics.com/v1alpha1\n" +
 		"kind: ChartAssignment\n" +
-		"metadata:\n  name: render-smoke\n  namespace: arhkp-intrinsic\n" +
-		"spec:\n  namespaceName: arhkp-intrinsic\n  chart:\n" +
+		"metadata:\n  name: render-smoke\n  namespace: your-project-namespace\n" +
+		"spec:\n  namespaceName: your-project-namespace\n  chart:\n" +
 		"    name: render-smoke\n    version: 0.0.1\n" +
 		"    inline: " + base64.StdEncoding.EncodeToString(archive) + "\n" +
 		"    values: {}\n"
@@ -31,14 +32,14 @@ func TestRunRendersInlineChartThroughOpenShiftPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output.String(), "kind: ConfigMap") ||
-		!strings.Contains(output.String(), "namespace: arhkp-intrinsic") ||
+		!strings.Contains(output.String(), "namespace: your-project-namespace") ||
 		!strings.Contains(output.String(), "name: render-smoke-result") {
 		t.Fatalf("rendered output missing expected OpenShift-scoped ConfigMap:\n%s", output.String())
 	}
 }
 
 func TestRunRejectsRemoteChart(t *testing.T) {
-	input := `{"apiVersion":"apps.cloudrobotics.com/v1alpha1","kind":"ChartAssignment","metadata":{"name":"remote"},"spec":{"namespaceName":"arhkp-intrinsic","chart":{"name":"remote","version":"1.0.0","repository":"https://example.invalid"}}}`
+	input := `{"apiVersion":"apps.cloudrobotics.com/v1alpha1","kind":"ChartAssignment","metadata":{"name":"remote"},"spec":{"namespaceName":"your-project-namespace","chart":{"name":"remote","version":"1.0.0","repository":"https://example.invalid"}}}`
 	err := run(strings.NewReader(input), &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "remote chart retrieval is disabled") {
 		t.Fatalf("expected remote chart to be rejected, got %v", err)
@@ -49,7 +50,7 @@ func TestRunRejectsNamespaceEscape(t *testing.T) {
 	archive := inlineTestChart(t)
 	input := "apiVersion: apps.cloudrobotics.com/v1alpha1\n" +
 		"kind: ChartAssignment\n" +
-		"metadata:\n  name: render-smoke\n  namespace: arhkp-intrinsic\n" +
+		"metadata:\n  name: render-smoke\n  namespace: your-project-namespace\n" +
 		"spec:\n  namespaceName: another-project\n  chart:\n" +
 		"    name: render-smoke\n    version: 0.0.1\n" +
 		"    inline: " + base64.StdEncoding.EncodeToString(archive) + "\n" +
@@ -74,7 +75,7 @@ func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
         runAsUser: 65532
       containers:
         - name: smoke-resource
-          image: quay.io/rhkp/intrinsic/http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba
+          image: quay.io/your-registry-org/intrinsic/http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba
           securityContext:
             runAsUser: 65532
             runAsGroup: 65532
@@ -128,7 +129,7 @@ func TestRunRendersDynamicSkillChartThroughOpenShiftPolicy(t *testing.T) {
     containers:
       - name: smoke-skill
         asset: smoke.skill
-        registry: quay.io/rhkp/intrinsic
+        registry: quay.io/your-registry-org/intrinsic
         image_ref: http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba
         port: 8003
         metrics_port: 9101
@@ -150,7 +151,7 @@ skills: []
 	}
 	containers, _, _ := unstructured.NestedSlice(podSpec, "containers")
 	image, _, _ := unstructured.NestedString(containers[0].(map[string]interface{}), "image")
-	if image != "quay.io/rhkp/intrinsic/http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba" {
+	if image != "quay.io/your-registry-org/intrinsic/http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba" {
 		t.Fatalf("skill image = %q, want digest-locked Quay image", image)
 	}
 	if strings.Contains(output, "app-ingress") || strings.Contains(output, "app-intrinsic-base") {
@@ -164,7 +165,7 @@ skills: []
 		t.Fatalf("skill ingress egress peer is not a valid, restricted LabelSelector: %#v", peers[0])
 	}
 	if !strings.Contains(output, "kubernetes.io/metadata.name: istio-system") ||
-		!strings.Contains(output, "istio.io/rev: data-science-smcp") || !strings.Contains(output, "port: 15012") {
+		!strings.Contains(output, "istio.io/rev: your-service-mesh-control-plane") || !strings.Contains(output, "port: 15012") {
 		t.Fatal("skill egress policy does not allow the verified Service Mesh xDS control plane")
 	}
 	if !strings.Contains(output, "kubernetes.io/metadata.name: openshift-dns") ||
@@ -186,7 +187,7 @@ func setSmokeRouting(t *testing.T) {
 func runTemplateChart(t *testing.T, releaseName, templateName, values string) string {
 	t.Helper()
 	chartArchive := inlineTemplateChart(t, releaseName, templateName, values)
-	input := fmt.Sprintf("apiVersion: apps.cloudrobotics.com/v1alpha1\nkind: ChartAssignment\nmetadata:\n  name: %s\n  namespace: arhkp-intrinsic\nspec:\n  namespaceName: arhkp-intrinsic\n  chart:\n    name: %s\n    version: 0.0.1\n    inline: %s\n    values:\n", releaseName, releaseName, base64.StdEncoding.EncodeToString(chartArchive))
+	input := fmt.Sprintf("apiVersion: apps.cloudrobotics.com/v1alpha1\nkind: ChartAssignment\nmetadata:\n  name: %s\n  namespace: your-project-namespace\nspec:\n  namespaceName: your-project-namespace\n  chart:\n    name: %s\n    version: 0.0.1\n    inline: %s\n    values:\n", releaseName, releaseName, base64.StdEncoding.EncodeToString(chartArchive))
 	for _, line := range strings.Split(strings.TrimSuffix(values, "\n"), "\n") {
 		input += "      " + line + "\n"
 	}

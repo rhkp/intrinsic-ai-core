@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Emit a namespace-bound ChartAssignment whose chart creates one ConfigMap."""
 
 import base64
 import gzip
 import io
 import json
+import os
 import tarfile
 
-NAMESPACE = "arhkp-intrinsic"
+NAMESPACE = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
 CHART = "chartassignment-smoke"
 
 files = {

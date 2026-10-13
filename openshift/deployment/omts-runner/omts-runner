@@ -41,7 +41,7 @@ case "$command_name" in
     : "${INTRINSIC_GRPC_ADDRESS:?set the internal Gateway address}"
     exec python3 /opt/intrinsic/omts_app.zip \
       --address="$INTRINSIC_GRPC_ADDRESS" \
-      --config=/etc/intrinsic/lab_bb_01/app_config.yaml \
+      --config=/etc/intrinsic/your-workcell/app_config.yaml \
       --num_cycles=1
     ;;
   help|--help|-h)
@@ -52,7 +52,7 @@ Commands:
   serve          Keep the mesh-injected runner pod available for oc exec.
   app-help       Show the pinned OMTS app flags without contacting Core.
   register-help  Show pose-registration flags without contacting Core.
-  register-pose  Register the pinned lab_bb_01 pose estimator with Core.
+  register-pose  Register the pinned your-workcell pose estimator with Core.
   run-once       Run one cycle; requires INTRINSIC_SIMULATION_CONFIRMED=true.
 USAGE
     ;;

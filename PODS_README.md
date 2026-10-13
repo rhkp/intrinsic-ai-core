@@ -2,9 +2,7 @@
 
 [Back to the deployment journal](README.md)
 
-Snapshot checked on **2026-09-30**: **51 pods, all ready**. This describes our
-`lab_bb_01` OMTS deployment in **simulation mode**, using Intrinsic Core and OMTS
-release `20260922.0`. Readiness is a snapshot, not a guarantee of current health.
+This reference describes a representative OMTS deployment in **simulation mode**, using Intrinsic Core and OMTS. Exact deployment dates, versions, counts, and readiness snapshots are maintained in an untracked local inventory.
 
 A pod runs one or more related containers. Kubernetes-generated name suffixes
 are omitted below; resource pods retain their stable `-0` suffix. Skill-group
@@ -119,7 +117,7 @@ makes that model available to RViz.
 
 The browser window shows **RViz**, with Gazebo running the simulation behind it.
 RViz, the desktop, and the browser viewer run separately under the VM's
-`intrinsic-viewer.service`; they are not included in these 51 pods.
+`intrinsic-viewer.service`; they are outside the Kubernetes workload inventory.
 
 ## Read-only inspection commands
 

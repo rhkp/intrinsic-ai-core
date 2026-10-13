@@ -1,4 +1,9 @@
 # Namespace-scoped ChartAssignment controller adaptation
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 This directory contains the pinned Cloud Robotics ChartAssignment controller
 and Synk source needed for an OpenShift-specific, namespace-bounded adaptation.
@@ -10,13 +15,13 @@ The upstream controller is not deployed as-is: its upstream policy binds it to
 `cluster-admin`, and the controller creates chart namespaces, copies selected
 Secrets, and edits default ServiceAccounts. The adaptation must remove those
 behaviors, constrain ChartAssignments and release tracking to
-`arhkp-intrinsic`, and fail closed on any chart resource outside that project.
+`your-project-namespace`, and fail closed on any chart resource outside that project.
 
 The controller and Synk CRDs must be installed as `Namespaced` resources before
 the controller starts. The CRD registrations themselves are cluster-level API
 objects; their custom-resource instances are namespace-bound. Do not change the
 scope of an established CRD in place. No CRDs or controller resources have been
-installed on dev01 as part of this source preparation.
+installed on the target cluster as part of this source preparation.
 
 Upstream source files are Apache-2.0 licensed; see [LICENSE](LICENSE). The
 specific module version is pinned in [go.mod](go.mod).

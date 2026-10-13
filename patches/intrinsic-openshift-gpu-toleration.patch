@@ -20,7 +20,7 @@ diff --git a/intrinsic/assets/deploy/renderutil.go b/intrinsic/assets/deploy/ren
  	}
 +	if anyContainerRequiresNvidiaGPU {
 +		spec.Tolerations = append(spec.Tolerations, kubev1.Toleration{
-+			Key:      "g5-gpu",
++			Key:      "your-gpu-taint-key",
 +			Operator: kubev1.TolerationOpEqual,
 +			Value:    "true",
 +			Effect:   kubev1.TaintEffectNoSchedule,

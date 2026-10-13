@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: resource-registry-openshift
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 spec:
   lookupPolicy:
     local: false
@@ -13,7 +14,7 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   name: resource-registry-openshift
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 spec:
   runPolicy: Serial
   source:

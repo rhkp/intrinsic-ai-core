@@ -14,7 +14,7 @@ WORKDIR /opt/intrinsic
 
 COPY --chmod=0444 omts_app.zip /opt/intrinsic/omts_app.zip
 COPY --chmod=0444 register_using_train_service.zip /opt/intrinsic/register_using_train_service.zip
-COPY --chmod=0444 app_config.yaml /etc/intrinsic/lab_bb_01/app_config.yaml
+COPY --chmod=0444 app_config.yaml /etc/intrinsic/your-workcell/app_config.yaml
 COPY --chmod=0444 LICENSE /licenses/LICENSE.omts
 COPY --chmod=0444 TRADEMARK.md /licenses/TRADEMARK.omts.md
 COPY --chmod=0555 omts-runner /usr/local/bin/omts-runner

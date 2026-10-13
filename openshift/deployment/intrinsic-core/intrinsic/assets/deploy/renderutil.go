@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 // Copyright 2026 Intrinsic Innovation LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -69,7 +70,7 @@ import (
 const (
 	// openshiftApplicationNamespace is the single project used by this OpenShift
 	// pilot. Keep resource and skill workloads with the project-scoped pull identity.
-	openshiftApplicationNamespace = "arhkp-intrinsic"
+	openshiftApplicationNamespace = "your-project-namespace"
 
 	// resourceChartName is the name given to the resources chart.  This could
 	// potentially be a dynamic thing, however, a number of different places
@@ -821,10 +822,10 @@ func podSpecForResource(ri *ripb.ResourceInstance, rt *rtrpb.ResourceTypeRuntime
 		}
 	}
 	if anyContainerRequiresGpu {
-		// dev01 GPU workers are tainted g5-gpu=true:NoSchedule. Keep this
+		// GPU workers may be tainted with the configured GPU taint. Keep this
 		// toleration limited to pods that actually request a GPU.
 		spec.Tolerations = append(spec.Tolerations, kubev1.Toleration{
-			Key:      "g5-gpu",
+			Key:      "your-gpu-taint-key",
 			Operator: kubev1.TolerationOpExists,
 			Effect:   kubev1.TaintEffectNoSchedule,
 		})

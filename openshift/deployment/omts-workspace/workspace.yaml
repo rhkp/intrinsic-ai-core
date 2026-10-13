@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: omts-build-workspace
-  namespace: arhkp-intrinsic
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-demo
     app.kubernetes.io/component: build-workspace
@@ -10,16 +11,16 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: gp3-csi
+  storageClassName: ${OPENSHIFT_STORAGE_CLASS}
   resources:
     requests:
-      storage: 200Gi
+      storage: ${PVC_SIZE}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: omts-build-workspace
-  namespace: arhkp-intrinsic
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-demo
     app.kubernetes.io/component: build-workspace
@@ -52,7 +53,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: workspace
-          image: image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/omts-build-tools:20260922.0
+          image: image-registry.openshift-image-registry.svc:5000/${OPENSHIFT_NAMESPACE}/omts-build-tools:20260922.0
           imagePullPolicy: Always
           command:
             - /bin/bash

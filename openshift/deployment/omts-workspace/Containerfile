@@ -46,7 +46,7 @@ RUN set -eux; \
 
 COPY openshift/deployment/omts-runner/ /opt/intrinsic/repo/openshift/deployment/omts-runner/
 COPY openshift/deployment/artifacts-service/ /opt/intrinsic/repo/openshift/deployment/artifacts-service/
-COPY openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml
+COPY openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml /opt/intrinsic/repo/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml
 COPY patches/ /opt/intrinsic/repo/patches/
 RUN chmod 0555 \
       /opt/intrinsic/repo/openshift/deployment/omts-runner/build-solution-cli.sh \

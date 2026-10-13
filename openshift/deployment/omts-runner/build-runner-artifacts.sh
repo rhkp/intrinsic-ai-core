@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
 readonly runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +30,6 @@ TMPDIR="${build_tmp}" bazel --batch build \
   //tools/pose_estimation:register_using_train_service
 
 python3 "${runner_dir}/audit_runner_archives.py" \
-  --config "${repo_root}/openshift/deployment/intrinsic-omts/configs/lab_bb_01/app_config.yaml" \
+  --config "${repo_root}/openshift/deployment/intrinsic-omts/configs/your-workcell/app_config.yaml" \
   "${source_dir}/bazel-bin/src/omts_app.zip" \
   "${source_dir}/bazel-bin/tools/pose_estimation/register_using_train_service.zip"

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
 readonly release="20260922.0"

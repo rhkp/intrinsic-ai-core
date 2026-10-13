@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: omts-registry-push-smoke
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
   labels:
     app.kubernetes.io/name: intrinsic-omts-deployer
     app.kubernetes.io/component: registry-smoke
@@ -53,12 +54,12 @@ spec:
                 echo 'registry_auth=failed reason=missing_service_account_token' >&2
                 exit 1
               fi
-              username='system:serviceaccount:arhkp-intrinsic:omts-deployer'
+              username='system:serviceaccount:your-project-namespace:omts-deployer'
               printf 'user = "%s:%s"\nanyauth\n' "$username" "$token" > "$tmp/auth.conf"
               chmod 0600 "$tmp/auth.conf"
               unset token
 
-              repository="arhkp-intrinsic/omts-push-smoke-${HOSTNAME}"
+              repository="your-project-namespace/omts-push-smoke-${HOSTNAME}"
               push_status="$(curl --silent --show-error --cacert "$ca" \
                 --config "$tmp/auth.conf" --request POST \
                 --dump-header "$tmp/headers" --output /dev/null \

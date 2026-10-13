@@ -1,40 +1,39 @@
 # Historical OpenShift resources for the AWS VM + RHOAI experiment
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
 
 **Status:** archived; these steps are not the current deployment plan. The team
 has set aside the hybrid path in favor of a full OpenShift deployment. See
 [the active work plan](../../../OPENSHIFT_PLAN.md).
 
 This directory is the separate implementation track for the hybrid approach.
-The target is **dev01 only** in project `arhkp-intrinsic`; dev02 is excluded
-because it lacks the needed resources. No dev02 inventory or smoke result counts
-as dev01 evidence. On dev01, the UI-created gRPC model is Ready and internal
+The target is **target cluster only** in project `your-project-namespace`; comparison cluster is excluded
+because it lacks the needed resources. No comparison cluster inventory or smoke result counts
+as target cluster evidence. on the target cluster, the UI-created gRPC model is Ready and internal
 inference passed through a local port-forward. From the AWS VM, DNS and TLS to
 the route work, but ALPN `h2` was not negotiated; external gRPC inference has
 not passed. Token-authenticated REST inference from the VM is also untested.
-Re-inventory dev01's product versions, runtime workflow, and capacity before
+Re-inventory the target cluster's product versions, runtime workflow, and capacity before
 further deployment work. This does not alter the VM Only deployment or its
 local inference path.
 
-## Historical dev02 inventory (out of scope)
+## Historical comparison cluster inventory (out of scope)
 
-The following dev02 observations and instructions are retained as history only.
-Do not use them to claim dev01 readiness or copy them to dev01 without
+The following comparison cluster observations and instructions are retained as history only.
+Do not use them to claim target cluster readiness or copy them to target cluster without
 revalidating product versions, UI behavior, permissions, capacity, and resource
 state.
 
-Read-only checks on 2026-10-01 recorded OpenShift `4.21.16`, RHOAI `3.4.1`,
-and KServe in `Managed` state. The versions are a supported pairing according
-to Red Hat's [RHOAI 3.x supported configurations](https://access.redhat.com/articles/rhoai-supported-configs-3.x).
-The cluster had two `ServingRuntime` resources and no Triton runtime. The
-`arhkp-intrinsic` project has since been created and verified. The latest
-read-only inventory found 9 allocatable A10G GPUs with 3 requested and 3
-allocatable L40S GPUs with 2 requested (an estimated 7 free across both
-products). This is cluster-wide capacity, not a reservation; re-run preflight
-before scheduling. Project GPU quota, model storage, and production-model
-artifacts remain unverified. Source-network allowlisting is also unverified,
-but external ingress with token authentication has been accepted for this
-bounded synthetic demo. Available
-StorageClasses are `gp2-csi` and `gp3-csi`. Namespace-scoped create checks
+Read-only checks confirmed a supported OpenShift and RHOAI pairing, KServe in
+`Managed` state, and an eligible project. Exact versions, runtime inventory,
+GPU capacity, and storage class names are environment-specific; keep them in an
+untracked local inventory and rerun preflight before scheduling. Project GPU
+quota, model storage, and production-model artifacts remain unverified.
+Source-network allowlisting is also unverified, but external ingress with token
+authentication has been accepted for this bounded synthetic demo. Namespace-scoped create checks
 currently allow ServingRuntime, InferenceService, PVC, ResourceQuota, and
 NetworkPolicy resources; this does not establish RHOAI dashboard administrator
 privileges or authorize serving runtime enablement.
@@ -71,8 +70,8 @@ capacity before future rollouts.
 
 ### Reproduce the route/auth smoke setup
 
-This CLI sequence was verified on dev02 only. It is a reference for the
-dev01 test, not a verified dev01 procedure. Recheck permissions, object names,
+This CLI sequence was verified on comparison cluster only. It is a reference for the
+target cluster test, not a verified target cluster procedure. Recheck permissions, object names,
 RHOAI behavior, and resource availability before running it there. It creates
 project-scoped caller RBAC and changes the named smoke InferenceService. The
 external route label is deliberately applied only after the auth proxy is ready.
@@ -83,13 +82,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: intrinsic-aws-vm
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: triton-cifar10-smoke-inference
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 rules:
 - apiGroups: [serving.kserve.io]
   resources: [inferenceservices]
@@ -100,11 +99,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: triton-cifar10-smoke-inference
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 subjects:
 - kind: ServiceAccount
   name: intrinsic-aws-vm
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -113,24 +112,24 @@ YAML
 
 # Use this for the one-GPU smoke workload when a rolling update cannot get
 # temporary surge capacity; Recreate introduces downtime during replacement.
-oc patch inferenceservice triton-cifar10-smoke -n arhkp-intrinsic \
+oc patch inferenceservice triton-cifar10-smoke -n your-project-namespace \
   --type=merge \
   -p '{"spec":{"predictor":{"deploymentStrategy":{"type":"Recreate"}}}}'
 
 # Enable the proxy first, then wait until its pod is Ready and the predictor
 # Service has an HTTPS port before exposing the Route.
-oc annotate inferenceservice triton-cifar10-smoke -n arhkp-intrinsic \
+oc annotate inferenceservice triton-cifar10-smoke -n your-project-namespace \
   security.opendatahub.io/enable-auth=true --overwrite
-oc wait pods -n arhkp-intrinsic \
+oc wait pods -n your-project-namespace \
   -l serving.kserve.io/inferenceservice=triton-cifar10-smoke \
   --for=condition=Ready --timeout=10m
-oc label inferenceservice triton-cifar10-smoke -n arhkp-intrinsic \
+oc label inferenceservice triton-cifar10-smoke -n your-project-namespace \
   networking.kserve.io/visibility=exposed --overwrite
 
 # Mint a short-lived caller token into a protected file; this does not print it.
 install -d -m 700 "$HOME/.config/intrinsic"
 umask 077
-oc create token intrinsic-aws-vm -n arhkp-intrinsic --duration=15m \
+oc create token intrinsic-aws-vm -n your-project-namespace --duration=15m \
   > "$HOME/.config/intrinsic/rhoai-token"
 chmod 600 "$HOME/.config/intrinsic/rhoai-token"
 ```
@@ -171,7 +170,8 @@ python3 approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/preflight.py
 ```
 
 Use `--context-fragment` only if the local context names do not contain
-`dev01`. Do not paste context lists, kubeconfig output, API URLs, tokens, or
+the value in `OPENSHIFT_CONTEXT`. Set `OPENSHIFT_CONTEXT` in the ignored local
+`.env` file before running these commands. Do not paste context lists, kubeconfig output, API URLs, tokens, or
 identity details into issue trackers or commit them. Bootstrap has no write
 side effect unless `--apply` is supplied.
 
@@ -215,13 +215,13 @@ The pinned [Intrinsic inference manifest](https://github.com/intrinsic-ai/intrin
 [service entry point](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/intrinsic_inference/assets/inference_service/inference_service_main.py),
 and [Triton model controller](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/intrinsic_inference/core/model_controller_triton.py)
 are the upstream references for the current local inference contract. The
-RHOAI platform deploys each model from a dedicated model server. The dev02 REST
-smoke is historical and excluded. On dev01, internal gRPC inference passed, but
+RHOAI platform deploys each model from a dedicated model server. The comparison cluster REST
+smoke is historical and excluded. on the target cluster, internal gRPC inference passed, but
 the external gRPC route did not negotiate ALPN `h2`; REST from the VM and
 Intrinsic-to-RHOAI inference remain untested.
 The upstream contract uses a local Unix socket/shared-memory path and Intrinsic
 model load/unload control. Before switching, validate how the VM-side wrapper
-will call the dev01 endpoint with TLS and token authentication and how RF-DETR and
+will call the target cluster endpoint with TLS and token authentication and how RF-DETR and
 FoundationPose artifact lifecycle maps to RHOAI model deployments. This may
 need client configuration or an adapter; confirm against the pinned source
 before choosing.
@@ -229,7 +229,7 @@ before choosing.
 ## Ownership and rollback
 
 RHOAI platform/operator namespaces remain cluster-owned. Project-scoped
-resources belong in `arhkp-intrinsic`; do not edit operator-managed objects.
+resources belong in `your-project-namespace`; do not edit operator-managed objects.
 Keep the VM's local inference pair intact as the baseline and rollback path.
 See the [implementation layout](../IMPLEMENTATION_LAYOUT.md) and
 [test plan](../TEST_PLAN.md) for the placement split, gates, and stop criteria.

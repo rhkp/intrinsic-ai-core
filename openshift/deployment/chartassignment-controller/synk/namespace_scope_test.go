@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 package synk
 
 import (
@@ -15,7 +16,7 @@ func TestInitializeEnforcesSingleNamespaceAndRejectsClusterScopedKinds(t *testin
 	}{
 		{
 			name:     "resource in target namespace",
-			resource: newUnstructured("v1", "Pod", "arhkp-intrinsic", "pilot"),
+			resource: newUnstructured("v1", "Pod", "your-project-namespace", "pilot"),
 		},
 		{
 			name:     "resource in another namespace",
@@ -34,14 +35,14 @@ func TestInitializeEnforcesSingleNamespaceAndRejectsClusterScopedKinds(t *testin
 			f := newFixture(t)
 			s := f.newSynk()
 			rs, _, err := s.initialize(context.Background(), &ApplyOptions{
-				Namespace:        "arhkp-intrinsic",
+				Namespace:        "your-project-namespace",
 				EnforceNamespace: true,
 			}, tc.resource)
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("initialize error = %v, wantErr %v", err, tc.wantErr)
 			}
-			if !tc.wantErr && rs.Namespace != "arhkp-intrinsic" {
-				t.Fatalf("ResourceSet namespace = %q, want arhkp-intrinsic", rs.Namespace)
+			if !tc.wantErr && rs.Namespace != "your-project-namespace" {
+				t.Fatalf("ResourceSet namespace = %q, want your-project-namespace", rs.Namespace)
 			}
 		})
 	}

@@ -1,8 +1,9 @@
+# This project was developed with assistance from AI tools.
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime
 metadata:
   name: triton-kserve-grpc-smoke
-  namespace: arhkp-intrinsic
+  namespace: your-project-namespace
   labels:
     opendatahub.io/dashboard: "true"
   annotations:

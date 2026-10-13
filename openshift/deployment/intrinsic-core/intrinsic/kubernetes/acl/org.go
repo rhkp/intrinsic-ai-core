@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 // Copyright 2026 Intrinsic Innovation LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +18,10 @@ package org
 
 import (
 	"net/http"
-	"regexp"  
-	"strings" 
+	"regexp"
+	"strings"
 
-	log "github.com/golang/glog" 
+	log "github.com/golang/glog"
 	"github.com/rs/xid"
 )
 
@@ -29,15 +30,11 @@ const OrgIDCookie = "org-id"
 
 const OrgIDHeader = "x-intrinsic-org"
 
-
-
 // IntrinsicOrgID is the organization identifier used for the Intrinsic in multi-tenant projects.
 const IntrinsicOrgID = "intrinsic"
 
 // PublicOrgID is an ACL-only organization used for public resources.
 const PublicOrgID = "publicorg"
-
-
 
 // Organization represents an organization inside the Intrinsic stack.
 type Organization struct {
@@ -59,7 +56,6 @@ func ID() string {
 	return xid.New().String()
 }
 
-
 var (
 	// use email as a base for org id, as per section 2.3 of RFC 3986 replace other chars by '_'.
 	// The result must be a valid label value for compatibility with quota tracking:
@@ -78,5 +74,3 @@ func NewFromUID(uid string) *Organization {
 	}
 	return &Organization{ID: orgid}
 }
-
-

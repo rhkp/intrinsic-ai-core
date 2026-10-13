@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 umask 077
 
@@ -10,7 +11,7 @@ cookie="$(mcookie)"
 xauth -q -f "$XAUTHORITY" add "$DISPLAY" . "$cookie"
 
 Xtigervnc "$DISPLAY" -geometry 1600x900 -depth 24 \
-  -desktop 'Intrinsic dev01 Simulation' -auth "$XAUTHORITY" -nolisten tcp \
+  -desktop 'Intrinsic OpenShift Simulation' -auth "$XAUTHORITY" -nolisten tcp \
   -rfbport 5900 -localhost yes -SecurityTypes None -AlwaysShared \
   -FrameRate 20 -AcceptSetDesktopSize=0 -AcceptCutText=0 -SendCutText=0 &
 vnc_pid=$!

@@ -32,7 +32,7 @@ internal aliases; they have not been rerun from our owned copy. The full
 upstream Go package and Bazel build were not run, and the copied command has
 not yet published an Intrinsic workload image or deployed a workload.
 
-The live dev01 registry check passed. Its operator state is `Managed`, the
+The live target cluster registry check passed. Its operator state is `Managed`, the
 external default Route is disabled, and the current project identity can push
 and pull image-stream layers. An annotated project ConfigMap named
 `intrinsic-registry-ca` now holds the injected public service CA bundle. The

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Fail closed if a packaged OMTS zip contains excluded hardware config."""
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 EXCLUDED_SUFFIXES = (
-    "configs/lab_bb_01/ur_module_config.textproto",
+    "configs/your-workcell/ur_module_config.textproto",
     "configs/omts/ur_module_config.textproto",
 )
 CONFIG_SUFFIXES = (".textproto", ".pbtxt", ".yaml", ".yml", ".json")

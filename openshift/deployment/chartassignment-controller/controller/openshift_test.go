@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 package chartassignment
 
 import (
@@ -10,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const pilotNamespace = "arhkp-intrinsic"
+const pilotNamespace = "your-project-namespace"
 
 func object(kind, name string, fields map[string]interface{}) *unstructured.Unstructured {
 	value := map[string]interface{}{
@@ -105,7 +106,7 @@ func TestAdaptOpenShiftResourcesConfiguresProjectZenohClients(t *testing.T) {
 		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
 			"containers": []interface{}{map[string]interface{}{
 				"name":  "move-to-contact-ai-intrinsic",
-				"image": "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/" + moveToContactSkillImageRepo + "@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b",
+				"image": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/" + moveToContactSkillImageRepo + "@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b",
 				"args":  []interface{}{"/skills/skill_service", "--port=8003"},
 			}},
 		}}},
@@ -154,7 +155,7 @@ func TestAdaptOpenShiftResourcesConfiguresProjectZenohClients(t *testing.T) {
 			}
 		}
 		if resource.GetName() == "skill-group-09" {
-			wantImage := "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/move-to-contact-openshift@sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520"
+			wantImage := "image-registry.openshift-image-registry.svc:5000/your-project-namespace/move-to-contact-openshift@sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520"
 			if container["image"] != wantImage {
 				t.Fatalf("%s/%s image = %v, want pinned OpenShift-derived MTC image %q", resource.GetKind(), resource.GetName(), container["image"], wantImage)
 			}
@@ -477,6 +478,9 @@ func TestAdaptOpenShiftResourcesReplacesSimulationHostPaths(t *testing.T) {
 			"name":  "service",
 			"image": "example.invalid/service",
 		}
+		if name == "rs-icon" {
+			container["name"] = "rs-icon"
+		}
 		if name == gazeboSimulatorName {
 			container = map[string]interface{}{
 				"name":  gazeboSimulatorContainerName,
@@ -595,10 +599,10 @@ func TestAdaptOpenShiftResourcesDropsOnlyKnownSimulationSecurityRequests(t *test
 		})
 	}
 	input := []*unstructured.Unstructured{
-		statefulSet("rs-ur-module", container("rs-ur-module", "registry.example:5000/arhkp-intrinsic/ai.intrinsic.ur3e_hardware_module_core_service.gazebo_hwm_stub_image@sha256:abcdef", nil, false)),
-		statefulSet("rs-icon", container("rs-icon", "registry.example:5000/arhkp-intrinsic/ai.intrinsic.generic_realtime_control_service.generic_icon_machine_resource:demo", []interface{}{"SYS_NICE"}, false)),
-		statefulSet("rs-motion-planner-service", container("rs-motion-planner-service", "registry.example:5000/arhkp-intrinsic/ai.intrinsic.motion_planner_service.motion-planner-service-image:demo", []interface{}{"SYS_RAWIO"}, false)),
-		statefulSet("rs-hande-gripper", container("rs-hande-gripper", "registry.example:5000/arhkp-intrinsic/ai.intrinsic.hande_gripper_aquarium_hande_gripper_launch_xml.hande-gripper-sim-driver-hande-gripper.launch.xml:demo", nil, true)),
+		statefulSet("rs-ur-module", container("rs-ur-module", "registry.example:5000/your-project-namespace/ai.intrinsic.ur3e_hardware_module_core_service.gazebo_hwm_stub_image@sha256:abcdef", nil, false)),
+		statefulSet("rs-icon", container("rs-icon", "registry.example:5000/your-project-namespace/ai.intrinsic.generic_realtime_control_service.generic_icon_machine_resource:demo", []interface{}{"SYS_NICE"}, false)),
+		statefulSet("rs-motion-planner-service", container("rs-motion-planner-service", "registry.example:5000/your-project-namespace/ai.intrinsic.motion_planner_service.motion-planner-service-image:demo", []interface{}{"SYS_RAWIO"}, false)),
+		statefulSet("rs-hande-gripper", container("rs-hande-gripper", "registry.example:5000/your-project-namespace/ai.intrinsic.hande_gripper_aquarium_hande_gripper_launch_xml.hande-gripper-sim-driver-hande-gripper.launch.xml:demo", nil, true)),
 	}
 
 	got, err := adaptOpenShiftResources(input, pilotNamespace)
@@ -1097,7 +1101,7 @@ func TestAdaptOpenShiftResourcesRetargetsVirtualServiceAndRemovesK3sOnlyObjects(
 			"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
 				"containers": []interface{}{map[string]interface{}{
 					"name":         "artifacts-deployment",
-					"image":        "quay.io/rhkp/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99",
+					"image":        "quay.io/your-registry-org/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99",
 					"args":         []interface{}{"intrinsic/storage/artifacts/artifact_service", "--registry_port=9090", "--containerd_namespace=k8s.io"},
 					"ports":        []interface{}{map[string]interface{}{"name": "http-registry", "containerPort": int64(9090), "hostPort": int64(17127)}},
 					"volumeMounts": []interface{}{map[string]interface{}{"name": "containerd-socket", "mountPath": "/run/containerd/containerd.sock"}},
@@ -1486,7 +1490,7 @@ func TestAdaptOpenShiftResourcesInjectsSidecarForGazeboProxy(t *testing.T) {
 			"metadata": map[string]interface{}{"annotations": map[string]interface{}{"app-deployment-id": "test"}},
 			"spec": map[string]interface{}{"containers": []interface{}{map[string]interface{}{
 				"name":  gzserverContainerName,
-				"image": "quay.io/rhkp/intrinsic/" + gzserverImageRepository + "@sha256:0123456789abcdef",
+				"image": "quay.io/your-registry-org/intrinsic/" + gzserverImageRepository + "@sha256:0123456789abcdef",
 				"args":  []interface{}{gzserverMainBinary, "--simulation_service_address=upstream.invalid:8088"},
 			}}},
 		}},

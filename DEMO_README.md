@@ -2,7 +2,7 @@
 
 [Deployment journal](README.md) · [Pod reference](PODS_README.md) · [OpenShift plan](OPENSHIFT_PLAN.md)
 
-**Last run:** 2026-09-30. **Release:** `20260922.0`. **Cell:** `lab_bb_01`.
+**Last run:** 2026-09-30. **Release:** `20260922.0`. **Cell:** `your-workcell`.
 **Environment:** the existing AWS VM, with the solution deployed in simulation mode.
 
 **Result:** arm motion, camera capture, pose estimation, and gripper/workpiece
@@ -81,11 +81,11 @@ cd ~/intrinsic-omts
 TMPDIR="$HOME/tmp" bazel --batch run //src:omts_app \
   --jobs=4 --distdir="$HOME/intrinsic-distfiles" -- \
   --address=localhost:17080 \
-  --config=configs/lab_bb_01/app_config.yaml \
+  --config=configs/your-workcell/app_config.yaml \
   --num_cycles=1
 ```
 
-The `lab_bb_01` configuration already defaults to one cycle; the explicit override
+The `your-workcell` configuration already defaults to one cycle; the explicit override
 records our intent. Do not use zero/negative cycle counts here: the application's
 flag documentation defines those as continuous operation.
 
@@ -96,7 +96,7 @@ Bazel analysis for a retry on the same checkout:
 cd ~/intrinsic-omts
 bazel-bin/src/omts_app \
   --address=localhost:17080 \
-  --config=configs/lab_bb_01/app_config.yaml \
+  --config=configs/your-workcell/app_config.yaml \
   --num_cycles=1
 ```
 
@@ -180,7 +180,7 @@ resetting or retrying.
 
 - All demo application invocations exited; none was left running.
 - The simulation was reset to its initial world state.
-- ICON reported enabled and all 51 pods were ready after cleanup.
+- ICON reported enabled and workloads were ready after cleanup.
 - The viewer remained available through the existing private SSH tunnel.
 - Registration and demo logs stayed under `~/intrinsic-install-logs/` on the VM,
   with permissions `600`; raw logs were not copied into this repository.

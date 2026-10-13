@@ -166,7 +166,7 @@ index 5afbb8c..b7fc443 100644
  
  const (
 +	// Namespace is the single project used by the OpenShift pilot.
-+	Namespace = "arhkp-intrinsic"
++	Namespace = "your-project-namespace"
 +
  	// PartOfAppLabel is the name of the label containing the app name that a chart belongs to.
  	PartOfAppLabel    = "app.kubernetes.io/part-of"
@@ -709,28 +709,28 @@ index 0000000..c3e08af
 +func TestOpenShiftRegistryDestinationKeepsProjectPrefix(t *testing.T) {
 +	t.Setenv("RELEASE_CANDIDATE_NAME", "openshift-test")
 +	publisher := &OpenShiftRegistryPublisher{
-+		pushPrefix: "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic",
++		pushPrefix: "image-registry.openshift-image-registry.svc:5000/your-project-namespace",
 +	}
 +	tag, err := publisher.destinationTag(ImageInfo{RepositoryBasename: "intrinsic-assets"})
 +	if err != nil {
 +		t.Fatalf("destinationTag() error = %v", err)
 +	}
-+	if got, wantPrefix := tag.Name(), "image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic/intrinsic-assets:"; !strings.HasPrefix(got, wantPrefix) {
++	if got, wantPrefix := tag.Name(), "image-registry.openshift-image-registry.svc:5000/your-project-namespace/intrinsic-assets:"; !strings.HasPrefix(got, wantPrefix) {
 +		t.Errorf("destinationTag() = %q, want prefix %q", got, wantPrefix)
 +	}
 +}
 +
 +func TestNewOpenShiftRegistryPublisherRequiresTrustedCA(t *testing.T) {
-+	if _, err := NewOpenShiftRegistryPublisher("image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic", "127.0.0.1:5000", ""); err == nil {
++	if _, err := NewOpenShiftRegistryPublisher("image-registry.openshift-image-registry.svc:5000/your-project-namespace", "127.0.0.1:5000", ""); err == nil {
 +		t.Fatal("NewOpenShiftRegistryPublisher() accepted an empty CA path")
 +	}
-+	if _, err := NewOpenShiftRegistryPublisher("image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic", "127.0.0.1:5000", "/missing/ca.pem"); err == nil {
++	if _, err := NewOpenShiftRegistryPublisher("image-registry.openshift-image-registry.svc:5000/your-project-namespace", "127.0.0.1:5000", "/missing/ca.pem"); err == nil {
 +		t.Fatal("NewOpenShiftRegistryPublisher() accepted a missing CA file")
 +	}
 +}
 +
 +func TestNewOpenShiftRegistryPublisherRejectsNonLoopbackRegistry(t *testing.T) {
-+	if _, err := NewOpenShiftRegistryPublisher("image-registry.openshift-image-registry.svc:5000/arhkp-intrinsic", "example.invalid:5000", "/unused/ca.pem"); err == nil {
++	if _, err := NewOpenShiftRegistryPublisher("image-registry.openshift-image-registry.svc:5000/your-project-namespace", "example.invalid:5000", "/unused/ca.pem"); err == nil {
 +		t.Fatal("NewOpenShiftRegistryPublisher() accepted a non-loopback registry forward")
 +	}
 +}

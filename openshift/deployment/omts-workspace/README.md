@@ -1,12 +1,18 @@
 # Pinned OMTS build workspace
+> [!NOTE]
+> This project was developed with assistance from AI tools.
 
-This is the next deployment gate for dev01. It creates a small tools-only image
-and one restricted x86-64 workspace pod. The 200 GiB `gp3-csi` PVC retains the
-pinned public source checkout, Bazel cache, and temporary build files across
+> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+
+
+This is the next deployment gate for target cluster. It creates a small tools-only image
+and one restricted x86-64 workspace pod. A PVC using `OPENSHIFT_STORAGE_CLASS`
+and `PVC_SIZE` retains the pinned public source checkout, Bazel cache, and temporary build files across
 pod restarts. The image build does **not** compile OMTS or package a runner.
 
-All commands explicitly target `arhkp-intrinsic`; verify the current cluster
-is dev01 before running them. The build context is an allowlist of scripts,
+All commands target `your-project-namespace`; set `OPENSHIFT_NAMESPACE` and verify
+the active context before running them. The build and apply scripts require
+`OPENSHIFT_API_SERVER_URL` to match that context's API URL. The build context is an allowlist of scripts,
 configuration, and pinned patches, so local `.env`, credentials, and unrelated
 working-tree files are excluded. Source is cloned anonymously from the pinned
 upstream tag. The workspace's `omts-deployer` service-account token is mounted
@@ -42,7 +48,7 @@ bash openshift/deployment/omts-workspace/apply-workspace.sh
 Enter the persistent workspace:
 
 ```sh
-oc rsh -n arhkp-intrinsic deploy/omts-build-workspace
+oc rsh -n your-project-namespace deploy/omts-build-workspace
 ```
 
 Inside the pod, first prepare the anonymous pinned checkout and inspect the
@@ -54,10 +60,10 @@ passes. The ordered simulation gates are documented in
 
 ## Select the matching cell for world updates
 
-The OpenShift solution is built with `--config=lab_bb_01`. The upstream
+The OpenShift solution is built with `--config=your-workcell`. The upstream
 `apply_scene_updates` executable has its own default list, which targets the
 `omts` CNC cell; the Bazel build setting does not change that runtime default.
-Run the updater from the OMTS source root and pass the `lab_bb_01` files
+Run the updater from the OMTS source root and pass the `your-workcell` files
 explicitly:
 
 ```sh
@@ -65,10 +71,10 @@ cd "${INTRINSIC_OMTS_SRC:-${HOME}/intrinsic-omts}"
 ./bazel-bin/tools/world/apply_scene_updates \
   --address="${INTRINSIC_GATEWAY_ADDRESS}" \
   --files \
-  configs/lab_bb_01/ur_module.attachments.updates.pbtxt \
-  configs/lab_bb_01/scene.updates.pbtxt \
-  configs/lab_bb_01/align_robot.updates.pbtxt \
-  configs/lab_bb_01/orbbec_gemini.updates.pbtxt \
+  configs/your-workcell/ur_module.attachments.updates.pbtxt \
+  configs/your-workcell/scene.updates.pbtxt \
+  configs/your-workcell/align_robot.updates.pbtxt \
+  configs/your-workcell/orbbec_gemini.updates.pbtxt \
   --reset_sim
 ```
 
@@ -83,7 +89,7 @@ source checkout:
 cd "${INTRINSIC_OMTS_SRC:-${HOME}/intrinsic-omts}"
 registry_ca_bundle="$(python3 /opt/intrinsic/repo/openshift/deployment/omts-runner/prepare-internal-registry-auth.py)"
 export SSL_CERT_FILE="${registry_ca_bundle}"
-bazel run //:omts_solution --config=lab_bb_01 -- \
+bazel run //:omts_solution --config=your-workcell -- \
   --address="${INTRINSIC_GATEWAY_ADDRESS}" --operation_mode=sim
 ```
 
@@ -95,17 +101,17 @@ reference the project registry and their runtime pods settle before proceeding
 to scene updates.
 
 After a simulator reset, verify ICON has reconnected to `ur_module` and reports
-the HWM active before starting the one-cycle app. On dev01, reset recreated
+the HWM active before starting the one-cycle app. on the target cluster, reset recreated
 `ur_module.sock` as UID/GID `1001690000` with mode `0755`; ICON runs as UID 0
 but the OpenShift SCC drops `DAC_OVERRIDE`, so the shared group cannot reconnect.
 The OpenShift adapter requests that capability for the ICON container only.
-The controller adaptation is deployed on dev01. After the documented scene
+The controller adaptation is deployed on the target cluster. After the documented scene
 reset, ICON reconnected to `ur_module` and returned to `kMotionEnabled`; repeat
 that check after each future reset before running the app.
 
 The one-cycle app is confirmed to connect through inference and reach motion
 planning. The planner reports a collision between
 `gripper.gripper_finger2` and `raw_stock_2x3x5.base_link`, matching the known
-AWS behavior; the pick does not complete. The dev01 RViz/noVNC viewer and its
+AWS behavior; the pick does not complete. The target cluster RViz/noVNC viewer and its
 loopback-only port-forward are documented in
 [`../viewer/README.md`](../viewer/README.md).

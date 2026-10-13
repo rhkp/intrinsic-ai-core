@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 // Copyright 2019 The Cloud Robotics Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -532,7 +533,7 @@ status:
 func TestSynk_deleteResourceSets(t *testing.T) {
 	ctx := context.Background()
 	nu := func(name, version string) *unstructured.Unstructured {
-		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "arhkp-intrinsic", name+"."+version)
+		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "your-project-namespace", name+"."+version)
 		u.SetLabels(map[string]string{"name": name})
 		return u
 	}
@@ -547,13 +548,13 @@ func TestSynk_deleteResourceSets(t *testing.T) {
 	)
 	synk := f.newSynk()
 
-	err := synk.deleteResourceSets(ctx, "arhkp-intrinsic", "test", 7)
+	err := synk.deleteResourceSets(ctx, "your-project-namespace", "test", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.expectActions(
-		k8stest.NewDeleteAction(resourceSetGVR, "arhkp-intrinsic", "test.v2"),
-		k8stest.NewDeleteAction(resourceSetGVR, "arhkp-intrinsic", "test.v4"),
+		k8stest.NewDeleteAction(resourceSetGVR, "your-project-namespace", "test.v2"),
+		k8stest.NewDeleteAction(resourceSetGVR, "your-project-namespace", "test.v4"),
 	)
 	f.verifyWriteActions()
 }
@@ -561,7 +562,7 @@ func TestSynk_deleteResourceSets(t *testing.T) {
 func TestSynk_deleteFailedResourceSets(t *testing.T) {
 	ctx := context.Background()
 	nu := func(name, version string, failed bool) *unstructured.Unstructured {
-		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "arhkp-intrinsic", name+"."+version)
+		u := newUnstructured("apps.cloudrobotics.com/v1alpha1", "ResourceSet", "your-project-namespace", name+"."+version)
 		u.SetLabels(map[string]string{"name": name})
 		if failed {
 			unstructured.SetNestedField(u.Object, "Failed", "status", "phase")
@@ -578,13 +579,13 @@ func TestSynk_deleteFailedResourceSets(t *testing.T) {
 	)
 	synk := f.newSynk()
 
-	err := synk.deleteFailedResourceSets(ctx, "arhkp-intrinsic", "test", 7)
+	err := synk.deleteFailedResourceSets(ctx, "your-project-namespace", "test", 7)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.expectActions(
-		k8stest.NewDeleteAction(resourceSetGVR, "arhkp-intrinsic", "test.v2"),
-		k8stest.NewDeleteAction(resourceSetGVR, "arhkp-intrinsic", "test.v6"),
+		k8stest.NewDeleteAction(resourceSetGVR, "your-project-namespace", "test.v2"),
+		k8stest.NewDeleteAction(resourceSetGVR, "your-project-namespace", "test.v6"),
 	)
 	f.verifyWriteActions()
 }

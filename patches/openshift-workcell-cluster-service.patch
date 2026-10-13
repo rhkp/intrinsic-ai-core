@@ -135,7 +135,7 @@
  
  const (
 +	// Namespace is the single project used by the OpenShift pilot.
-+	Namespace = "arhkp-intrinsic"
++	Namespace = "your-project-namespace"
 +
  	// PartOfAppLabel is the name of the label containing the app name that a chart belongs to.
  	PartOfAppLabel    = "app.kubernetes.io/part-of"

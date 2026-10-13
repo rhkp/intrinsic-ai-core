@@ -1,4 +1,5 @@
-"""Low-output helpers for the dev01 OpenShift pilot.
+# This project was developed with assistance from AI tools.
+"""Low-output helpers for an OpenShift pilot.
 
 These helpers keep kubeconfig identities, API addresses, Secrets, and raw
 resource specifications out of command output and repository artifacts.
@@ -7,12 +8,13 @@ resource specifications out of command output and repository artifacts.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
 from typing import Any
 
-TARGET_PROJECT = "arhkp-intrinsic"
+TARGET_PROJECT = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
 
 
 class PilotError(RuntimeError):
@@ -41,8 +43,11 @@ class ClusterAccess:
         return result
 
 
-def resolve_context(fragment: str = "dev01") -> ClusterAccess:
+def resolve_context(fragment: str | None = None) -> ClusterAccess:
     """Select one configured context without displaying its identity."""
+    fragment = os.environ.get("OPENSHIFT_CONTEXT", fragment or "").strip()
+    if not fragment:
+        raise PilotError("Set OPENSHIFT_CONTEXT or pass a context-name hint explicitly.")
     if not shutil.which("oc"):
         raise PilotError("The OpenShift CLI (oc) is required.")
     result = subprocess.run(

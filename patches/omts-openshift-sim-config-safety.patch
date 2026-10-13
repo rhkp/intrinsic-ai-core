@@ -4,7 +4,7 @@ diff --git a/BUILD b/BUILD
 @@ -194,5 +194,5 @@
      instance_name = "ur_module",
      service_config = select({
--        ":is_lab_bb_01": "//configs:lab_bb_01/ur_module_config.textproto",
-+        ":is_lab_bb_01": None,
+-        ":is_your-workcell": "//configs:your-workcell/ur_module_config.textproto",
++        ":is_your-workcell": None,
          "//conditions:default": "//configs:omts/ur_module_config.textproto",
      }),

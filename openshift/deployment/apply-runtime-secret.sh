@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
+# This project was developed with assistance from AI tools.
 set -euo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
 env_file="$script_dir/.env"
-project="${OPENSHIFT_PROJECT:-arhkp-intrinsic}"
+project="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
 secret_name="${OPENSHIFT_SECRET_NAME:-intrinsic-runtime-secrets}"
 
 if [[ ! -f "$env_file" ]]; then

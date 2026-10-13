@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Create or verify only the pilot project; never writes kubeconfig."""
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from common import PilotError, TARGET_PROJECT, get_json, main_error, resolve_context
@@ -13,7 +15,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--context-fragment",
-        default="dev01",
+        default=os.environ.get("OPENSHIFT_CONTEXT"),
         help="Local context-name hint; the selected context is never printed.",
     )
     parser.add_argument(

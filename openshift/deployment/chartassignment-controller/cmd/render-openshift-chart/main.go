@@ -1,3 +1,4 @@
+// This project was developed with assistance from AI tools.
 // render-openshift-chart renders an inline ChartAssignment through the same
 // OpenShift policy path used by the pilot controller. It never contacts a
 // Kubernetes API or applies resources.

@@ -8,7 +8,7 @@ copy yet.
 ## OpenShift path
 
 The resource and skill workloads are placed in the pilot project,
-`arhkp-intrinsic`, where the dedicated ServiceAccount and its namespaced
+`your-project-namespace`, where the dedicated ServiceAccount and its namespaced
 `system:image-puller` RoleBinding live. The reproducible namespaced objects are
 in [`deployment/manifests/image-pull-access.yaml`](deployment/manifests/image-pull-access.yaml).
 The ServiceAccount disables API-token automount.
@@ -41,7 +41,7 @@ The repo provides a repeatable path for a project-local `Opaque` Secret:
    obvious smoke placeholder locally.
 2. Run `bash openshift/deployment/apply-runtime-secret.sh`. The helper checks
    that `.env` is Git-ignored, sets mode `0600`, creates or updates an OpenShift
-   Secret in `arhkp-intrinsic`, and streams the generated Secret manifest
+   Secret in `your-project-namespace`, and streams the generated Secret manifest
    directly to `oc apply` without writing it to disk or printing its values.
 3. Reference only required keys from a workload using `secretKeyRef` or a
    read-only Secret volume. Runtime Secret consumption does not require a
@@ -56,7 +56,7 @@ the `Opaque` Secret through `secretKeyRef`. It uses `intrinsic-runtime` only to
 pull the test image; normal runtime Secret consumption does not require a
 special ServiceAccount or grant the container Secret API access.
 
-**Verified on dev01:** the helper created the `Opaque` Secret from a throwaway,
+**Verified on the target cluster:** the helper created the `Opaque` Secret from a throwaway,
 Git-ignored `.env`; a restricted pod consumed the value and emitted only a
 success marker. The Secret, pod, and local `.env` were deleted and their absence
 verified. `.env.sample` contains a fake smoke placeholder only. The actual

@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 # Copyright 2026 Intrinsic Innovation LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,7 +46,7 @@ spec:
             - /intrinsic/simulation/gazebo/grpc_proxy/proxy_server_main
             # The upstream default points to app-intrinsic-base, which is not
             # present in this project-scoped OpenShift deployment.
-            - --simulation_service_address=simulation-service.arhkp-intrinsic.svc.cluster.local:8088
+            - --simulation_service_address=simulation-service.your-project-namespace.svc.cluster.local:8088
             - --opencensus_tracing=true
             - --opencensus_metrics_port=9090
             {{ if not (and .Values.app_deployment_id .Values.simulated) }}

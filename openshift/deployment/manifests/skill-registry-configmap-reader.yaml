@@ -1,9 +1,10 @@
+# This project was developed with assistance from AI tools.
 # The upstream skill registry watches ConfigMaps cluster-wide. Bind this
 # read-only role only to the skill-registry service account in this namespace.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: arhkp-intrinsic-skill-registry-configmap-reader
+  name: your-project-namespace-skill-registry-configmap-reader
   labels:
     app.kubernetes.io/part-of: intrinsic-core
     app.kubernetes.io/managed-by: openshift-overlay
@@ -20,15 +21,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: arhkp-intrinsic-skill-registry-configmap-reader
+  name: your-project-namespace-skill-registry-configmap-reader
   labels:
     app.kubernetes.io/part-of: intrinsic-core
     app.kubernetes.io/managed-by: openshift-overlay
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: arhkp-intrinsic-skill-registry-configmap-reader
+  name: your-project-namespace-skill-registry-configmap-reader
 subjects:
   - kind: ServiceAccount
     name: skill-registry
-    namespace: arhkp-intrinsic
+    namespace: your-project-namespace

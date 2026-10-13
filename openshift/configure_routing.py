@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# This project was developed with assistance from AI tools.
 """Apply only the non-secret OpenShift gRPC routing values from ignored .env."""
 
 from __future__ import annotations
@@ -8,10 +9,10 @@ import re
 import sys
 from pathlib import Path
 
-from common import PilotError, get_json, resolve_context
+from common import PilotError, TARGET_PROJECT, get_json, resolve_context
 
 ENV_FILE = Path(__file__).resolve().parent / ".env"
-PROJECT = "arhkp-intrinsic"
+PROJECT = TARGET_PROJECT
 CONFIG_MAP = "intrinsic-routing-config"
 GATEWAY_SERVICE = "intrinsic-grpc-gateway"
 GATEWAY_RESOURCE = "intrinsic-grpc-internal"
