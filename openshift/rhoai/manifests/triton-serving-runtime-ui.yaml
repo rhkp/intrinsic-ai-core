@@ -1,0 +1,55 @@
+# This project was developed with assistance from AI tools.
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: intrinsic-triton-gpu
+  labels:
+    opendatahub.io/dashboard: "true"
+  annotations:
+    openshift.io/display-name: Intrinsic Triton GPU ServingRuntime
+spec:
+  nodeSelector:
+    nvidia.com/gpu.product: NVIDIA-A10G
+  tolerations:
+    - key: g5-gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  containers:
+    - name: kserve-container
+      image: nvcr.io/nvidia/tritonserver@sha256:551599c0812bb706121410a71abda07f9920d25e6c66edf1ec07a375e49f5f90
+      args:
+        - tritonserver
+        - --model-repository=/mnt/models
+        - --grpc-port=9000
+        - --http-port=8080
+        - --allow-grpc=true
+        - --allow-http=true
+      resources:
+        requests:
+          cpu: "4"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        limits:
+          cpu: "4"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+      ports:
+        - name: h2c
+          containerPort: 9000
+          protocol: TCP
+      volumeMounts:
+        - name: shm
+          mountPath: /dev/shm
+  protocolVersions:
+    - v2
+    - grpc-v2
+  supportedModelFormats:
+    - name: triton
+      version: "2"
+      autoSelect: true
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi

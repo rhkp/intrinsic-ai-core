@@ -17,14 +17,33 @@ from configure_routing import (
 
 
 class RoutingConfigurationTest(unittest.TestCase):
-    def test_reads_only_internal_routing_values_from_sample(self):
+    def test_reads_internal_routing_and_storage_values_from_sample(self):
         sample = Path(__file__).with_name(".env.sample")
         with patch("configure_routing.ENV_FILE", sample):
             values = read_routing_values()
         self.assertEqual(
-            set(values), {"INTRINSIC_INGRESS_ADDRESS", "INTRINSIC_INGRESS_GATEWAY"}
+            set(values),
+            {
+                "INTRINSIC_INGRESS_ADDRESS",
+                "INTRINSIC_INGRESS_GATEWAY",
+                "OPENSHIFT_STORAGE_CLASS",
+                "OPENSHIFT_SHARED_STORAGE_CLASS",
+            },
         )
         self.assertTrue(values["INTRINSIC_INGRESS_ADDRESS"].endswith(":80"))
+
+    def test_rejects_invalid_storage_class(self):
+        with tempfile.TemporaryDirectory() as temp:
+            env_file = Path(temp) / ".env"
+            env_file.write_text(
+                "INTRINSIC_INGRESS_ADDRESS=service.ns.svc.cluster.local:80\n"
+                "INTRINSIC_INGRESS_GATEWAY=ns/gateway\n"
+                "OPENSHIFT_STORAGE_CLASS=invalid/value\n"
+                "OPENSHIFT_SHARED_STORAGE_CLASS=shared-class\n"
+            )
+            with patch("configure_routing.ENV_FILE", env_file):
+                with self.assertRaises(PilotError):
+                    read_routing_values()
 
     def test_rejects_shell_syntax_and_non_internal_addresses(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -45,10 +64,13 @@ class RoutingConfigurationTest(unittest.TestCase):
                             read_routing_values()
 
     def test_accepts_simple_service_selector_and_rejects_empty_selector(self):
-        self.assertEqual(safe_selector({"app": "mesh-ingress", "mesh.io/rev": "stable"}), {
-            "app": "mesh-ingress",
-            "mesh.io/rev": "stable",
-        })
+        self.assertEqual(
+            safe_selector({"app": "mesh-ingress", "mesh.io/rev": "stable"}),
+            {
+                "app": "mesh-ingress",
+                "mesh.io/rev": "stable",
+            },
+        )
         with self.assertRaises(PilotError):
             safe_selector({})
 
@@ -56,7 +78,12 @@ class RoutingConfigurationTest(unittest.TestCase):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
-            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "your-service-mesh-control-plane"}},
+            "spec": {
+                "controlPlaneRef": {
+                    "namespace": "istio-system",
+                    "name": "your-service-mesh-control-plane",
+                }
+            },
             "status": {"conditions": [{"type": "Ready", "status": "True"}]},
         }
         with patch("configure_routing.get_json", side_effect=[project, member, rolls]):
@@ -64,7 +91,6 @@ class RoutingConfigurationTest(unittest.TestCase):
 
     def test_rejects_member_without_control_plane_reference(self):
         project = {"metadata": {"labels": {}}}
-        rolls = {"items": []}
         member = {
             "spec": {"controlPlaneRef": {}},
             "status": {"conditions": [{"type": "Ready", "status": "True"}]},
@@ -75,9 +101,13 @@ class RoutingConfigurationTest(unittest.TestCase):
 
     def test_rejects_pending_service_mesh_member(self):
         project = {"metadata": {"labels": {}}}
-        rolls = {"items": []}
         member = {
-            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "your-service-mesh-control-plane"}},
+            "spec": {
+                "controlPlaneRef": {
+                    "namespace": "istio-system",
+                    "name": "your-service-mesh-control-plane",
+                }
+            },
             "status": {"conditions": [{"type": "Ready", "status": "False"}]},
         }
         with patch("configure_routing.get_json", side_effect=[project, member]):
@@ -88,7 +118,12 @@ class RoutingConfigurationTest(unittest.TestCase):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
-            "spec": {"controlPlaneRef": {"namespace": "istio-system", "name": "your-service-mesh-control-plane"}},
+            "spec": {
+                "controlPlaneRef": {
+                    "namespace": "istio-system",
+                    "name": "your-service-mesh-control-plane",
+                }
+            },
             "status": {"conditions": [{"type": "Ready", "status": "True"}]},
         }
         service = {
@@ -105,7 +140,16 @@ class RoutingConfigurationTest(unittest.TestCase):
             }
         }
         endpoints = {
-            "subsets": [{"addresses": [{"ip": "pod-ip", "targetRef": {"kind": "Pod", "name": "gateway-pod"}}]}]
+            "subsets": [
+                {
+                    "addresses": [
+                        {
+                            "ip": "pod-ip",
+                            "targetRef": {"kind": "Pod", "name": "gateway-pod"},
+                        }
+                    ]
+                }
+            ]
         }
 
         service_host = "intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local"
@@ -120,15 +164,19 @@ class RoutingConfigurationTest(unittest.TestCase):
                 mesh_hosts = [service_host, "*"]
             servers = []
             if include_tunnel:
-                servers.append({
-                    "port": {"number": 80, "protocol": "HTTP2"},
-                    "hosts": [service_host],
-                })
-            servers.append({
-                "port": {"number": 443, "protocol": mesh_protocol},
-                "hosts": mesh_hosts,
-                "tls": {"mode": mesh_tls} if mesh_tls else {},
-            })
+                servers.append(
+                    {
+                        "port": {"number": 80, "protocol": "HTTP2"},
+                        "hosts": [service_host],
+                    }
+                )
+            servers.append(
+                {
+                    "port": {"number": 443, "protocol": mesh_protocol},
+                    "hosts": mesh_hosts,
+                    "tls": {"mode": mesh_tls} if mesh_tls else {},
+                }
+            )
             gateway = {
                 "spec": {
                     "selector": {
@@ -139,20 +187,22 @@ class RoutingConfigurationTest(unittest.TestCase):
                 }
             }
             pods = {
-                "items": [{
-                    "metadata": {
-                        "name": "gateway-pod",
-                        "labels": {
-                            "app.kubernetes.io/name": "intrinsic-grpc-gateway",
-                            "istio": "intrinsic-grpc-gateway",
+                "items": [
+                    {
+                        "metadata": {
+                            "name": "gateway-pod",
+                            "labels": {
+                                "app.kubernetes.io/name": "intrinsic-grpc-gateway",
+                                "istio": "intrinsic-grpc-gateway",
+                            },
                         },
-                    },
-                    "status": {
-                        "phase": "Running",
-                        "podIP": "pod-ip",
-                        "conditions": [{"type": "Ready", "status": "True"}],
-                    },
-                }]
+                        "status": {
+                            "phase": "Running",
+                            "podIP": "pod-ip",
+                            "conditions": [{"type": "Ready", "status": "True"}],
+                        },
+                    }
+                ]
             }
             return [project, member, rolls, service, endpoints, gateway, pods]
 
@@ -162,10 +212,13 @@ class RoutingConfigurationTest(unittest.TestCase):
         }
         with patch("configure_routing.get_json", side_effect=responses()):
             selector = verified_ingress_selector(object(), values)
-        self.assertEqual(selector, {
-            "app.kubernetes.io/name": "intrinsic-grpc-gateway",
-            "istio": "intrinsic-grpc-gateway",
-        })
+        self.assertEqual(
+            selector,
+            {
+                "app.kubernetes.io/name": "intrinsic-grpc-gateway",
+                "istio": "intrinsic-grpc-gateway",
+            },
+        )
 
         for kwargs in [
             {"mesh_hosts": [service_host]},
@@ -175,7 +228,9 @@ class RoutingConfigurationTest(unittest.TestCase):
             {"include_tunnel": False},
         ]:
             with self.subTest(**kwargs):
-                with patch("configure_routing.get_json", side_effect=responses(**kwargs)):
+                with patch(
+                    "configure_routing.get_json", side_effect=responses(**kwargs)
+                ):
                     with self.assertRaises(PilotError):
                         verified_ingress_selector(object(), values)
 

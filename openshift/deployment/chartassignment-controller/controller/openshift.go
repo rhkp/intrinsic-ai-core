@@ -14,54 +14,68 @@ import (
 )
 
 const (
-	openshiftImagePullServiceAccount   = "intrinsic-runtime"
-	intrinsicSimRealtimeServiceAccount = "intrinsic-sim-realtime"
-	openshiftStorageClass              = "your-block-storage-class"
-	dataStorePVC                       = "intrinsic-data-store"
-	intrinsicIconPVC                   = "intrinsic-icon-data"
-	gazeboMeshesPVC                    = "intrinsic-gazebo-meshes"
-	openshiftSharedStorageClass        = "your-shared-filesystem-storage-class"
-	nvidiaGPUResource                  = "nvidia.com/gpu"
-	openshiftGPUTaintKey               = "your-gpu-taint-key"
-	quayResourceRegistryImage          = "image-registry.openshift-image-registry.svc:5000/your-project-namespace/resource-registry-openshift@sha256:40744c21511b7bdfcdea20334b5b00939b40153ebbc6647b9e7ec60192eba4cb"
-	workcellServiceImage               = "image-registry.openshift-image-registry.svc:5000/your-project-namespace/workcell-cluster-service@sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3"
-	quayZenohdImage                    = "quay.io/your-registry-org/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
-	quayJupyterServerImage             = "quay.io/your-registry-org/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
-	inferenceServiceName               = "rs-inference-service"
-	inferenceServiceContainerName      = "rs-inference-service"
-	inferenceServiceImageRepository    = "ai.intrinsic.inference_service.inference_service_image"
-	inferenceServicePatchName          = "openshift-inference-cas-address"
-	inferenceServicePatchVolume        = "inference-service-main-patch"
-	inferenceServiceMainPath           = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/intrinsic-core+/intrinsic_inference/assets/inference_service/inference_service_main.py"
-	inferenceServicePython             = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
-	inferenceServiceUpstreamCASAddress = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
-	inferenceServiceProjectCASAddress  = "content-addressable-storage.your-project-namespace.svc.cluster.local:9747"
-	poseEstimatorServiceName           = "rs-pose-estimator-service"
-	poseEstimatorContainerName         = "rs-pose-estimator-service"
-	poseEstimatorImageRepository       = "ai.intrinsic.ioc_pose_estimator_service.ioc_pose_estimator_image"
-	poseEstimatorPatchName             = "openshift-pose-estimator-cas-address"
-	poseEstimatorPatchVolume           = "pose-estimator-service-patch"
-	poseEstimatorMainPath              = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/intrinsic-core+/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/service/ioc_pose_estimator_service.py"
-	poseEstimatorPython                = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
-	poseEstimatorUpstreamCASAddress    = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
-	jupyterHomeDir                     = "/home/defaultuser"
-	jupyterRuntimeDir                  = jupyterHomeDir + "/.local/share/jupyter/runtime"
-	upstreamIngressAddress             = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
-	istioSidecarInjectAnnotation       = "sidecar.istio.io/inject"
-	serviceMeshControlPlaneNamespace   = "istio-system"
-	serviceMeshControlPlaneRevision    = "your-service-mesh-control-plane"
-	serviceMeshControlPlanePort        = int64(15012)
-	openshiftDNSNamespace              = "openshift-dns"
-	openshiftDNSPodLabel               = "dns.operator.openshift.io/daemonset-dns"
-	openshiftDNSPodValue               = "default"
-	openshiftDNSUDPPortName            = "dns"
-	openshiftDNSTCPPortName            = "dns-tcp"
-	upstreamDNSPodLabel                = "k8s-app"
-	upstreamDNSPodValue                = "kube-dns"
-	ingressAddressEnv                  = "INTRINSIC_INGRESS_ADDRESS"
-	ingressGatewayEnv                  = "INTRINSIC_INGRESS_GATEWAY"
-	ingressSelectorEnv                 = "INTRINSIC_INGRESS_POD_SELECTOR"
+	openshiftImagePullServiceAccount      = "intrinsic-runtime"
+	intrinsicSimRealtimeServiceAccount    = "intrinsic-sim-realtime"
+	openshiftStorageClassEnv              = "OPENSHIFT_STORAGE_CLASS"
+	openshiftStorageClassDefault          = "your-block-storage-class"
+	dataStorePVC                          = "intrinsic-data-store"
+	intrinsicIconPVC                      = "intrinsic-icon-data"
+	gazeboMeshesPVC                       = "intrinsic-gazebo-meshes"
+	openshiftSharedStorageClassEnv        = "OPENSHIFT_SHARED_STORAGE_CLASS"
+	openshiftSharedStorageClassDefault    = "your-shared-filesystem-storage-class"
+	nvidiaGPUResource                     = "nvidia.com/gpu"
+	openshiftGPUTaintKey                  = "your-gpu-taint-key"
+	quayResourceRegistryImage             = "image-registry.openshift-image-registry.svc:5000/your-project-namespace/resource-registry-openshift@sha256:40744c21511b7bdfcdea20334b5b00939b40153ebbc6647b9e7ec60192eba4cb"
+	workcellServiceImage                  = "image-registry.openshift-image-registry.svc:5000/your-project-namespace/workcell-cluster-service@sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3"
+	quayZenohdImage                       = "quay.io/your-registry-org/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
+	quayJupyterServerImage                = "quay.io/your-registry-org/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
+	inferenceServiceName                  = "rs-inference-service"
+	inferenceServiceContainerName         = "rs-inference-service"
+	inferenceServiceImageRepository       = "ai.intrinsic.inference_service.inference_service_image"
+	inferenceServiceTritonContainerName   = inferenceServiceContainerName + "-1"
+	inferenceServiceTritonImageRepository = "ai.intrinsic.inference_service.triton_inference_server_image"
+	inferenceServicePatchName             = "openshift-inference-cas-address"
+	inferenceServicePatchVolume           = "inference-service-main-patch"
+	inferenceServiceTokenVolume           = "rhoai-triton-token"
+	inferenceServiceTokenMountPath        = "/var/run/secrets/intrinsic-rhoai"
+	inferenceServiceTokenPath             = inferenceServiceTokenMountPath + "/token"
+	inferenceServiceMainPath              = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/intrinsic-core+/intrinsic_inference/assets/inference_service/inference_service_main.py"
+	inferenceServicePython                = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
+	inferenceServiceUpstreamCASAddress    = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
+	inferenceServiceProjectCASAddress     = "content-addressable-storage.your-project-namespace.svc.cluster.local:9747"
+	poseEstimatorServiceName              = "rs-pose-estimator-service"
+	poseEstimatorContainerName            = "rs-pose-estimator-service"
+	poseEstimatorImageRepository          = "ai.intrinsic.ioc_pose_estimator_service.ioc_pose_estimator_image"
+	poseEstimatorPatchName                = "openshift-pose-estimator-cas-address"
+	poseEstimatorPatchVolume              = "pose-estimator-service-patch"
+	poseEstimatorMainPath                 = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/intrinsic-core+/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/service/ioc_pose_estimator_service.py"
+	poseEstimatorPython                   = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
+	poseEstimatorUpstreamCASAddress       = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
+	jupyterHomeDir                        = "/home/defaultuser"
+	jupyterRuntimeDir                     = jupyterHomeDir + "/.local/share/jupyter/runtime"
+	upstreamIngressAddress                = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
+	istioSidecarInjectAnnotation          = "sidecar.istio.io/inject"
+	serviceMeshControlPlaneNamespace      = "istio-system"
+	serviceMeshControlPlaneRevision       = "your-service-mesh-control-plane"
+	serviceMeshControlPlanePort           = int64(15012)
+	openshiftDNSNamespace                 = "openshift-dns"
+	openshiftDNSPodLabel                  = "dns.operator.openshift.io/daemonset-dns"
+	openshiftDNSPodValue                  = "default"
+	openshiftDNSUDPPortName               = "dns"
+	openshiftDNSTCPPortName               = "dns-tcp"
+	upstreamDNSPodLabel                   = "k8s-app"
+	upstreamDNSPodValue                   = "kube-dns"
+	ingressAddressEnv                     = "INTRINSIC_INGRESS_ADDRESS"
+	ingressGatewayEnv                     = "INTRINSIC_INGRESS_GATEWAY"
+	ingressSelectorEnv                    = "INTRINSIC_INGRESS_POD_SELECTOR"
 )
+
+func configuredStorageClass(environment, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(environment)); value != "" {
+		return value
+	}
+	return fallback
+}
 
 const (
 	artifactsDeploymentName           = "artifacts-deployment"
@@ -351,7 +365,7 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 				"resources": map[string]interface{}{
 					"requests": map[string]interface{}{"storage": "2Gi"},
 				},
-				"storageClassName": openshiftStorageClass,
+				"storageClassName": configuredStorageClass(openshiftStorageClassEnv, openshiftStorageClassDefault),
 			},
 		}})
 	}
@@ -381,7 +395,7 @@ func sharedStoragePVC(name, namespace, size string) *unstructured.Unstructured {
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{"storage": size},
 			},
-			"storageClassName": openshiftSharedStorageClass,
+			"storageClassName": configuredStorageClass(openshiftSharedStorageClassEnv, openshiftSharedStorageClassDefault),
 		},
 	}}
 }
@@ -741,7 +755,7 @@ func contains(items []string, value string) bool {
 }
 
 func adaptPVC(resource *unstructured.Unstructured) error {
-	if err := unstructured.SetNestedField(resource.Object, openshiftStorageClass, "spec", "storageClassName"); err != nil {
+	if err := unstructured.SetNestedField(resource.Object, configuredStorageClass(openshiftStorageClassEnv, openshiftStorageClassDefault), "spec", "storageClassName"); err != nil {
 		return err
 	}
 	unstructured.RemoveNestedField(resource.Object, "spec", "selector")
@@ -1199,25 +1213,53 @@ func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[s
 		return fmt.Errorf("target namespace is required")
 	}
 
-	containers := sliceMaps(podSpec["containers"])
+	containers, found, err := unstructured.NestedSlice(podSpec, "containers")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("StatefulSet %q has no containers", inferenceServiceName)
+	}
+	if len(containers) == 0 {
+		return fmt.Errorf("StatefulSet %q has no containers", inferenceServiceName)
+	}
 	var appContainer map[string]interface{}
-	for _, container := range containers {
-		if container["name"] != inferenceServiceContainerName {
+	filteredContainers := make([]interface{}, 0, len(containers)-1)
+	var foundTriton bool
+	for _, item := range containers {
+		container, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("malformed container")
+		}
+		switch container["name"] {
+		case inferenceServiceContainerName:
+			if appContainer != nil {
+				return fmt.Errorf("StatefulSet %q has duplicate %q containers", inferenceServiceName, inferenceServiceContainerName)
+			}
+			appContainer = container
+		case inferenceServiceTritonContainerName:
+			if foundTriton {
+				return fmt.Errorf("StatefulSet %q has duplicate %q containers", inferenceServiceName, inferenceServiceTritonContainerName)
+			}
+			tritonImage, _ := container["image"].(string)
+			if imageRepositoryName(tritonImage) != inferenceServiceTritonImageRepository {
+				return fmt.Errorf("StatefulSet %q has unexpected Triton image repository %q", inferenceServiceName, imageRepositoryName(tritonImage))
+			}
+			foundTriton = true
 			continue
 		}
-		if appContainer != nil {
-			return fmt.Errorf("StatefulSet %q has duplicate %q containers", inferenceServiceName, inferenceServiceContainerName)
-		}
-		appContainer = container
+		filteredContainers = append(filteredContainers, item)
 	}
 	if appContainer == nil {
 		return fmt.Errorf("StatefulSet %q has no %q container", inferenceServiceName, inferenceServiceContainerName)
+	}
+	if !foundTriton {
+		return fmt.Errorf("StatefulSet %q has no native Triton container %q", inferenceServiceName, inferenceServiceTritonContainerName)
 	}
 	image, _ := appContainer["image"].(string)
 	if imageRepositoryName(image) != inferenceServiceImageRepository {
 		return fmt.Errorf("StatefulSet %q has unexpected inference image repository %q", inferenceServiceName, imageRepositoryName(image))
 	}
-
 	initContainers, found, err := unstructured.NestedSlice(podSpec, "initContainers")
 	if err != nil {
 		return err
@@ -1247,19 +1289,57 @@ func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[s
 			if volume["name"] == inferenceServicePatchVolume {
 				return fmt.Errorf("StatefulSet %q already contains volume %q", inferenceServiceName, inferenceServicePatchVolume)
 			}
+			if volume["name"] == inferenceServiceTokenVolume {
+				return fmt.Errorf("StatefulSet %q already contains volume %q", inferenceServiceName, inferenceServiceTokenVolume)
+			}
 		}
 	}
 
-	patchScript := strings.Join([]string{
-		"from pathlib import Path",
-		"source = Path(" + strconv.Quote(inferenceServiceMainPath) + ")",
-		"target = Path('/patch/inference_service_main.py')",
-		"text = source.read_text()",
-		"old = " + strconv.Quote(inferenceServiceUpstreamCASAddress),
-		"new = " + strconv.Quote("content-addressable-storage."+namespace+".svc.cluster.local:9747"),
-		"assert text.count(old) == 1, f'expected one upstream CAS address, found {text.count(old)}'",
-		"target.write_text(text.replace(old, new))",
-	}, "; ")
+	interceptor := `class _RhoaiBearerInterceptor(grpc.UnaryUnaryClientInterceptor):
+  def intercept_unary_unary(self, continuation, call_details, request):
+    with open(TOKEN_PATH, encoding="utf-8") as token_file:
+      token = token_file.read().strip()
+    metadata = tuple(call_details.metadata or ()) + (("authorization", "Bearer " + token),)
+    details = _RhoaiClientCallDetails(call_details, metadata)
+    return continuation(details, request)
+
+class _RhoaiClientCallDetails(grpc.ClientCallDetails):
+  def __init__(self, original, metadata):
+    self.method = original.method
+    self.timeout = original.timeout
+    self.metadata = metadata
+    self.credentials = original.credentials
+    self.wait_for_ready = original.wait_for_ready
+    self.compression = getattr(original, "compression", None)
+`
+	endpointOverride := "import os\n" +
+		`_INFERENCE_SERVER_URL = os.environ["INTRINSIC_RHOAI_TRITON_ENDPOINT"]` +
+		"\nTOKEN_PATH = " + strconv.Quote(inferenceServiceTokenPath) + "\n\n" + interceptor
+	patchScript := fmt.Sprintf(`from pathlib import Path
+source = Path(%q)
+target = Path('/patch/inference_service_main.py')
+text = source.read_text()
+
+def replace_once(old, new, label):
+  global text
+  count = text.count(old)
+  assert count == 1, f"expected one {label}, found {count}"
+  text = text.replace(old, new)
+
+replace_once(%q, %q, "upstream CAS address")
+replace_once(%q, %q, "local Triton endpoint")
+replace_once(%q, %q, "Triton channel construction")
+replace_once(%q, %q, "inference runner construction")
+replace_once("use_shm=True", "use_shm=False", "shared-memory setting")
+target.write_text(text)
+`, inferenceServiceMainPath,
+		inferenceServiceUpstreamCASAddress, "content-addressable-storage."+namespace+".svc.cluster.local:9747",
+		"_INFERENCE_SERVER_URL = \"unix:///dev/shm/triton.sock:0\"",
+		endpointOverride,
+		"triton_channel = grpc.insecure_channel(\n      _INFERENCE_SERVER_URL,\n      options=inference_service.GRPC_OPTIONS,\n  )",
+		"triton_channel = grpc.intercept_channel(\n      grpc.insecure_channel(_INFERENCE_SERVER_URL, options=inference_service.GRPC_OPTIONS),\n      _RhoaiBearerInterceptor(),\n  )",
+		"  inference_runner = inference_runner_lib.InferenceRunner(",
+		"  model_controller._run_triton_action = lambda *_args, **_kwargs: None\n\n  inference_runner = inference_runner_lib.InferenceRunner(")
 
 	initContainers = append(initContainers, map[string]interface{}{
 		"name":    inferenceServicePatchName,
@@ -1279,6 +1359,18 @@ func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[s
 		"name":     inferenceServicePatchVolume,
 		"emptyDir": map[string]interface{}{},
 	})
+	volumes = append(volumes, map[string]interface{}{
+		"name": inferenceServiceTokenVolume,
+		"projected": map[string]interface{}{
+			"sources": []interface{}{map[string]interface{}{
+				"serviceAccountToken": map[string]interface{}{
+					"audience":          "https://kubernetes.default.svc",
+					"expirationSeconds": int64(3600),
+					"path":              "token",
+				},
+			}},
+		},
+	})
 	if err := unstructured.SetNestedSlice(podSpec, volumes, "volumes"); err != nil {
 		return err
 	}
@@ -1296,6 +1388,9 @@ func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[s
 			if mount["mountPath"] == inferenceServiceMainPath {
 				return fmt.Errorf("StatefulSet %q already mounts %q", inferenceServiceName, inferenceServiceMainPath)
 			}
+			if mount["mountPath"] == inferenceServiceTokenMountPath {
+				return fmt.Errorf("StatefulSet %q already mounts %q", inferenceServiceName, inferenceServiceTokenMountPath)
+			}
 		}
 	}
 	volumeMounts = append(volumeMounts, map[string]interface{}{
@@ -1304,7 +1399,37 @@ func adaptInferenceCASAddress(resource *unstructured.Unstructured, podSpec map[s
 		"subPath":   "inference_service_main.py",
 		"readOnly":  true,
 	})
-	return unstructured.SetNestedSlice(appContainer, volumeMounts, "volumeMounts")
+	volumeMounts = append(volumeMounts, map[string]interface{}{
+		"name":      inferenceServiceTokenVolume,
+		"mountPath": inferenceServiceTokenMountPath,
+		"readOnly":  true,
+	})
+	if err := unstructured.SetNestedSlice(appContainer, volumeMounts, "volumeMounts"); err != nil {
+		return err
+	}
+	env, found, err := unstructured.NestedSlice(appContainer, "env")
+	if err != nil {
+		return err
+	}
+	if found {
+		for _, item := range env {
+			entry, ok := item.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("malformed container environment variable")
+			}
+			if entry["name"] == "INTRINSIC_RHOAI_TRITON_ENDPOINT" {
+				return fmt.Errorf("StatefulSet %q already sets INTRINSIC_RHOAI_TRITON_ENDPOINT", inferenceServiceName)
+			}
+		}
+	}
+	env = append(env, map[string]interface{}{
+		"name":  "INTRINSIC_RHOAI_TRITON_ENDPOINT",
+		"value": "triton-rhoai-grpc." + namespace + ".svc.cluster.local:9000",
+	})
+	if err := unstructured.SetNestedSlice(appContainer, env, "env"); err != nil {
+		return err
+	}
+	return unstructured.SetNestedSlice(podSpec, filteredContainers, "containers")
 }
 
 // adaptPoseEstimatorCASAddress redirects the pinned upstream pose-estimator

@@ -25,6 +25,17 @@ func object(kind, name string, fields map[string]interface{}) *unstructured.Unst
 	return &unstructured.Unstructured{Object: value}
 }
 
+func TestConfiguredStorageClassUsesEnvironment(t *testing.T) {
+	t.Setenv("OPENSHIFT_STORAGE_CLASS_TEST", "  cluster-block-class  ")
+	if got := configuredStorageClass("OPENSHIFT_STORAGE_CLASS_TEST", "placeholder"); got != "cluster-block-class" {
+		t.Fatalf("configured storage class = %q", got)
+	}
+	t.Setenv("OPENSHIFT_STORAGE_CLASS_TEST", "")
+	if got := configuredStorageClass("OPENSHIFT_STORAGE_CLASS_TEST", "placeholder"); got != "placeholder" {
+		t.Fatalf("default storage class = %q", got)
+	}
+}
+
 func protobufBytesField(number uint64, value []byte) []byte {
 	var encoded [binary.MaxVarintLen64]byte
 	fieldTagBytes := binary.PutUvarint(encoded[:], number<<3|2)
@@ -63,6 +74,79 @@ func TestAdaptFlowstateRuntimeConfigUsesProjectZenohRouter(t *testing.T) {
 	}
 	if err := adaptFlowstateRuntimeConfig(resource, pilotNamespace); err != nil {
 		t.Fatalf("second adaptation: %v", err)
+	}
+}
+
+func TestAdaptInferenceCASAddressUsesRHOAITriton(t *testing.T) {
+	resource := object("StatefulSet", inferenceServiceName, map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
+					"containers": []interface{}{
+						map[string]interface{}{
+							"name":  inferenceServiceContainerName,
+							"image": "registry.example/ai.intrinsic.inference_service.inference_service_image@sha256:abcdef",
+						},
+						map[string]interface{}{
+							"name":  inferenceServiceTritonContainerName,
+							"image": "registry.example/ai.intrinsic.inference_service.triton_inference_server_image@sha256:abcdef",
+						},
+					},
+				},
+			},
+		},
+	})
+	podSpec, found, err := unstructured.NestedMap(resource.Object, "spec", "template", "spec")
+	if err != nil || !found {
+		t.Fatalf("inference pod spec: found=%v err=%v", found, err)
+	}
+	if err := adaptInferenceCASAddress(resource, podSpec, pilotNamespace); err != nil {
+		t.Fatal(err)
+	}
+	containers, _, _ := unstructured.NestedSlice(podSpec, "containers")
+	if len(containers) != 1 || containers[0].(map[string]interface{})["name"] != inferenceServiceContainerName {
+		t.Fatalf("native Triton container was not removed: %v", containers)
+	}
+	container := containers[0].(map[string]interface{})
+	env, _, _ := unstructured.NestedSlice(container, "env")
+	if len(env) != 1 || env[0].(map[string]interface{})["value"] != "triton-rhoai-grpc."+pilotNamespace+".svc.cluster.local:9000" {
+		t.Fatalf("inference endpoint env = %v", env)
+	}
+	mounts, _, _ := unstructured.NestedSlice(container, "volumeMounts")
+	if len(mounts) != 2 {
+		t.Fatalf("inference volume mounts = %v, want patched source and projected token", mounts)
+	}
+	volumes, _, _ := unstructured.NestedSlice(podSpec, "volumes")
+	var hasProjectedToken bool
+	for _, item := range volumes {
+		volume := item.(map[string]interface{})
+		if volume["name"] == inferenceServiceTokenVolume {
+			sources, found, sourceErr := unstructured.NestedSlice(volume, "projected", "sources")
+			if sourceErr == nil && found && len(sources) == 1 {
+				token, tokenFound, tokenErr := unstructured.NestedMap(sources[0].(map[string]interface{}), "serviceAccountToken")
+				hasProjectedToken = tokenErr == nil && tokenFound && token["audience"] == "https://kubernetes.default.svc" && token["path"] == "token"
+			}
+		}
+	}
+	if !hasProjectedToken {
+		t.Fatal("missing projected service-account token volume")
+	}
+	initContainers, _, _ := unstructured.NestedSlice(podSpec, "initContainers")
+	initContainer := initContainers[0].(map[string]interface{})
+	args, _, _ := unstructured.NestedStringSlice(initContainer, "args")
+	if len(args) != 2 {
+		t.Fatalf("patch init args = %v", args)
+	}
+	for _, expected := range []string{
+		"_RhoaiBearerInterceptor",
+		"INTRINSIC_RHOAI_TRITON_ENDPOINT",
+		"model_controller._run_triton_action = lambda",
+		"use_shm=False",
+		"content-addressable-storage." + pilotNamespace + ".svc.cluster.local:9747",
+	} {
+		if !strings.Contains(args[1], expected) {
+			t.Errorf("init patch script lacks %q", expected)
+		}
 	}
 }
 
@@ -467,7 +551,7 @@ func TestAdaptOpenShiftResourcesReplacesK3sDataStore(t *testing.T) {
 		t.Fatalf("data PVC identity = %s/%s", got[1].GetNamespace(), got[1].GetName())
 	}
 	storageClass, _, _ := unstructured.NestedString(got[1].Object, "spec", "storageClassName")
-	if storageClass != openshiftStorageClass {
+	if storageClass != openshiftStorageClassDefault {
 		t.Fatalf("PVC storage class = %q", storageClass)
 	}
 }
@@ -561,7 +645,7 @@ func TestAdaptOpenShiftResourcesReplacesSimulationHostPaths(t *testing.T) {
 		class, _, _ := unstructured.NestedString(resource.Object, "spec", "storageClassName")
 		modes, _, _ := unstructured.NestedStringSlice(resource.Object, "spec", "accessModes")
 		size, _, _ := unstructured.NestedString(resource.Object, "spec", "resources", "requests", "storage")
-		if class != openshiftSharedStorageClass || len(modes) != 1 || modes[0] != "ReadWriteMany" || size != wantSize {
+		if class != openshiftSharedStorageClassDefault || len(modes) != 1 || modes[0] != "ReadWriteMany" || size != wantSize {
 			t.Fatalf("PVC %q class=%q modes=%v size=%q", resource.GetName(), class, modes, size)
 		}
 		delete(wantPVCs, resource.GetName())
@@ -950,12 +1034,12 @@ func TestAdaptOpenShiftResourcesConfiguresJupyterWritableHome(t *testing.T) {
 					"name":  "jupyter-server",
 					"image": "example.invalid/jupyter",
 					"command": []interface{}{
-						"jupyter", "server", "--ip=0.0.0.0",
+						"jupyter", "server", "--ip=all-interfaces",
 					},
 					"args": []interface{}{
-						"--ip=0.0.0.0",
+						"--ip=all-interfaces",
 						"--port=8888",
-						"--ip", "0.0.0.0",
+						"--ip", "all-interfaces",
 					},
 					"env": []interface{}{
 						map[string]interface{}{"name": "HOME", "value": "/"},

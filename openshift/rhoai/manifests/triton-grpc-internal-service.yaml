@@ -1,0 +1,68 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+kind: Service
+metadata:
+  name: triton-rhoai-grpc
+  namespace: ${RHOAI_NAMESPACE}
+  labels:
+    app.kubernetes.io/part-of: rhoai-triton-migration
+spec:
+  type: ClusterIP
+  selector:
+    component: predictor
+    serving.kserve.io/inferenceservice: ${RHOAI_INFERENCESERVICE_NAME}
+  ports:
+    - name: grpc
+      port: 9000
+      protocol: TCP
+      targetPort: h2c
+      appProtocol: grpc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: triton-rhoai-grpc-wrapper-access
+  namespace: ${RHOAI_NAMESPACE}
+  labels:
+    app.kubernetes.io/part-of: rhoai-triton-migration
+subjects:
+  - kind: ServiceAccount
+    name: intrinsic-runtime
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: ${RHOAI_INFERENCESERVICE_NAME}-view-role
+---
+# This project was developed with assistance from AI tools.
+apiVersion: authorino.kuadrant.io/v1beta3
+kind: AuthConfig
+metadata:
+  name: triton-rhoai-grpc-internal
+  namespace: ${RHOAI_NAMESPACE}
+  labels:
+    security.opendatahub.io/authorization-group: default
+spec:
+  hosts:
+    - triton-rhoai-grpc.${RHOAI_NAMESPACE}.svc.cluster.local
+    - triton-rhoai-grpc.${RHOAI_NAMESPACE}.svc.cluster.local:9000
+  authentication:
+    openshift-service-account:
+      kubernetesTokenReview:
+        audiences:
+          - https://kubernetes.default.svc
+  authorization:
+    inference-service-read:
+      kubernetesSubjectAccessReview:
+        user:
+          selector: auth.identity.user.username
+        resourceAttributes:
+          group:
+            value: serving.kserve.io
+          resource:
+            value: inferenceservices
+          namespace:
+            value: ${RHOAI_NAMESPACE}
+          name:
+            value: ${RHOAI_INFERENCESERVICE_NAME}
+          verb:
+            value: get

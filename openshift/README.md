@@ -39,6 +39,11 @@ solution deployment, and viewer access must work without it.
 
 ## Verified target snapshot
 
+The active [RHOAI inference migration plan](rhoai/README.md) separates GPU model
+serving from the existing Intrinsic resource contract. It contains sequential
+acceptance gates and a read-only platform preflight. The current native
+inference pair remains the comparison and rollback baseline during discovery.
+
 The read-only preflight checked platform versions, serving-runtime availability,
 project eligibility, GPU scheduling, storage classes, permissions, and policy.
 Exact versions, counts, hardware products, capacity, and storage inventory are
@@ -154,7 +159,7 @@ assigned UID. Its read-only root filesystem then blocked creation of
 now sets `HOME` and `JUPYTER_RUNTIME_DIR` under that mount and rejects renders
 where the writable mount is missing or read-only.
 
-The image entrypoint also binds Jupyter to `0.0.0.0` and disables token
+The image entrypoint also binds Jupyter to `all network interfaces` and disables token
 authentication. Because mesh network policies can admit traffic on ports beyond
 the code-execution gRPC port, the adapter replaces that entrypoint with the
 same required Jupyter settings bound to `::1`. The colocated worker connects to
@@ -320,8 +325,8 @@ and port. No Route exists in the project. Service Mesh's generated network
 policy currently permits pod traffic from member namespaces; this demo has not
 added a workload-identity AuthorizationPolicy, so assess that boundary before
 production use. Red Hat documents gateway injection for
-separately managed Service Mesh gateway Deployments in the [OpenShift Service
-Mesh 2.x documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html-single/service_mesh/service_mesh).
+separately managed Service Mesh gateway Deployments in the OpenShift Service
+Mesh 2.x documentation.
 
 ## Deployment gate
 

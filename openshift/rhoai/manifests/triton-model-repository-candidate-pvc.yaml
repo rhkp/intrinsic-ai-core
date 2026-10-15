@@ -1,0 +1,13 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: triton-model-repository-candidate
+  labels:
+    app.kubernetes.io/part-of: rhoai-triton-migration
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

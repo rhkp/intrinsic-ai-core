@@ -175,17 +175,17 @@ StorageClasses/quotas, project allocation and dashboard eligibility, registry
 pull access, ingress/network policy, and any permitted SCC exceptions. Create
 RHOAI projects through the dashboard or apply the selected release's required
 project metadata, then verify each project appears in the intended UI selector.
-The [RHOAI data science project guide](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/getting_started_with_red_hat_openshift_ai_self-managed/creating-a-data-science-project_get-started)
+The RHOAI data science project guide
 describes this workflow for the 2.25 candidate. The application team can then
 validate namespaced workloads, service accounts, PVCs within quota, and
 project-level policies. In particular, the RHOAI 2.25 accelerator-enablement
-[procedure](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/working_with_accelerators/enabling-accelerators_accelerators)
+procedure
 requires the `cluster-admin` role to install/configure the GPU integration; do
 not treat the presence of a GPU node as proof that GPU workloads are enabled.
 
 Use existing OpenShift platform services and Operator-managed GPU integration. Do not
 run the Ubuntu `setup_k3s.sh` or `setup_nvidia.sh` installers on OpenShift nodes.
-OpenShift uses CRI-O. The linked [OpenShift 4.20 architecture documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/architecture/architecture)
+OpenShift uses CRI-O. The linked OpenShift 4.20 architecture documentation
 matches the target cluster's reported 4.20 release. Changing a containerd
 socket path to a CRI-O socket does not make Intrinsic's containerd client
 compatible. After the target release is selected, use that release's docs
@@ -249,10 +249,10 @@ selected cluster's naming, RBAC, and DNS constraints.
 | Owner / purpose | Candidate namespace or project | Components and boundary |
 | --- | --- | --- |
 | OpenShift platform | `openshift-*` and operator-selected namespaces | OpenShift networking, storage, monitoring, and GPU Operators; cluster-admin owned, not application projects. |
-| RHOAI platform | RHOAI release defaults such as `redhat-ods-operator`, `redhat-ods-applications`, and `rhods-notebooks` | RHOAI Operator, dashboard/controllers, and default basic workbenches. See the [2.25 namespace architecture](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/installing_and_uninstalling_openshift_ai_self-managed/architecture-of-openshift-ai-self-managed_install); names vary with release and configuration. Keep Intrinsic runtime workloads out of these namespaces. |
+| RHOAI platform | RHOAI release defaults such as `redhat-ods-operator`, `redhat-ods-applications`, and `rhods-notebooks` | RHOAI Operator, dashboard/controllers, and default basic workbenches. See the 2.25 namespace architecture; names vary with release and configuration. Keep Intrinsic runtime workloads out of these namespaces. |
 | Intrinsic application | `your-project-namespace` | All Intrinsic Core, OMTS, and viewer resources for this pilot, grouped by service account and labels. Requires source/controller changes to eliminate upstream namespace creation and rewrite fixed DNS and namespace selectors. |
 | RHOAI project | `your-project-namespace` (subject to dashboard and policy validation) | Candidate home for the model-serving deployment and, if permitted, SDK workbench/evaluation jobs. The dashboard marker exists; verify project eligibility and serving support before using RHOAI APIs. |
-| RHOAI model registry | Release-configured namespace, commonly `rhoai-model-registries` in 2.25 | Optional registry service and metadata. See the [2.25 namespace configuration](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/enabling_the_model_registry_component/enabling-the-model-registry-component_model-registry-config). Registry metadata does not hold the model bytes or replace Intrinsic registries. |
+| RHOAI model registry | Release-configured namespace, commonly `rhoai-model-registries` in 2.25 | Optional registry service and metadata. See the 2.25 namespace configuration. Registry metadata does not hold the model bytes or replace Intrinsic registries. |
 
 RHOAI operator, dashboard, registry, workbench, and serving workloads can span
 different namespaces; use the selected release's configured namespaces rather
@@ -338,7 +338,7 @@ pull credentials and inject them through approved secret management.
 ### B2–B4: security and local IPC are coupled
 
 Target the cluster's `restricted-v2` SCC policy and SELinux enforcement. The
-linked [OpenShift 4.20 SCC documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/authentication_and_authorization/managing-pod-security-policies)
+linked OpenShift 4.20 SCC documentation
 matches the target cluster's reported release; use the matching guide if the target changes.
 SCCs constrain UIDs and host access. Read-only root filesystems
 alone do not establish compatibility. Test image startup, model downloads,
@@ -375,6 +375,13 @@ clean deployment of the same solution before migrating any evaluation state.
 
 ## 7. OpenShift AI integration design
 
+The active [RHOAI inference migration workstream](openshift/rhoai/README.md)
+keeps the application in the cluster and separates model serving through
+sequential acceptance gates. Its [source contract](openshift/rhoai/CONTRACT.md)
+and preflight supersede the archived VM-to-RHOAI connectivity experiment as the
+starting point for implementation. Native inference remains the parity and
+rollback baseline until the new path passes the actual-model/application gates.
+
 ### 7.1 Inference serving: separate RHOAI capability from Intrinsic integration
 
 The pinned [inference manifest](https://github.com/intrinsic-ai/intrinsic-core/blob/20260922.0/intrinsic_inference/assets/inference_service/inference_service.manifest.textproto)
@@ -386,7 +393,7 @@ issues model load/unload requests.
 
 RHOAI's single-model serving platform uses KServe `ServingRuntime` and
 `InferenceService` resources. For the previously reported target cluster candidate,
-consult the [RHOAI 2.25 serving guide](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/configuring_your_model-serving_platform/configuring_model_servers_on_the_single_model_serving_platform)
+consult the RHOAI 2.25 serving guide
 and [2.x support matrix](https://access.redhat.com/articles/rhoai-supported-configs).
 The matrix places NVIDIA Triton in the separate **Tested and verified**
 category, not **Supported model-serving runtimes**; it lists gRPC as the default
@@ -433,7 +440,7 @@ administrative model-management API to general clients. Keep the native
 inference pair available as the parity baseline until a RHOAI-managed pattern
 passes the gated simulation test.
 
-Treat endpoint exposure as a separate security gate. The [RHOAI 2.25 model deployment workflow](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/deploying_models/deploying_models)
+Treat endpoint exposure as a separate security gate. The RHOAI 2.25 model deployment workflow
 exposes external routes and token authentication as explicit options.
 Keep application inference on an in-cluster Service by default. Before rollout,
 verify the selected KServe mode's generated Services/Routes and authentication
@@ -461,7 +468,7 @@ SDKs, evaluation code, and plotting tools. Use it for scene inspection, recorded
 RGB-D inputs, pose visualization, and controlled calls to application APIs.
 Keep its permissions and GPU quota distinct from the robot runtime.
 
-Validate a [custom workbench image](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/managing_openshift_ai/managing_openshift_ai)
+Validate a custom workbench image
 against the SDK's Python and native-library requirements. This is the candidate
 target cluster guide; use the selected target release's guide after P0. Preserve the embedded
 application Jupyter/code-execution service until its runtime contract is separately
@@ -480,10 +487,10 @@ pipeline step. Do not claim a training pipeline exists simply because the servic
 is named `train-service`. Actual fine-tuning is a separate extension requiring
 datasets, training code, evaluation criteria, and compute.
 
-Use [RHOAI data science pipelines](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html/working_with_data_science_pipelines/index)
+Use RHOAI data science pipelines
 for repeatable experiments and artifact lineage; apply the selected target
 release's matching guide after P0. Use a
-[model registry](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.25/html-single/working_with_model_registries/index)
+model registry
 for model/version metadata; keep model bytes in approved object/OCI storage.
 The linked registry overview explains the concept; implement against the target
 release's API. Define an explicit mapping between registry versions and Intrinsic
@@ -543,7 +550,7 @@ Do not substitute a new model or preprocessing pipeline during platform parity.
   DNS, Core APIs, registry pulls, CAS, model storage, viewer/ROS, and observability.
 - RViz/noVNC is deployed in `your-project-namespace` with software rendering. Its
   ClusterIP Service has no public Route. Access it from the Mac with
-  `oc port-forward` bound to `127.0.0.1`; an AWS VM or SSH tunnel is not part
+  `oc port-forward` bound to `the loopback interface`; an AWS VM or SSH tunnel is not part
   of this path. The `simulation-service` remains gRPC on 8088 and is not a
   browser viewer. See
   [`openshift/deployment/viewer/README.md`](openshift/deployment/viewer/README.md).
@@ -565,7 +572,7 @@ Do not substitute a new model or preprocessing pipeline during platform parity.
 | GPU Operator and monitoring | Controlled GPU scheduling and measurable utilization | GPU allocation plus utilization/memory/latency measurements during the demo |
 | Platform monitoring and storage | Observable failures and recoverable persistent state | Alerts, restart recovery, backup/restore exercise, and documented recovery limits |
 
-Use [OpenShift GitOps](https://docs.redhat.com/en/documentation/red_hat_openshift_gitops/1.21/html/understanding_openshift_gitops/about-redhat-openshift-gitops)
+Use OpenShift GitOps
 to own platform/application configuration and Intrinsic controller inputs.
 Retain Intrinsic ownership of generated resources initially; partition ownership
 explicitly to avoid two reconcilers repeatedly overwriting each other.

@@ -193,19 +193,19 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "dd45e6e39f7ca867ef718ef06165b754a2e44330b9643356ab11941fedd21f38"
+          "sha256": "771b13643cfbf175000a5d794af11731db9338a613175da2476fdf55fb693a76"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "5d652ce4a320015f1ed253700a853dacf351ca69cfeadb4bde3a369d5b620a50"
+          "sha256": "ab544f532c24db01042e72381c3c1b90275b8219f5efbc14fa8f0138ccdf483d"
         },
         {
           "path": "openshift/configure_routing.py",
-          "sha256": "c0820f645e4795b820f1af2be79c17fe46787615c4c94f51a281dd9e8470894f"
+          "sha256": "2623ec62f0640a94b6704d16c4a86f9ec963ea4fcd189b52761840f3fed601ed"
         },
         {
           "path": "openshift/test_configure_routing.py",
-          "sha256": "f6211dd8aa0f42f4e4444b300a1f1a0aa5dcc3a1b33bf82ee23228831901f466"
+          "sha256": "a26650dbe518af21faf13e2711ae9450edfaa47c892ca7cf964e057f6b000c3d"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
@@ -221,7 +221,7 @@
         },
         {
           "path": "openshift/.env.sample",
-          "sha256": "2c632946740e3d21280fc9775b22fccf9dad0a4fbc49887caffb098b43bb25a6"
+          "sha256": "b47e1a17db3666185cac66ea19f3d66073879fa7d3b62ed16b852b9f2e521f86"
         },
         {
           "path": "openshift/deployment/manifests/servicemesh-member.yaml",
@@ -393,11 +393,11 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "dd45e6e39f7ca867ef718ef06165b754a2e44330b9643356ab11941fedd21f38"
+          "sha256": "771b13643cfbf175000a5d794af11731db9338a613175da2476fdf55fb693a76"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "5d652ce4a320015f1ed253700a853dacf351ca69cfeadb4bde3a369d5b620a50"
+          "sha256": "ab544f532c24db01042e72381c3c1b90275b8219f5efbc14fa8f0138ccdf483d"
         },
         {
           "path": "openshift/image-lock.json",
