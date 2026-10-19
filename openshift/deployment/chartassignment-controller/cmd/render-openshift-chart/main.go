@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,15 @@ import (
 )
 
 func main() {
+	configPath := flag.String("target-config", "", "Required canonical target JSON")
+	lockPath := flag.String("image-lock", "", "Required portable image lock")
+	flag.Parse()
+	config, err := controller.LoadControllerConfig(*configPath, *lockPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Canonical configuration is missing or invalid")
+		os.Exit(2)
+	}
+	controller.SetControllerConfig(config)
 	if err := run(os.Stdin, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

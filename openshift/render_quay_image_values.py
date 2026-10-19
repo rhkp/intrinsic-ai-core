@@ -9,8 +9,6 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-LOCK = ROOT / "image-lock.json"
-OUTPUT = ROOT / "deployment" / "quay-image-values.yaml"
 
 
 def render_values(lock: dict) -> str:
@@ -31,17 +29,45 @@ def render_values(lock: dict) -> str:
             raise ValueError(f"duplicate chart image key: {key}")
         values[key] = f"/{basename}@{digest}"
 
-    lines = [f"registry: {json.dumps(registry)}", "images:"]
-    lines.extend(
-        f"  {key}: {json.dumps(values[key])}" for key in sorted(values)
-    )
+    lines = [
+        "# This project was developed with assistance from AI tools.",
+        f"registry: {json.dumps(registry)}",
+        "images:",
+    ]
+    lines.extend(f"  {key}: {json.dumps(values[key])}" for key in sorted(values))
     return "\n".join(lines) + "\n"
 
 
 def main() -> None:
-    lock = json.loads(LOCK.read_text())
-    OUTPUT.write_text(render_values(lock))
-    print(f"Rendered {len(lock['images'])} digest-pinned image values to {OUTPUT.relative_to(ROOT)}")
+    import argparse
+    from render_config import (
+        DEFAULT_CONFIG_PATH,
+        ConfigError,
+        load_config,
+        load_image_lock,
+        validate_config,
+    )
+    from image_model import normalize_lock
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=ROOT / ".generated/deployment/quay-image-values.yaml",
+    )
+    args = parser.parse_args()
+    try:
+        config = load_config(args.config)
+        lock = load_image_lock(config, args.config)
+        validate_config(config, lock)
+        rendered = render_values(normalize_lock(lock, config["target"]))
+    except (ConfigError, ValueError, OSError):
+        parser.exit(2, "Canonical configuration or image lock is invalid.\n")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(rendered)
+    args.output.chmod(0o600)
+    print("Rendered canonical digest-pinned image values.")
 
 
 if __name__ == "__main__":

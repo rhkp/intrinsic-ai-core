@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 
@@ -14,21 +13,17 @@ import (
 )
 
 const (
-	openshiftImagePullServiceAccount      = "intrinsic-runtime"
-	intrinsicSimRealtimeServiceAccount    = "intrinsic-sim-realtime"
-	openshiftStorageClassEnv              = "OPENSHIFT_STORAGE_CLASS"
-	openshiftStorageClassDefault          = "your-block-storage-class"
-	dataStorePVC                          = "intrinsic-data-store"
-	intrinsicIconPVC                      = "intrinsic-icon-data"
-	gazeboMeshesPVC                       = "intrinsic-gazebo-meshes"
-	openshiftSharedStorageClassEnv        = "OPENSHIFT_SHARED_STORAGE_CLASS"
-	openshiftSharedStorageClassDefault    = "your-shared-filesystem-storage-class"
-	nvidiaGPUResource                     = "nvidia.com/gpu"
-	openshiftGPUTaintKey                  = "your-gpu-taint-key"
-	quayResourceRegistryImage             = "image-registry.openshift-image-registry.svc:5000/your-project-namespace/resource-registry-openshift@sha256:40744c21511b7bdfcdea20334b5b00939b40153ebbc6647b9e7ec60192eba4cb"
-	workcellServiceImage                  = "image-registry.openshift-image-registry.svc:5000/your-project-namespace/workcell-cluster-service@sha256:b53e963051ab87b497773934c52223a3552ee62870764207c58668578442d9e3"
-	quayZenohdImage                       = "quay.io/your-registry-org/intrinsic/zenohd@sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"
-	quayJupyterServerImage                = "quay.io/your-registry-org/intrinsic/code-execution-jupyter-server@sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
+	openshiftImagePullServiceAccount   = "intrinsic-runtime"
+	intrinsicSimRealtimeServiceAccount = "intrinsic-sim-realtime"
+	openshiftStorageClassEnv           = "OPENSHIFT_STORAGE_CLASS"
+
+	dataStorePVC                   = "intrinsic-data-store"
+	intrinsicIconPVC               = "intrinsic-icon-data"
+	gazeboMeshesPVC                = "intrinsic-gazebo-meshes"
+	openshiftSharedStorageClassEnv = "OPENSHIFT_SHARED_STORAGE_CLASS"
+
+	nvidiaGPUResource = "nvidia.com/gpu"
+
 	inferenceServiceName                  = "rs-inference-service"
 	inferenceServiceContainerName         = "rs-inference-service"
 	inferenceServiceImageRepository       = "ai.intrinsic.inference_service.inference_service_image"
@@ -42,68 +37,45 @@ const (
 	inferenceServiceMainPath              = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/intrinsic-core+/intrinsic_inference/assets/inference_service/inference_service_main.py"
 	inferenceServicePython                = "/intrinsic_inference/assets/inference_service/inference_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
 	inferenceServiceUpstreamCASAddress    = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
-	inferenceServiceProjectCASAddress     = "content-addressable-storage.your-project-namespace.svc.cluster.local:9747"
-	poseEstimatorServiceName              = "rs-pose-estimator-service"
-	poseEstimatorContainerName            = "rs-pose-estimator-service"
-	poseEstimatorImageRepository          = "ai.intrinsic.ioc_pose_estimator_service.ioc_pose_estimator_image"
-	poseEstimatorPatchName                = "openshift-pose-estimator-cas-address"
-	poseEstimatorPatchVolume              = "pose-estimator-service-patch"
-	poseEstimatorMainPath                 = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/intrinsic-core+/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/service/ioc_pose_estimator_service.py"
-	poseEstimatorPython                   = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
-	poseEstimatorUpstreamCASAddress       = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
-	jupyterHomeDir                        = "/home/defaultuser"
-	jupyterRuntimeDir                     = jupyterHomeDir + "/.local/share/jupyter/runtime"
-	upstreamIngressAddress                = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
-	istioSidecarInjectAnnotation          = "sidecar.istio.io/inject"
-	serviceMeshControlPlaneNamespace      = "istio-system"
-	serviceMeshControlPlaneRevision       = "your-service-mesh-control-plane"
-	serviceMeshControlPlanePort           = int64(15012)
-	openshiftDNSNamespace                 = "openshift-dns"
-	openshiftDNSPodLabel                  = "dns.operator.openshift.io/daemonset-dns"
-	openshiftDNSPodValue                  = "default"
-	openshiftDNSUDPPortName               = "dns"
-	openshiftDNSTCPPortName               = "dns-tcp"
-	upstreamDNSPodLabel                   = "k8s-app"
-	upstreamDNSPodValue                   = "kube-dns"
-	ingressAddressEnv                     = "INTRINSIC_INGRESS_ADDRESS"
-	ingressGatewayEnv                     = "INTRINSIC_INGRESS_GATEWAY"
-	ingressSelectorEnv                    = "INTRINSIC_INGRESS_POD_SELECTOR"
+
+	poseEstimatorServiceName        = "rs-pose-estimator-service"
+	poseEstimatorContainerName      = "rs-pose-estimator-service"
+	poseEstimatorImageRepository    = "ai.intrinsic.ioc_pose_estimator_service.ioc_pose_estimator_image"
+	poseEstimatorPatchName          = "openshift-pose-estimator-cas-address"
+	poseEstimatorPatchVolume        = "pose-estimator-service-patch"
+	poseEstimatorMainPath           = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/intrinsic-core+/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/service/ioc_pose_estimator_service.py"
+	poseEstimatorPython             = "/intrinsic_perception/intrinsic/perception/service/ioc_pose_estimator/ioc_service_main.runfiles/rules_python++python+python_3_11_x86_64-unknown-linux-gnu/bin/python3"
+	poseEstimatorUpstreamCASAddress = "content-addressable-storage.app-intrinsic-base.svc.cluster.local:9747"
+	jupyterHomeDir                  = "/home/defaultuser"
+	jupyterRuntimeDir               = jupyterHomeDir + "/.local/share/jupyter/runtime"
+	upstreamIngressAddress          = "istio-ingressgateway.app-ingress.svc.cluster.local:80"
+	istioSidecarInjectAnnotation    = "sidecar.istio.io/inject"
+
+	serviceMeshControlPlanePort = int64(15012)
+	openshiftDNSNamespace       = "openshift-dns"
+	openshiftDNSPodLabel        = "dns.operator.openshift.io/daemonset-dns"
+	openshiftDNSPodValue        = "default"
+	openshiftDNSUDPPortName     = "dns"
+	openshiftDNSTCPPortName     = "dns-tcp"
+	upstreamDNSPodLabel         = "k8s-app"
+	upstreamDNSPodValue         = "kube-dns"
+	ingressAddressEnv           = "INTRINSIC_INGRESS_ADDRESS"
+	ingressGatewayEnv           = "INTRINSIC_INGRESS_GATEWAY"
+	ingressSelectorEnv          = "INTRINSIC_INGRESS_POD_SELECTOR"
 )
 
-func configuredStorageClass(environment, fallback string) string {
-	if controllerConfig != nil {
-		switch environment {
-		case openshiftStorageClassEnv:
-			return controllerConfig.BlockStorageClass
-		case openshiftSharedStorageClassEnv:
-			return controllerConfig.SharedStorageClass
-		}
+func configuredStorageClass(environment string) string {
+	if environment == openshiftSharedStorageClassEnv {
+		return controllerConfig.SharedStorageClass
 	}
-	if value := strings.TrimSpace(os.Getenv(environment)); value != "" {
-		return value
-	}
-	return fallback
+	return controllerConfig.BlockStorageClass
 }
-
-func configuredGPUTaintKey() string {
-	if controllerConfig != nil {
-		return controllerConfig.GPUTaintKey
-	}
-	return openshiftGPUTaintKey
-}
-
+func configuredGPUTaintKey() string { return controllerConfig.GPUTaintKey }
 func configuredZenohRouterEndpoint(namespace string) string {
-	if controllerConfig != nil {
-		return "tcp/" + controllerConfig.ZenohRouterEndpoint
-	}
-	return "tcp/zenoh-router." + namespace + ".svc.cluster.local:7447"
+	return "tcp/" + controllerConfig.ZenohRouterEndpoint
 }
-
 func configuredRHOAITritonEndpoint(namespace string) string {
-	if controllerConfig != nil {
-		return controllerConfig.RHOAITritonEndpoint
-	}
-	return "triton-rhoai-grpc." + namespace + ".svc.cluster.local:9000"
+	return controllerConfig.RHOAITritonEndpoint
 }
 
 const (
@@ -115,40 +87,17 @@ const (
 	artifactsUpstreamContainerdMount  = "/run/containerd/containerd.sock"
 	artifactsUpstreamContainerdHost   = "/run/k3s/containerd/containerd.sock"
 	artifactsContainerdContainerName  = "containerd"
-	artifactsRegistryHost             = "image-registry.openshift-image-registry.svc:5000"
-	artifactsRegistryCAConfigMap      = "intrinsic-registry-service-ca"
-	artifactsRegistryCAVolume         = "artifacts-registry-service-ca"
-	artifactsRegistryCAMount          = "/var/run/registry-ca"
-	artifactsRegistryPasswordFile     = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-	artifactsRegistryServiceAccount   = "omts-deployer"
+
+	artifactsRegistryCAConfigMap    = "intrinsic-registry-service-ca"
+	artifactsRegistryCAVolume       = "artifacts-registry-service-ca"
+	artifactsRegistryCAMount        = "/var/run/registry-ca"
+	artifactsRegistryPasswordFile   = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+	artifactsRegistryServiceAccount = "omts-deployer"
 )
 
-// These upstream charts pin two images directly in templates instead of using
-// their image abstraction values. Keep the destinations synchronized with
-// openshift/image-lock.json; the rendered-manifest validator checks the lock.
-var defaultImageOverrides = map[string]string{
-	"us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2":                                                                                                                          quayZenohdImage,
-	"ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c":                                                                               quayJupyterServerImage,
-	"image-registry.openshift-image-registry.svc:5000/your-project-namespace/ai.intrinsic.move_to_contact.move_to_contact_skill_image@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/move-to-contact-openshift@sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520",
-	"quay.io/your-registry-org/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99":                                                           "image-registry.openshift-image-registry.svc:5000/your-project-namespace/artifacts-service-openshift@sha256:7e35c59a20a0000f49076f4b99bd328a846ccb576b652d0b9a96177da9f88c42",
-}
-
-func imageOverrides() map[string]string {
-	if controllerConfig != nil {
-		return controllerConfig.ImageOverrides
-	}
-	return defaultImageOverrides
-}
+func imageOverrides() map[string]string { return controllerConfig.ImageOverrides }
 
 func configuredDeploymentImage(name string) (string, error) {
-	if controllerConfig == nil {
-		switch name {
-		case "resource-registry":
-			return quayResourceRegistryImage, nil
-		case "workcell-cluster-service":
-			return workcellServiceImage, nil
-		}
-	}
 	if controllerConfig == nil || controllerConfig.ImageModel == nil {
 		return "", fmt.Errorf("canonical image model is missing for Deployment %q", name)
 	}
@@ -175,26 +124,11 @@ type openshiftRoutingConfig struct {
 }
 
 func routingConfigFromEnvironment() openshiftRoutingConfig {
-	if controllerConfig != nil {
-		selectorJSON := ""
-		if controllerConfig.IngressPodSelector != nil {
-			encoded, err := json.Marshal(controllerConfig.IngressPodSelector)
-			if err != nil {
-				return openshiftRoutingConfig{}
-			}
-			selectorJSON = string(encoded)
-		}
-		return openshiftRoutingConfig{
-			address:      controllerConfig.IngressAddress,
-			gateway:      controllerConfig.IngressGateway,
-			selectorJSON: selectorJSON,
-		}
+	if controllerConfig == nil {
+		return openshiftRoutingConfig{}
 	}
-	return openshiftRoutingConfig{
-		address:      strings.TrimSpace(os.Getenv(ingressAddressEnv)),
-		gateway:      strings.TrimSpace(os.Getenv(ingressGatewayEnv)),
-		selectorJSON: strings.TrimSpace(os.Getenv(ingressSelectorEnv)),
-	}
+	selector, _ := json.Marshal(controllerConfig.IngressPodSelector)
+	return openshiftRoutingConfig{address: controllerConfig.IngressAddress, gateway: controllerConfig.IngressGateway, selectorJSON: string(selector)}
 }
 
 func (c *openshiftRoutingConfig) validate() error {
@@ -441,7 +375,7 @@ func adaptOpenShiftResourcesWithRouting(resources []*unstructured.Unstructured, 
 				"resources": map[string]interface{}{
 					"requests": map[string]interface{}{"storage": "2Gi"},
 				},
-				"storageClassName": configuredStorageClass(openshiftStorageClassEnv, openshiftStorageClassDefault),
+				"storageClassName": configuredStorageClass(openshiftStorageClassEnv),
 			},
 		}})
 	}
@@ -471,7 +405,7 @@ func sharedStoragePVC(name, namespace, size string) *unstructured.Unstructured {
 			"resources": map[string]interface{}{
 				"requests": map[string]interface{}{"storage": size},
 			},
-			"storageClassName": configuredStorageClass(openshiftSharedStorageClassEnv, openshiftSharedStorageClassDefault),
+			"storageClassName": configuredStorageClass(openshiftSharedStorageClassEnv),
 		},
 	}}
 }
@@ -831,7 +765,7 @@ func contains(items []string, value string) bool {
 }
 
 func adaptPVC(resource *unstructured.Unstructured) error {
-	if err := unstructured.SetNestedField(resource.Object, configuredStorageClass(openshiftStorageClassEnv, openshiftStorageClassDefault), "spec", "storageClassName"); err != nil {
+	if err := unstructured.SetNestedField(resource.Object, configuredStorageClass(openshiftStorageClassEnv), "spec", "storageClassName"); err != nil {
 		return err
 	}
 	unstructured.RemoveNestedField(resource.Object, "spec", "selector")
@@ -2047,7 +1981,7 @@ func adaptArtifactsServiceDeployment(resource *unstructured.Unstructured, namesp
 		return fmt.Errorf("Deployment %q has unexpected local-registry arguments", artifactsDeploymentName)
 	}
 	filteredArgs = append(filteredArgs,
-		"--registry="+artifactsRegistryHost+"/"+namespace,
+		"--registry="+controllerConfig.InternalRegistryHost+"/"+namespace,
 		"--registry_username=token",
 		"--registry_password_file="+artifactsRegistryPasswordFile,
 	)
@@ -2935,11 +2869,11 @@ func ensureServiceMeshControlPlaneEgress(resource *unstructured.Unstructured) er
 	}
 	peer := map[string]interface{}{
 		"namespaceSelector": map[string]interface{}{"matchLabels": map[string]interface{}{
-			"kubernetes.io/metadata.name": serviceMeshControlPlaneNamespace,
+			"kubernetes.io/metadata.name": controllerConfig.MeshNamespace,
 		}},
 		"podSelector": map[string]interface{}{"matchLabels": map[string]interface{}{
 			"app":          "istiod",
-			"istio.io/rev": serviceMeshControlPlaneRevision,
+			"istio.io/rev": controllerConfig.MeshRevision,
 		}},
 	}
 	egressRules = append(egressRules, map[string]interface{}{
@@ -2981,7 +2915,7 @@ func matchesServiceMeshControlPlaneEgress(rule map[string]interface{}) (bool, er
 		if err != nil {
 			return false, fmt.Errorf("Service Mesh pod selector is malformed: %w", err)
 		}
-		if namespaceName == serviceMeshControlPlaneNamespace && labels["app"] == "istiod" && labels["istio.io/rev"] == serviceMeshControlPlaneRevision {
+		if namespaceName == controllerConfig.MeshNamespace && labels["app"] == "istiod" && labels["istio.io/rev"] == controllerConfig.MeshRevision {
 			peerMatches = true
 			break
 		}

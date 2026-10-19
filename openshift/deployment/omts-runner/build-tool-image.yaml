@@ -3,7 +3,7 @@ apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: omts-demo-tools
-  namespace: your-project-namespace
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-demo
     app.kubernetes.io/component: build-tools
@@ -13,7 +13,7 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   name: omts-demo-tools
-  namespace: your-project-namespace
+  namespace: ${OPENSHIFT_NAMESPACE}
   labels:
     app.kubernetes.io/name: intrinsic-omts-demo
     app.kubernetes.io/component: build-tools

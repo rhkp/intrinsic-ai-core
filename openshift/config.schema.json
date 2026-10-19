@@ -113,7 +113,9 @@
             "ingress_gateway",
             "ingress_pod_selector",
             "zenoh_router_endpoint",
-            "rhoai_triton_endpoint"
+            "rhoai_triton_endpoint",
+            "mesh_namespace",
+            "mesh_revision"
           ],
           "properties": {
             "ingress_address": {
@@ -137,6 +139,14 @@
               "minLength": 1
             },
             "rhoai_triton_endpoint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mesh_namespace": {
+              "type": "string",
+              "minLength": 1
+            },
+            "mesh_revision": {
               "type": "string",
               "minLength": 1
             }

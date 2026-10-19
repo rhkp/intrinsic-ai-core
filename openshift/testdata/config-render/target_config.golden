@@ -12,7 +12,9 @@
         "app.kubernetes.io/name": "intrinsic-grpc-gateway",
         "istio": "intrinsic-grpc-gateway"
       },
-      "rhoai_triton_endpoint": "replace-with-approved-internal-service:port",
+      "mesh_namespace": "your-mesh-namespace",
+      "mesh_revision": "your-service-mesh-control-plane",
+      "rhoai_triton_endpoint": "triton-rhoai-grpc.your-project-namespace.svc.cluster.local:9000",
       "zenoh_router_endpoint": "zenoh-router.your-project-namespace.svc.cluster.local:7447"
     },
     "registry": {

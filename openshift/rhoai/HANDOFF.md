@@ -8,6 +8,32 @@
 
 ## Current state
 
+### Latest result: E2 canonical consumer migration complete (2026-10-19)
+
+- E2.4 is deployed. Canonical configuration and the portable schema version 2
+  image lock are required by controller/offline entry points. Operational tools
+  use the same validated target; full controller/RBAC/workspace manifests are
+  generated under ignored `openshift/.generated/`.
+- The 223 rendered objects are unchanged. All four ChartAssignments are Ready,
+  four ResourceSets Settled, and all 10 original PVCs Bound with identical
+  UIDs/specifications. Application pod identities and workload specifications
+  are unchanged. PVCs and build caches were preserved.
+- Previous controller/schema rollback and canonical restoration both passed
+  no-op reconciliation without application or PVC changes. The final deployed
+  checksum matches the complete image lock, including existing demo images.
+- Gateway mTLS, private-image pull/startup, RHOAI model readiness and synthetic
+  wrapper inference pass. Temporary smoke resources are gone.
+- The documented four-file scene reset succeeded. The cached one-cycle demo
+  completed FoundationPose on RHOAI in **8.060 seconds**, then stopped on the
+  known `gripper.gripper_finger2` / `raw_stock_2x3x5.base_link` collision. No
+  timeout, connection failure or unreachable target was reported. The wrapper
+  has no native Triton container. Full pick completion remains unproven (E5).
+- All 63 Python tests, Go tests/vet, formatting/lint, strict target audit, shell
+  syntax and provenance checks pass. CI now enforces canonical target policy.
+- Use [the current canonical runbook](../README.md#canonical-operational-helpers)
+  and [E2.4 completion evidence](../../ENHANCEMENTS.md#milestone-e24--migrate-consumers-and-remove-compatibility).
+  Older entries below describe historical milestones and rollback boundaries.
+
 ### Latest result: canonical controller configuration rollout (2026-10-19)
 
 - E2.2/E2.3 configuration delivery is deployed. The controller reads the target

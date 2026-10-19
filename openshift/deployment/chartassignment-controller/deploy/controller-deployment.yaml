@@ -21,14 +21,14 @@ spec:
           type: RuntimeDefault
       containers:
         - name: controller
-          image: image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:8bf9b5a5d8ed20ba1fbfb438e79e2f7a5ad6c73bf26408b79db11ea229894ca9
+          image: ${CONTROLLER_IMAGE}
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
                 name: intrinsic-routing-config
                 optional: true
           args:
-            - --watch-namespace=your-project-namespace
+            - --watch-namespace=${OPENSHIFT_NAMESPACE}
             - --cloud-cluster=true
             - --webhook-enabled=false
             - --healthz-port=8080

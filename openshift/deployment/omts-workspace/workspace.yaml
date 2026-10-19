@@ -53,7 +53,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: workspace
-          image: image-registry.openshift-image-registry.svc:5000/${OPENSHIFT_NAMESPACE}/omts-build-tools:20260922.0
+          image: ${INTRINSIC_REGISTRY_HOST}/${OPENSHIFT_NAMESPACE}/omts-build-tools:20260922.0
           imagePullPolicy: Always
           command:
             - /bin/bash
@@ -67,9 +67,9 @@ spec:
             - name: OPENSHIFT_SERVICE_ACCOUNT
               value: omts-deployer
             - name: INTRINSIC_GATEWAY_ADDRESS
-              value: intrinsic-grpc-gateway.$(OPENSHIFT_NAMESPACE).svc.cluster.local:80
+              value: ${INTRINSIC_GATEWAY_ADDRESS}
             - name: INTRINSIC_REGISTRY_HOST
-              value: image-registry.openshift-image-registry.svc:5000
+              value: ${INTRINSIC_REGISTRY_HOST}
             - name: OPENSHIFT_SERVICE_CA_FILE
               value: /var/run/registry-ca/service-ca.crt
             - name: DOCKER_CONFIG

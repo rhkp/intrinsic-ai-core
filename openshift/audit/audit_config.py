@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import subprocess
@@ -15,11 +16,19 @@ from typing import Any
 
 import yaml
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from render_config import EXAMPLE_PATH, load_config, load_image_lock, render_outputs
+from image_model import normalize_lock
+
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK_PATH = ROOT / "image-lock.json"
 CONTROLLER_DEPLOYMENT = (
-    ROOT / "deployment" / "chartassignment-controller" / "deploy" / "controller-deployment.yaml"
+    ROOT
+    / "deployment"
+    / "chartassignment-controller"
+    / "deploy"
+    / "controller-deployment.yaml"
 )
 CONTROLLER_ADAPTER = (
     ROOT / "deployment" / "chartassignment-controller" / "controller" / "openshift.go"
@@ -30,9 +39,7 @@ ENVIRONMENT_PATTERN = re.compile(r"\b(?:OPENSHIFT|INTRINSIC|QUAY|PVC)_[A-Z0-9_]+
 IMAGE_REFERENCE_PATTERN = re.compile(
     r"(?:[a-z0-9.-]+(?::[0-9]+)?/)?[a-z0-9._/-]+@sha256:[0-9a-f]{64}"
 )
-CONTROLLER_CONSTANT_PATTERN = (
-    r'(?m)^\s*({name})\s*=\s*"([^"]+)"'
-)
+CONTROLLER_CONSTANT_PATTERN = r'(?m)^\s*({name})\s*=\s*"([^"]+)"'
 
 TARGET_PLACEHOLDERS = {
     "context": "replace-with-your-context-name",
@@ -92,9 +99,7 @@ def environment_variables() -> dict[str, list[str]]:
 
 
 def target_placeholders() -> dict[str, dict[str, int]]:
-    results: dict[str, dict[str, int]] = {
-        label: {} for label in TARGET_PLACEHOLDERS
-    }
+    results: dict[str, dict[str, int]] = {label: {} for label in TARGET_PLACEHOLDERS}
     for path in source_files():
         text = path.read_text(encoding="utf-8")
         relative = path.relative_to(ROOT).as_posix()
@@ -116,13 +121,13 @@ def workload_image_references() -> dict[str, dict[str, int]]:
 
 
 def image_lock() -> dict[str, Any]:
-    return json.loads(LOCK_PATH.read_text(encoding="utf-8"))
+    config = load_config(EXAMPLE_PATH, True)
+    return normalize_lock(load_image_lock(config, EXAMPLE_PATH), config["target"])
 
 
 def lock_references(lock: dict[str, Any]) -> dict[str, list[str]]:
     quay = [
-        f"{image['quay_repository']}@{image['quay_digest']}"
-        for image in lock["images"]
+        f"{image['quay_repository']}@{image['quay_digest']}" for image in lock["images"]
     ]
     openshift = [
         image["openshift_image_reference"]
@@ -130,8 +135,7 @@ def lock_references(lock: dict[str, Any]) -> dict[str, list[str]]:
         if image.get("openshift_image_reference")
     ]
     project = [
-        f"{image['repository']}@{image['digest']}"
-        for image in lock["project_images"]
+        f"{image['repository']}@{image['digest']}" for image in lock["project_images"]
     ]
     return {
         "quay": sorted(quay),
@@ -141,7 +145,12 @@ def lock_references(lock: dict[str, Any]) -> dict[str, list[str]]:
 
 
 def controller_deployment() -> dict[str, str]:
-    document = yaml.safe_load(CONTROLLER_DEPLOYMENT.read_text(encoding="utf-8"))
+    config = load_config(EXAMPLE_PATH, True)
+    document = yaml.safe_load(
+        render_outputs(config, load_image_lock(config, EXAMPLE_PATH))[
+            "controller_deployment"
+        ]
+    )
     containers = document["spec"]["template"]["spec"]["containers"]
     image = containers[0]["image"]
     watch_namespace = ""
@@ -149,36 +158,6 @@ def controller_deployment() -> dict[str, str]:
         if argument.startswith("--watch-namespace="):
             watch_namespace = argument.partition("=")[2]
     return {"image": image, "watch_namespace": watch_namespace}
-
-
-def controller_constant_expectations(lock: dict[str, Any]) -> dict[str, str]:
-    images = {image["chart_image_key"]: image for image in lock["images"]}
-    project_images = {image["name"]: image for image in lock["project_images"]}
-    return {
-        "quayResourceRegistryImage": images["resource_registry"][
-            "openshift_image_reference"
-        ],
-        "workcellServiceImage": f"{project_images['workcell-cluster-service']['repository']}"
-        f"@{project_images['workcell-cluster-service']['digest']}",
-        "quayZenohdImage": f"{images['zenohd']['quay_repository']}"
-        f"@{images['zenohd']['quay_digest']}",
-        "quayJupyterServerImage": f"{images['code_execution_jupyter_server']['quay_repository']}"
-        f"@{images['code_execution_jupyter_server']['quay_digest']}",
-    }
-
-
-def controller_constants(expected: dict[str, str]) -> dict[str, str]:
-    text = CONTROLLER_ADAPTER.read_text(encoding="utf-8")
-    actual: dict[str, str] = {}
-    for name in expected:
-        match = re.search(
-            CONTROLLER_CONSTANT_PATTERN.format(name=name),
-            text,
-        )
-        if not match:
-            raise ValueError(f"controller image constant {name} was not found")
-        actual[name] = match.group(2)
-    return actual
 
 
 def generated_image_value_mismatches(lock: dict[str, Any]) -> list[dict[str, str]]:
@@ -199,16 +178,98 @@ def generated_image_value_mismatches(lock: dict[str, Any]) -> list[dict[str, str
     return mismatches
 
 
+def has_target_default(text: str, suffix: str) -> bool:
+    keys = {
+        "OPENSHIFT_NAMESPACE",
+        "OPENSHIFT_CONTEXT",
+        "OPENSHIFT_API_SERVER_URL",
+        "OPENSHIFT_STORAGE_CLASS",
+        "OPENSHIFT_SHARED_STORAGE_CLASS",
+        "OPENSHIFT_GPU_TAINT_KEY",
+        "INTRINSIC_REGISTRY_HOST",
+        "INTRINSIC_GATEWAY_ADDRESS",
+        "INTRINSIC_INGRESS_ADDRESS",
+        "INTRINSIC_INGRESS_GATEWAY",
+        "INTRINSIC_ZENOH_ROUTER_ENDPOINT",
+        "INTRINSIC_RHOAI_TRITON_ENDPOINT",
+        "QUAY_REGISTRY_ORG",
+        "QUAY_REGISTRY_PREFIX",
+    }
+    if suffix == ".py":
+        for node in ast.walk(ast.parse(text)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in {"get", "getenv"}
+                and len(node.args) > 1
+            ):
+                if (
+                    isinstance(node.args[0], ast.Constant)
+                    and node.args[0].value in keys
+                    and isinstance(node.args[1], ast.Constant)
+                    and node.args[1].value
+                ):
+                    return True
+    for key in keys:
+        if re.search(r"\$\{" + key + r":-[^}]+\}", text):
+            return True
+    # Upstream source addresses are inputs to namespace rewriting, not destinations.
+    for namespace in re.findall(r"[a-z0-9-]+\.([a-z0-9-]+)\.svc\.cluster\.local", text):
+        if namespace not in {
+            "namespace",
+            "app-intrinsic-base",
+            "app-intrinsic-app-chart",
+            "app-ingress",
+        }:
+            return True
+    return False
+
+
+def executable_target_violations() -> list[str]:
+    """Reject target defaults in owned executable code; templates remain declarative."""
+    violations = []
+    provenance = json.loads((ROOT / "deployment/SOURCE_MANIFEST.json").read_text())
+    upstream = set()
+
+    def visit(value):
+        if isinstance(value, dict):
+            if "destination_path" in value:
+                upstream.add("openshift/deployment/" + value["destination_path"])
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(provenance)
+    forbidden = re.compile(
+        r"your-(?:project-namespace|registry-org|block-storage-class|shared-filesystem-storage-class|gpu-taint-key|service-mesh-control-plane)|quay\.io/your-"
+    )
+    for path in source_files():
+        relative = path.relative_to(ROOT.parent).as_posix()
+        if (
+            path.suffix not in {".py", ".sh", ".go"}
+            or relative in upstream
+            or "/audit/" in relative
+        ):
+            continue
+        text = path.read_text()
+        if forbidden.search(text) or has_target_default(text, path.suffix):
+            violations.append(relative)
+        if (
+            path.suffix == ".go"
+            and path.name == "openshift.go"
+            and ("defaultImageOverrides" in text or "os.Getenv(" in text)
+        ):
+            violations.append(relative)
+    return sorted(set(violations))
+
+
 def collect_audit() -> dict[str, Any]:
     lock = image_lock()
     references = lock_references(lock)
-    expected_constants = controller_constant_expectations(lock)
-    constants = controller_constants(expected_constants)
-    constant_mismatches = {
-        name: {"expected": expected_constants[name], "actual": constants[name]}
-        for name in expected_constants
-        if constants[name] != expected_constants[name]
-    }
+    constants = {}
+    constant_mismatches = {}
     return {
         "environment_variables": environment_variables(),
         "target_placeholders": target_placeholders(),
@@ -216,6 +277,7 @@ def collect_audit() -> dict[str, Any]:
         "image_lock_references": references,
         "controller_deployment": controller_deployment(),
         "controller_image_constants": constants,
+        "executable_target_violations": executable_target_violations(),
         "controller_image_constant_mismatches": constant_mismatches,
         "generated_image_value_mismatches": generated_image_value_mismatches(lock),
     }
@@ -223,9 +285,7 @@ def collect_audit() -> dict[str, Any]:
 
 def print_audit(audit: dict[str, Any]) -> None:
     print("OpenShift configuration audit")
-    print(
-        f"Environment variables: {len(audit['environment_variables'])} keys"
-    )
+    print(f"Environment variables: {len(audit['environment_variables'])} keys")
     for key, files in audit["environment_variables"].items():
         print(f"  {key}: {', '.join(files)}")
 
@@ -251,7 +311,7 @@ def print_audit(audit: dict[str, Any]) -> None:
     if audit["controller_image_constant_mismatches"]:
         print("WARNING: controller image constants do not match the image lock")
     else:
-        print("Controller image constants match the image lock")
+        print("Controller image destinations are derived from the canonical lock")
 
     if audit["generated_image_value_mismatches"]:
         print("WARNING: generated Quay image values do not match the image lock")
@@ -274,8 +334,14 @@ def main() -> int:
     arguments = parser.parse_args()
     audit = collect_audit()
     print_audit(audit)
+    if audit["executable_target_violations"]:
+        print(
+            "Executable target policy violations:",
+            ", ".join(audit["executable_target_violations"]),
+        )
     if arguments.strict and (
-        audit["controller_image_constant_mismatches"]
+        audit["executable_target_violations"]
+        or audit["controller_image_constant_mismatches"]
         or audit["generated_image_value_mismatches"]
     ):
         return 1

@@ -64,8 +64,8 @@ func main() {
 		slog.Error("watch-namespace must be set")
 		os.Exit(1)
 	}
-	if (*targetConfigPath == "") != (*imageLockPath == "") {
-		slog.Error("target-config and image-lock must be provided together")
+	if *targetConfigPath == "" || *imageLockPath == "" {
+		slog.Error("target-config and image-lock are required")
 		os.Exit(1)
 	}
 	if *targetConfigPath != "" {

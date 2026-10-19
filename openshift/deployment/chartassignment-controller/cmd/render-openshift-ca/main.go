@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -11,11 +12,20 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 2 {
+	configPath := flag.String("target-config", "", "Required canonical target JSON")
+	lockPath := flag.String("image-lock", "", "Required portable image lock")
+	flag.Parse()
+	config, err := chartassignment.LoadControllerConfig(*configPath, *lockPath)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Canonical configuration is missing or invalid")
+		os.Exit(2)
+	}
+	chartassignment.SetControllerConfig(config)
+	if flag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "usage: render-openshift-ca <chart-assignment.yaml>")
 		os.Exit(2)
 	}
-	input, err := os.ReadFile(os.Args[1])
+	input, err := os.ReadFile(flag.Arg(0))
 	if err != nil {
 		fatal(err)
 	}

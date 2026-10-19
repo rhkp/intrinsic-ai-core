@@ -1,15 +1,21 @@
+# This project was developed with assistance from AI tools.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    intrinsic.ai/controller-config-checksum: 6fc324585b6508c1399211d583244ea62108a1f7f3af5dbcb7b21006372dc67a
+    intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
   name: chartassignment-controller
   namespace: your-project-namespace
 spec:
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
   template:
     metadata:
       annotations:
-        intrinsic.ai/controller-config-checksum: 6fc324585b6508c1399211d583244ea62108a1f7f3af5dbcb7b21006372dc67a
+        intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
     spec:
       containers:
       - args:

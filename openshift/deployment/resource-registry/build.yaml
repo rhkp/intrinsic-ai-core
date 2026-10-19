@@ -3,7 +3,7 @@ apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: resource-registry-openshift
-  namespace: your-project-namespace
+  namespace: ${OPENSHIFT_NAMESPACE}
 spec:
   lookupPolicy:
     local: false
@@ -14,7 +14,7 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   name: resource-registry-openshift
-  namespace: your-project-namespace
+  namespace: ${OPENSHIFT_NAMESPACE}
 spec:
   runPolicy: Serial
   source:

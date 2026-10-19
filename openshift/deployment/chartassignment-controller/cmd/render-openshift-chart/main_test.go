@@ -78,6 +78,7 @@ func TestRunRejectsRemoteChart(t *testing.T) {
 }
 
 func TestRunRejectsNamespaceEscape(t *testing.T) {
+	setCanonicalControllerConfig(t)
 	archive := inlineTestChart(t)
 	input := "apiVersion: apps.cloudrobotics.com/v1alpha1\n" +
 		"kind: ChartAssignment\n" +
@@ -87,7 +88,7 @@ func TestRunRejectsNamespaceEscape(t *testing.T) {
 		"    inline: " + base64.StdEncoding.EncodeToString(archive) + "\n" +
 		"    values: {}\n"
 	err := run(strings.NewReader(input), &bytes.Buffer{})
-	if err == nil || !strings.Contains(err.Error(), "does not match target namespace") {
+	if err == nil || !strings.Contains(err.Error(), "conflicts with canonical target") {
 		t.Fatalf("expected namespace escape to be rejected, got %v", err)
 	}
 }
@@ -213,7 +214,8 @@ skills: []
 func setCanonicalControllerConfig(t *testing.T) {
 	t.Helper()
 	controller.SetControllerConfig(&controller.ControllerConfig{
-		Namespace:           smokeNamespace,
+		Namespace:     smokeNamespace,
+		MeshNamespace: "istio-system", MeshRevision: "your-service-mesh-control-plane",
 		BlockStorageClass:   "your-block-storage-class",
 		SharedStorageClass:  "your-shared-filesystem-storage-class",
 		GPUTaintKey:         "your-gpu-taint-key",

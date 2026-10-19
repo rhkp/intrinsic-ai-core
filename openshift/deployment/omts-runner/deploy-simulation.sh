@@ -5,8 +5,8 @@ set -euo pipefail
 source_dir="${INTRINSIC_OMTS_SRC:-${HOME}/intrinsic-omts}"
 gateway_address="${INTRINSIC_GATEWAY_ADDRESS:-}"
 runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-registry_host="${INTRINSIC_REGISTRY_HOST:-image-registry.openshift-image-registry.svc:5000}"
-openshift_namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
+registry_host="${INTRINSIC_REGISTRY_HOST:?Canonical runtime registry is required}"
+openshift_namespace="${OPENSHIFT_NAMESPACE:?Canonical runtime namespace is required}"
 internal_registry="${registry_host}/${openshift_namespace}"
 
 if [[ -z "${gateway_address}" ]]; then

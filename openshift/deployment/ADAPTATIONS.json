@@ -93,7 +93,7 @@
       "added_adaptation_files": [
         {
           "path": "openshift/gpu_smoke.py",
-          "sha256": "01cca550f58a6a39c84e4cfba3fa099b202bf0f8565db062afdd71f13a61ba33"
+          "sha256": "7c7dd661ca933395717f19c7cc47dd3f487f680443df34e2504b02726ef933e9"
         }
       ],
       "validation": {
@@ -140,19 +140,19 @@
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "ce5615d80e16a775240c305b2581091c2331b16cd3c5aa0de6f0c7a06d9f0f28"
+          "sha256": "3c60fd42ba2031de7c2d64dfc355485f120a9e21e914a2581ab41027ca942780"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "440220a1a2ee9b98a3f3b5421f5377a687b5a238ad829b3778d52a6a3e7c990b"
+          "sha256": "9c04492cbabe850cc34b12fd748a4a6ffb993838479e3d9676a5cf1c384c5526"
         },
         {
           "path": "openshift/render_quay_image_values.py",
-          "sha256": "b1c7ddab2035abfa0793de60f5e866fbe1b7b2a5c28deb5277cda323ce250b3d"
+          "sha256": "d31701a0f87c61e0aa34379540a36aef729bd558129b76b11e241d55537b0d50"
         },
         {
           "path": "openshift/smoke_quay_image.py",
-          "sha256": "bb4f89f67ce9221c2e5f6746e9f00aefc5785f01853d5678e2fda348bf6da7f2"
+          "sha256": "acd9853b05d9eadd7e4b1b810843595d758262f96f701f8c53cc8e89dbabdb60"
         }
       ],
       "validation": {
@@ -193,11 +193,11 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "a4236adbc38808cd81cf2db99cff9190776aa78455bb6b134b0f7b4853b84f09"
+          "sha256": "d2f7c16f7a66e6322c027558d54a6b088ae0f04eaa71f09fd6d0978cfd943ff7"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "6e5ff224ef0e763f2c6521cf2b78b25829d004295a29a3b9f86538928f20092a"
+          "sha256": "86cffa1f2940469665024beae3b9b45bd68b0f5ef52a9b6bf47d255a0f13ab4a"
         },
         {
           "path": "openshift/configure_routing.py",
@@ -209,11 +209,11 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "e78df6dabfae88b21feced7fcbf3a5dc61e3c3e0ebab02f858c5fb867bf67826"
+          "sha256": "f2ba318ebabc7d133b0cd983c2e94afa2ef398e3d4ae276261e8e69bd7713006"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-rbac.yaml",
-          "sha256": "840e2227c20420322a753ba673866de6a79e9c8e7921d1718689e37364d5c12a"
+          "sha256": "d55b18c973470d932e39e87e0ad834f03ec994210b515bba8c93ad766019c21d"
         },
         {
           "path": "openshift/validate_source_manifest.py",
@@ -221,7 +221,7 @@
         },
         {
           "path": "openshift/.env.sample",
-          "sha256": "b47e1a17db3666185cac66ea19f3d66073879fa7d3b62ed16b852b9f2e521f86"
+          "sha256": "7f68b72a42381d525a1b816a24a3907cf69f78e97a7ec6fa07bb47877dd6a35a"
         },
         {
           "path": "openshift/deployment/manifests/servicemesh-member.yaml",
@@ -393,23 +393,23 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "a4236adbc38808cd81cf2db99cff9190776aa78455bb6b134b0f7b4853b84f09"
+          "sha256": "d2f7c16f7a66e6322c027558d54a6b088ae0f04eaa71f09fd6d0978cfd943ff7"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "6e5ff224ef0e763f2c6521cf2b78b25829d004295a29a3b9f86538928f20092a"
+          "sha256": "86cffa1f2940469665024beae3b9b45bd68b0f5ef52a9b6bf47d255a0f13ab4a"
         },
         {
           "path": "openshift/image-lock.json",
-          "sha256": "ce5615d80e16a775240c305b2581091c2331b16cd3c5aa0de6f0c7a06d9f0f28"
+          "sha256": "3c60fd42ba2031de7c2d64dfc355485f120a9e21e914a2581ab41027ca942780"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "440220a1a2ee9b98a3f3b5421f5377a687b5a238ad829b3778d52a6a3e7c990b"
+          "sha256": "9c04492cbabe850cc34b12fd748a4a6ffb993838479e3d9676a5cf1c384c5526"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
-          "sha256": "e78df6dabfae88b21feced7fcbf3a5dc61e3c3e0ebab02f858c5fb867bf67826"
+          "sha256": "f2ba318ebabc7d133b0cd983c2e94afa2ef398e3d4ae276261e8e69bd7713006"
         }
       ],
       "validation": {
@@ -433,27 +433,27 @@
       "added_adaptation_files": [
         {
           "path": "openshift/config.example.json",
-          "sha256": "2cadddc069d28220d27ec8f7b5a342edebebb7463cf3d12f47a27cc553bf9974"
+          "sha256": "d4ca759824151fc4404439dbeed20cd2ce2ed7dc038cace5f45dbbcad77f384f"
         },
         {
           "path": "openshift/config.schema.json",
-          "sha256": "2c78b574c42bc41d6bb62400c965cb2509a9d84d63e8d209ade44ea791fea6ba"
+          "sha256": "981d9070f0a43ffaa25d21eeae49aeb7d951e686e3768158c4b708e732fb6fa5"
         },
         {
           "path": "openshift/render_config.py",
-          "sha256": "9a232d5a6c05dd324afa969e7d78ab76b063667b17ade555ea36fb9c8132943f"
+          "sha256": "486cee899ba9ba79b0fe4b884b5ed6f88d5f5e31af3e5d1efde1d62de8bcb8f0"
         },
         {
           "path": "openshift/test_render_config.py",
-          "sha256": "ebe669ff7b141910460177c60ff150a598fd57fbcc7e33bae17764414b1bd815"
+          "sha256": "23ed09a50b8ed1f504c172ac0a856f083cc289f8e2457bf7a553da2c112e0b12"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/config.go",
-          "sha256": "4417021f6cb73b6a4ec9a27a893a72a4a0fc3b9b1112af70903de40534862b91"
+          "sha256": "8c7cb8f200e23c267db7f99608df5666aadb08f07a3ac3e20f61930f3017dcdd"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/config_test.go",
-          "sha256": "821d5234207ff491ad8f058af0c285f7b0796a1c32829806424abb6edfc5cd59"
+          "sha256": "08e63f2cabd032a7857eeb5bb5571bfdd52f104fe114b54fe82eae3777bf9b0a"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_ros_zenoh.go",
@@ -461,19 +461,19 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/cmd/chart-assignment-controller/main.go",
-          "sha256": "61abe451e8fe955dd49f663a74c4f63eac4eb32f854fb450321a554450415df6"
+          "sha256": "e17964f9d564a081deac8644cc1da2b07dcf3d79297e725a4cf092ad5b23a7f9"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/cmd/render-openshift-chart/main_test.go",
-          "sha256": "1a1876f8ecbd976b9002795500c808fd141919586243565722d50720d92c5113"
+          "sha256": "899a85f4edcd784ffda2f9faffed1cb58950bed1a35735fb7e39f7c300d8bc2b"
         },
         {
           "path": "openshift/validate_rendered_manifests.py",
-          "sha256": "06d944ef2233948a6c8e964c29cf4735eb6a9d21fd465d6a5a296d727f2f32d3"
+          "sha256": "70a3717a9f102752d5afaf317e53cc39d6b6b3ecd2e07c33e0437a66a5bc6069"
         },
         {
           "path": "openshift/test_validate_rendered_manifests.py",
-          "sha256": "f81269cd874cae000b810405e96485d0cc2dcca8a962d90c604d5f77170b3e2b"
+          "sha256": "15c315e1449bd3bf16252e6dd2862e9427cefd59fa8a6709d03d5e7876d8adea"
         }
       ]
     },
@@ -496,6 +496,180 @@
         {
           "path": "openshift/test_preflight.py",
           "sha256": "fa09e02e3ff64abc116fb00c75192df08300f291e38b78fa38800111e614b364"
+        }
+      ]
+    },
+    {
+      "id": "canonical-consumers-portable-lock-e24",
+      "status": "Canonical operational consumers and portable lock; behavior-preserving controller rollout and rollback verified",
+      "added_adaptation_files": [
+        {
+          "path": ".github/workflows/canonical-config.yml",
+          "sha256": "e4896fef8b60ad845c61c3365b524c3a5677036b5bb94d89cb71769b837a3c5f"
+        },
+        {
+          "path": "openshift/README.md",
+          "sha256": "a0118df6a89cf57fcedf3165d38ab32c36f5c28246e421078649d4e15a30cbe8"
+        },
+        {
+          "path": "openshift/audit/audit_config.py",
+          "sha256": "14fd2aa3e776f74207e3bcfa7de26e532c14e703ec11d765eefa4641f284bff3"
+        },
+        {
+          "path": "openshift/audit/test_audit_config.py",
+          "sha256": "e61f9341de7b6fe1c0dd3e8b486f695f3cc010eb5f1e7da76d9e193f282e9942"
+        },
+        {
+          "path": "openshift/canonical-env.sh",
+          "sha256": "db0b47c762204618f6607cad7e34be87a4ac0e4396621f898a6ca6788d890a13"
+        },
+        {
+          "path": "openshift/common.py",
+          "sha256": "8116e6cebc07a6634a4c23654a95b921b720421084e5b5d926cfdb7bc6797297"
+        },
+        {
+          "path": "openshift/config_env.py",
+          "sha256": "f98278e48e2c91ed2fb5c9f14296503966e890f38a44bd6821de736c4547fec2"
+        },
+        {
+          "path": "openshift/deployment/apply-runtime-secret.sh",
+          "sha256": "80610130fddaa40c002c6f7e6eff2c0c73a28d7797348e6cf3267578e3b1f562"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/cmd/render-openshift-ca/main.go",
+          "sha256": "85318199a3cf644ae139cc426838fef4bb5b6d5a920ccf16d5dd19c72a546568"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/cmd/render-openshift-chart/main.go",
+          "sha256": "6222c8c78f8b8495f94d038420767cb9bc3c0044365630e284390d3f58d0c331"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/legacy_expectations_test.go",
+          "sha256": "4a41c5ea07ee827eec216861b7c6d119d3052550c27dd387a072d805973412ba"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/release.go",
+          "sha256": "2afd81e221cb21d6c316f555b7657f0c1ab6b59a3667ff40dc180e40a77c6226"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/deploy/README.md",
+          "sha256": "600108ab6f3001c9688af1e5ae62ae9c8f3e5e35e9896ba27710bba10f7b2d3e"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/deploy/generate-configmap-smoke.py",
+          "sha256": "49c27b2f335126d5c81f3fff05041b67d2c74c73c91d400e879b1cec266f1add"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/build-image.sh",
+          "sha256": "6e91da702b3d90168ce06df74adcdbabf0b4fb090326e6cd4c6f8cd2a165999e"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/build-tool-image.sh",
+          "sha256": "009eedb43ed06dc074d7be72730f11a162f3f5d7d54ef3a295fad619e6de0758"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/build-tool-image.yaml",
+          "sha256": "c62465eacb5e8e0c14e619db60b4cc88ccc867b0f8b4ee33fc0ac9cee3f733e8"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/deploy-simulation.sh",
+          "sha256": "cd8bbb186058120d3e0a10f09e80d0d824548e7af76f74d8e68430fc7e4f2670"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/prepare-internal-registry-auth.py",
+          "sha256": "3218bd9852e3704f1afd8e0f0d77375ea124c7fe67258c806470b3b9ba6d2ce4"
+        },
+        {
+          "path": "openshift/deployment/omts-workspace/apply-workspace.sh",
+          "sha256": "67aed9ee758785d1a1d8d8cf9a0c98b22231e21f887816fdad89fff7b357db0e"
+        },
+        {
+          "path": "openshift/deployment/omts-workspace/build-workspace-image.sh",
+          "sha256": "02a3860163e7910ff09e148a294dfde90415f1c91a3e4190f83cff0be249fc4f"
+        },
+        {
+          "path": "openshift/deployment/omts-workspace/workspace.yaml",
+          "sha256": "4e4350b6fe1449d15c15489fd42a0f25cbae539cf4490f70fda2f1c1b9883390"
+        },
+        {
+          "path": "openshift/deployment/prepare_chartassignment_preflight.py",
+          "sha256": "f7f1a10cd860faef87a216b422adecf5c8090b1105742838155e593410604800"
+        },
+        {
+          "path": "openshift/deployment/resource-registry/build-image.sh",
+          "sha256": "88d0d10d663691f264b5378d3ea82e77986803230732d72039d3be00aa9e1aaf"
+        },
+        {
+          "path": "openshift/deployment/resource-registry/build.yaml",
+          "sha256": "62ed19e6f96bbb3aa296b07af52065259512da309e5d00f76fca9dd37fcc1178"
+        },
+        {
+          "path": "openshift/deployment/viewer/build-viewer-image.sh",
+          "sha256": "09aadf310282eb8d90a4902ee09132460f92bbc632ceaa0968eab3f6e3235edf"
+        },
+        {
+          "path": "openshift/deployment/viewer/build.yaml",
+          "sha256": "1e4e291968b73bf64f668b9da038bf99f517dfdc3e8ffe95d71618c539befba2"
+        },
+        {
+          "path": "openshift/deployment/viewer/desktop-session.sh",
+          "sha256": "e3e0ef5dad097046a5e2e2136ac6283f18fcf3a64728262ea8e6db4a155ac071"
+        },
+        {
+          "path": "openshift/grpc_gateway_smoke.py",
+          "sha256": "bb8da12849b225dfdfa1feeb33b8155f79161fcf27c7fb8f735847fc7ae45e91"
+        },
+        {
+          "path": "openshift/image_model.py",
+          "sha256": "0441a995791fdaf4ad237aac5aaa4fa4cce4d32780ec5131c334acf361cfa466"
+        },
+        {
+          "path": "openshift/render_template.py",
+          "sha256": "4f96f615c27426f417d11dc1ddc91705ca3526e4cf9a5c25ef0d63b8c3ad462d"
+        },
+        {
+          "path": "openshift/smoke_restricted_pod.py",
+          "sha256": "68e3cc064ba634a3d11e2c98115e996ff931367f28624f4b7c7ff86e448383dc"
+        },
+        {
+          "path": "openshift/test_operational_consumers.py",
+          "sha256": "db04512bf4627dff86a5f55954a779dac21027123c07da66056b07eaba3e9483"
+        },
+        {
+          "path": "openshift/test_render_quay_image_values.py",
+          "sha256": "c812beadfc7c6ff1c0abcef8cb56da394d4680f39ec09a1e599071c25a0b8e74"
+        },
+        {
+          "path": "openshift/testdata/config-render/configmap.golden",
+          "sha256": "80e3a946c39e2286b7958987e6ed4dc57c52fb0a93de6e67d333d3902cdd5591"
+        },
+        {
+          "path": "openshift/testdata/config-render/controller_deployment.golden",
+          "sha256": "67a59824d376f93bb303d2b66f0d1c5d6087e8da7eb37bf41af4914aab718ae0"
+        },
+        {
+          "path": "openshift/testdata/config-render/controller_patch.golden",
+          "sha256": "123b7b1940bf67cc00f35eb220a8b87ce955d07b30c2e7f6cf0bd05624ab4eab"
+        },
+        {
+          "path": "openshift/testdata/config-render/controller_rbac.golden",
+          "sha256": "f3b508f8201fb74839a3630a47dbaa81774ca06becc6afb9615c752809923f24"
+        },
+        {
+          "path": "openshift/testdata/config-render/env.golden",
+          "sha256": "08ae9289783e3fd879f5098c6970951e010d12e42170eab259358e48c2caf242"
+        },
+        {
+          "path": "openshift/testdata/config-render/quay_image_values.golden",
+          "sha256": "9c04492cbabe850cc34b12fd748a4a6ffb993838479e3d9676a5cf1c384c5526"
+        },
+        {
+          "path": "openshift/testdata/config-render/target_config.golden",
+          "sha256": "816aa4b03fb6c7723075eed77d1c10ae509611f37182c93dc25475fd0837a5e3"
+        },
+        {
+          "path": "openshift/testdata/config-render/workspace.golden",
+          "sha256": "42d95f60a0e3ea483dd53c9cf6a3eac6ed101c2098dd7a36394662c54ff0ae07"
         }
       ]
     }

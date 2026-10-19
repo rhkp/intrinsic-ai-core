@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import argparse
 import collections
-import json
-import os
+import copy
 import re
 import sys
 from pathlib import Path
@@ -16,9 +15,6 @@ from typing import Any
 import yaml
 
 ROOT = Path(__file__).resolve().parent
-IMAGE_LOCK = ROOT / "image-lock.json"
-TARGET_CONFIG = ROOT / "target-config.json"
-INTERNAL_REGISTRY_HOST = "image-registry.openshift-image-registry.svc:5000"
 PROJECT_KINDS = {
     "ConfigMap",
     "ServiceAccount",
@@ -52,71 +48,25 @@ class ValidationError(ValueError):
     """A safe-to-print rendered-manifest validation failure."""
 
 
-def locked_references(
-    path: Path, namespace: str, registry_host: str = INTERNAL_REGISTRY_HOST
-) -> set[str]:
+def locked_references(lock: dict, target: dict) -> set[str]:
+    from image_model import normalize_lock
+
     try:
-        lock = json.loads(path.read_text())
-        images = lock["images"]
-        prefix = lock["registry_prefix"]
-    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
-        raise ValidationError("image lock is unreadable or malformed") from exc
-    if not isinstance(images, list) or not isinstance(prefix, str):
-        raise ValidationError("image lock schema is invalid")
-    project_prefix = f"{registry_host}/{namespace}/"
-    refs: set[str] = set()
-    for image in images:
-        if not isinstance(image, dict):
-            raise ValidationError("image lock entry is invalid")
-        repository = image.get("quay_repository")
-        digest = image.get("quay_digest")
-        basename = image.get("chart_repository_basename")
-        if not isinstance(basename, str) or not basename:
-            raise ValidationError("image lock repository basename is missing")
-        expected_repository = f"{prefix}/{basename}"
-        if not isinstance(repository, str) or not repository.startswith(prefix + "/"):
-            raise ValidationError("image lock repository is invalid")
-        if repository != expected_repository:
-            raise ValidationError("image lock repository is not composed from the registry prefix and basename")
-        if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-            raise ValidationError("image lock digest is invalid")
-        ref = f"{repository}@{digest}"
-        if ref in refs:
-            raise ValidationError("duplicate image lock entry")
-        refs.add(ref)
-        openshift_reference = image.get("openshift_image_reference")
-        if openshift_reference is not None:
-            if (
-                not isinstance(openshift_reference, str)
-                or not openshift_reference.startswith(project_prefix)
-                or not DIGEST.search(openshift_reference)
-            ):
-                raise ValidationError("image lock OpenShift reference is invalid")
-            if openshift_reference in refs:
-                raise ValidationError("duplicate image lock OpenShift reference")
-            refs.add(openshift_reference)
-    project_images = lock.get("project_images", [])
-    if not isinstance(project_images, list):
-        raise ValidationError("project image lock schema is invalid")
-    for image in project_images:
-        if not isinstance(image, dict):
-            raise ValidationError("project image lock entry is invalid")
-        repository = image.get("repository")
-        digest = image.get("digest")
-        name = image.get("name")
-        if not isinstance(name, str) or not name:
-            raise ValidationError("project image name is missing")
-        expected_repository = f"{registry_host}/{namespace}/{name}"
-        if not isinstance(repository, str) or not repository.startswith(project_prefix):
-            raise ValidationError("project image lock repository is outside the target project")
-        if repository != expected_repository:
-            raise ValidationError("project image repository is not composed from the target registry and namespace")
-        if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-            raise ValidationError("project image lock digest is invalid")
-        ref = f"{repository}@{digest}"
-        if ref in refs:
-            raise ValidationError("duplicate project image lock entry")
-        refs.add(ref)
+        model = normalize_lock(lock, target)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValidationError("portable image lock is invalid") from exc
+    refs = {
+        f"{image['quay_repository']}@{image['quay_digest']}"
+        for image in model["images"]
+    }
+    refs.update(
+        image["openshift_image_reference"]
+        for image in model["images"]
+        if image.get("openshift_image_reference")
+    )
+    refs.update(
+        f"{image['repository']}@{image['digest']}" for image in model["project_images"]
+    )
     return refs
 
 
@@ -131,8 +81,13 @@ def walk(value: Any):
 
 
 def validate_label_selector(selector: Any, name: str, field: str) -> None:
-    if not isinstance(selector, dict) or set(selector) - {"matchLabels", "matchExpressions"}:
-        raise ValidationError(f"NetworkPolicy/{name} has a malformed {field} LabelSelector")
+    if not isinstance(selector, dict) or set(selector) - {
+        "matchLabels",
+        "matchExpressions",
+    }:
+        raise ValidationError(
+            f"NetworkPolicy/{name} has a malformed {field} LabelSelector"
+        )
     labels = selector.get("matchLabels", {})
     if not isinstance(labels, dict) or any(
         not isinstance(key, str) or not isinstance(value, str)
@@ -141,21 +96,39 @@ def validate_label_selector(selector: Any, name: str, field: str) -> None:
         raise ValidationError(f"NetworkPolicy/{name} has malformed labels in {field}")
     expressions = selector.get("matchExpressions", [])
     if not isinstance(expressions, list):
-        raise ValidationError(f"NetworkPolicy/{name} has malformed matchExpressions in {field}")
+        raise ValidationError(
+            f"NetworkPolicy/{name} has malformed matchExpressions in {field}"
+        )
     for expression in expressions:
-        if not isinstance(expression, dict) or set(expression) - {"key", "operator", "values"}:
-            raise ValidationError(f"NetworkPolicy/{name} has a malformed expression in {field}")
-        if not isinstance(expression.get("key"), str) or expression.get("operator") not in {
-            "In", "NotIn", "Exists", "DoesNotExist"
+        if not isinstance(expression, dict) or set(expression) - {
+            "key",
+            "operator",
+            "values",
         }:
-            raise ValidationError(f"NetworkPolicy/{name} has an invalid expression in {field}")
+            raise ValidationError(
+                f"NetworkPolicy/{name} has a malformed expression in {field}"
+            )
+        if not isinstance(expression.get("key"), str) or expression.get(
+            "operator"
+        ) not in {"In", "NotIn", "Exists", "DoesNotExist"}:
+            raise ValidationError(
+                f"NetworkPolicy/{name} has an invalid expression in {field}"
+            )
         values = expression.get("values", [])
-        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
-            raise ValidationError(f"NetworkPolicy/{name} has invalid expression values in {field}")
+        if not isinstance(values, list) or any(
+            not isinstance(value, str) for value in values
+        ):
+            raise ValidationError(
+                f"NetworkPolicy/{name} has invalid expression values in {field}"
+            )
         if expression["operator"] in {"In", "NotIn"} and not values:
-            raise ValidationError(f"NetworkPolicy/{name} has empty set-based expression values in {field}")
+            raise ValidationError(
+                f"NetworkPolicy/{name} has empty set-based expression values in {field}"
+            )
         if expression["operator"] in {"Exists", "DoesNotExist"} and values:
-            raise ValidationError(f"NetworkPolicy/{name} has values for a presence expression in {field}")
+            raise ValidationError(
+                f"NetworkPolicy/{name} has values for a presence expression in {field}"
+            )
 
 
 def validate_network_policy(document: dict[str, Any], name: str) -> None:
@@ -166,45 +139,85 @@ def validate_network_policy(document: dict[str, Any], name: str) -> None:
     for direction, peer_field in (("ingress", "from"), ("egress", "to")):
         rules = spec.get(direction, [])
         if not isinstance(rules, list):
-            raise ValidationError(f"NetworkPolicy/{name} has malformed {direction} rules")
+            raise ValidationError(
+                f"NetworkPolicy/{name} has malformed {direction} rules"
+            )
         for rule in rules:
             if not isinstance(rule, dict):
-                raise ValidationError(f"NetworkPolicy/{name} has a malformed {direction} rule")
+                raise ValidationError(
+                    f"NetworkPolicy/{name} has a malformed {direction} rule"
+                )
             peers = rule.get(peer_field)
             if not isinstance(peers, list) or not peers:
-                raise ValidationError(f"NetworkPolicy/{name} has an unrestricted {direction} rule")
+                raise ValidationError(
+                    f"NetworkPolicy/{name} has an unrestricted {direction} rule"
+                )
             for peer in peers:
-                if not isinstance(peer, dict) or set(peer) - {"ipBlock", "namespaceSelector", "podSelector"}:
-                    raise ValidationError(f"NetworkPolicy/{name} has a malformed {direction} peer")
+                if not isinstance(peer, dict) or set(peer) - {
+                    "ipBlock",
+                    "namespaceSelector",
+                    "podSelector",
+                }:
+                    raise ValidationError(
+                        f"NetworkPolicy/{name} has a malformed {direction} peer"
+                    )
                 if "namespaceSelector" in peer:
-                    validate_label_selector(peer["namespaceSelector"], name, f"{direction}.{peer_field}.namespaceSelector")
+                    validate_label_selector(
+                        peer["namespaceSelector"],
+                        name,
+                        f"{direction}.{peer_field}.namespaceSelector",
+                    )
                 if "podSelector" in peer:
-                    validate_label_selector(peer["podSelector"], name, f"{direction}.{peer_field}.podSelector")
+                    validate_label_selector(
+                        peer["podSelector"],
+                        name,
+                        f"{direction}.{peer_field}.podSelector",
+                    )
                 if "ipBlock" in peer:
                     block = peer["ipBlock"]
-                    if not isinstance(block, dict) or not isinstance(block.get("cidr"), str):
-                        raise ValidationError(f"NetworkPolicy/{name} has a malformed ipBlock")
+                    if not isinstance(block, dict) or not isinstance(
+                        block.get("cidr"), str
+                    ):
+                        raise ValidationError(
+                            f"NetworkPolicy/{name} has a malformed ipBlock"
+                        )
                     if "namespaceSelector" in peer or "podSelector" in peer:
-                        raise ValidationError(f"NetworkPolicy/{name} combines ipBlock and selectors")
+                        raise ValidationError(
+                            f"NetworkPolicy/{name} combines ipBlock and selectors"
+                        )
 
 
-def validate_virtual_service(document: dict[str, Any], namespace: str, name: str) -> None:
+def validate_virtual_service(
+    document: dict[str, Any], namespace: str, name: str
+) -> None:
     if not str(document.get("apiVersion", "")).startswith("networking.istio.io/"):
         raise ValidationError(f"VirtualService/{name} has an unexpected API group")
     spec = document.get("spec")
     if not isinstance(spec, dict):
         raise ValidationError(f"VirtualService/{name} has no spec")
     gateways = spec.get("gateways")
-    if not isinstance(gateways, list) or len(gateways) != 1 or not isinstance(gateways[0], str):
-        raise ValidationError(f"VirtualService/{name} must use exactly one configured mesh Gateway")
+    if (
+        not isinstance(gateways, list)
+        or len(gateways) != 1
+        or not isinstance(gateways[0], str)
+    ):
+        raise ValidationError(
+            f"VirtualService/{name} must use exactly one configured mesh Gateway"
+        )
     gateway_parts = gateways[0].split("/")
     if len(gateway_parts) != 2 or not all(gateway_parts):
-        raise ValidationError(f"VirtualService/{name} Gateway reference is not namespaced")
+        raise ValidationError(
+            f"VirtualService/{name} Gateway reference is not namespaced"
+        )
     exported = spec.get("exportTo")
-    if not isinstance(exported, list) or "." not in exported or (
-        gateway_parts[0] != namespace and gateway_parts[0] not in exported
+    if (
+        not isinstance(exported, list)
+        or "." not in exported
+        or (gateway_parts[0] != namespace and gateway_parts[0] not in exported)
     ):
-        raise ValidationError(f"VirtualService/{name} is not scoped to its project and mesh Gateway")
+        raise ValidationError(
+            f"VirtualService/{name} is not scoped to its project and mesh Gateway"
+        )
     routes = spec.get("http")
     if not isinstance(routes, list):
         raise ValidationError(f"VirtualService/{name} HTTP routes are missing")
@@ -213,13 +226,23 @@ def validate_virtual_service(document: dict[str, Any], namespace: str, name: str
         if isinstance(value, dict):
             for key, nested in value.items():
                 if key in {"destination", "mirror"}:
-                    if not isinstance(nested, dict) or not isinstance(nested.get("host"), str):
-                        raise ValidationError(f"VirtualService/{name} contains a malformed destination")
+                    if not isinstance(nested, dict) or not isinstance(
+                        nested.get("host"), str
+                    ):
+                        raise ValidationError(
+                            f"VirtualService/{name} contains a malformed destination"
+                        )
                     host = nested["host"]
-                    if "." in host and not host.endswith(f".{namespace}.svc.cluster.local"):
-                        raise ValidationError(f"VirtualService/{name} destination is outside the project")
+                    if "." in host and not host.endswith(
+                        f".{namespace}.svc.cluster.local"
+                    ):
+                        raise ValidationError(
+                            f"VirtualService/{name} destination is outside the project"
+                        )
                     if any(character in host for character in ":/@ \t\n"):
-                        raise ValidationError(f"VirtualService/{name} destination is not a Service name")
+                        raise ValidationError(
+                            f"VirtualService/{name} destination is not a Service name"
+                        )
                 check_destinations(nested)
         elif isinstance(value, list):
             for nested in value:
@@ -228,7 +251,53 @@ def validate_virtual_service(document: dict[str, Any], namespace: str, name: str
     check_destinations(routes)
 
 
-def validate_documents(documents: list[dict[str, Any]], namespace: str, locked: set[str]) -> tuple[collections.Counter[str], int]:
+def security_validation_view(document: dict) -> dict:
+    """Recognize the controller's existing two simulated realtime exceptions."""
+    view = copy.deepcopy(document)
+    policies = {
+        "rs-ur-module": (
+            "ai.intrinsic.ur3e_hardware_module_core_service.gazebo_hwm_stub_image",
+            {"IPC_LOCK"},
+        ),
+        "rs-icon": (
+            "ai.intrinsic.generic_realtime_control_service.generic_icon_machine_resource",
+            {"IPC_LOCK", "SYS_NICE", "DAC_OVERRIDE"},
+        ),
+    }
+    name = view.get("metadata", {}).get("name")
+    if view.get("kind") != "StatefulSet" or name not in policies:
+        return view
+    spec = view.get("spec", {}).get("template", {}).get("spec", {})
+    if (
+        spec.get("serviceAccountName") != "intrinsic-sim-realtime"
+        or spec.get("automountServiceAccountToken") is not False
+    ):
+        return view
+    repository, capabilities = policies[name]
+    for container in spec.get("containers", []):
+        image = container.get("image", "").split("@", 1)[0].rsplit("/", 1)[-1]
+        context = container.get("securityContext", {})
+        if container.get("name") != name or image != repository:
+            continue
+        if (
+            type(context.get("runAsUser")) is not int
+            or context["runAsUser"] != 0
+            or context.get("allowPrivilegeEscalation") is not False
+        ):
+            raise ValidationError(
+                "simulated realtime security context differs from controller policy"
+            )
+        if not set(context.get("capabilities", {}).get("add", [])) <= capabilities:
+            raise ValidationError(
+                "simulated realtime capabilities exceed controller policy"
+            )
+        del context["runAsUser"]
+    return view
+
+
+def validate_documents(
+    documents: list[dict[str, Any]], namespace: str, locked: set[str]
+) -> tuple[collections.Counter[str], int]:
     kinds: collections.Counter[str] = collections.Counter()
     seen: set[tuple[str, str, str]] = set()
     image_count = 0
@@ -257,17 +326,36 @@ def validate_documents(documents: list[dict[str, Any]], namespace: str, locked: 
         if kind == "NetworkPolicy":
             validate_network_policy(document, name)
 
-        for key, value in walk(document):
+        for key, value in walk(security_validation_view(document)):
             if key in {"hostPath", "hostPort", "runAsUser", "runAsGroup"}:
-                raise ValidationError(f"host access or fixed UID remains in {kind}/{name}")
+                raise ValidationError(
+                    f"host access or fixed UID remains in {kind}/{name}"
+                )
             if key == "privileged" and value is True:
                 raise ValidationError(f"privileged container remains in {kind}/{name}")
-            if isinstance(value, str) and any(old in value for old in LEGACY_NAMESPACES):
-                raise ValidationError(f"legacy namespace reference remains in {kind}/{name}")
+            if (
+                key in {"hostNetwork", "hostPID", "hostIPC", "allowPrivilegeEscalation"}
+                and value is True
+            ):
+                raise ValidationError(
+                    f"host access or privilege escalation remains in {kind}/{name}"
+                )
+            if isinstance(value, str) and any(
+                old in value for old in LEGACY_NAMESPACES
+            ):
+                raise ValidationError(
+                    f"legacy namespace reference remains in {kind}/{name}"
+                )
             if key == "image":
                 image_count += 1
-                if not isinstance(value, str) or not DIGEST.search(value) or value not in locked:
-                    raise ValidationError(f"container image is not digest-locked in {kind}/{name}")
+                if (
+                    not isinstance(value, str)
+                    or not DIGEST.search(value)
+                    or value not in locked
+                ):
+                    raise ValidationError(
+                        f"container image is not digest-locked in {kind}/{name}"
+                    )
     if not documents:
         raise ValidationError("no manifest objects were rendered")
     if image_count == 0:
@@ -277,45 +365,55 @@ def validate_documents(documents: list[dict[str, Any]], namespace: str, locked: 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("manifests", nargs="+", type=Path, help="private files emitted by render-openshift-chart")
     parser.add_argument(
-        "--namespace", default=os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
+        "manifests",
+        nargs="+",
+        type=Path,
+        help="private files emitted by render-openshift-chart",
     )
-    parser.add_argument("--image-lock", type=Path, default=IMAGE_LOCK)
-    parser.add_argument("--target-config", type=Path, default=TARGET_CONFIG)
+    from render_config import DEFAULT_CONFIG_PATH
+
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()
 
     try:
+        from render_config import (
+            ConfigError,
+            load_config,
+            load_image_lock,
+            validate_config,
+        )
+
         try:
-            target_config = json.loads(args.target_config.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            config = load_config(args.config)
+            lock = load_image_lock(config, args.config)
+            validate_config(config, lock)
+        except (ConfigError, ValueError, OSError) as exc:
             raise ValidationError(
-                f"target config {args.target_config.name} is missing or malformed"
+                "canonical configuration or image lock is invalid"
             ) from exc
-        target = target_config.get("target")
-        if not isinstance(target, dict):
-            raise ValidationError("target config has no target object")
-        namespace = target.get("namespace")
-        registry_host = target.get("registry", {}).get("internal_host")
-        if not isinstance(namespace, str) or not isinstance(registry_host, str):
-            raise ValidationError("target config namespace or internal registry host is missing")
-        if args.namespace != namespace:
-            raise ValidationError("target config namespace does not match --namespace")
-        locked = locked_references(args.image_lock, namespace, registry_host)
+        namespace = config["target"]["namespace"]
+        locked = locked_references(lock, config["target"])
         documents: list[dict[str, Any]] = []
         for path in args.manifests:
             try:
                 parsed = list(yaml.safe_load_all(path.read_text()))
             except (OSError, yaml.YAMLError) as exc:
-                raise ValidationError(f"cannot parse manifest file {path.name}") from exc
+                raise ValidationError(
+                    f"cannot parse manifest file {path.name}"
+                ) from exc
             documents.extend(document for document in parsed if document is not None)
-        kinds, image_count = validate_documents(documents, args.namespace, locked)
+        kinds, image_count = validate_documents(documents, namespace, locked)
     except ValidationError as exc:
         print(f"Validation failed: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Validated {sum(kinds.values())} objects in {args.namespace}; {image_count} image references match the digest lock.")
-    print("Kinds:", ", ".join(f"{kind}={count}" for kind, count in sorted(kinds.items())))
+    print(
+        f"Validated {sum(kinds.values())} objects in configured project; {image_count} image references match the digest lock."
+    )
+    print(
+        "Kinds:", ", ".join(f"{kind}={count}" for kind, count in sorted(kinds.items()))
+    )
     return 0
 
 

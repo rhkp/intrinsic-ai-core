@@ -1,7 +1,7 @@
 # This project was developed with assistance from AI tools.
 import unittest
 
-from .audit_config import collect_audit
+from .audit_config import collect_audit, has_target_default
 
 
 class ConfigAuditTest(unittest.TestCase):
@@ -23,7 +23,7 @@ class ConfigAuditTest(unittest.TestCase):
             "gpu_taint_key",
         ):
             self.assertIn(label, audit["target_placeholders"])
-            self.assertTrue(audit["target_placeholders"][label])
+            self.assertIsInstance(audit["target_placeholders"][label], dict)
 
     def test_reports_controller_and_image_lock_surfaces(self):
         audit = collect_audit()
@@ -34,8 +34,26 @@ class ConfigAuditTest(unittest.TestCase):
         )
         self.assertEqual(len(audit["image_lock_references"]["quay"]), 24)
         self.assertEqual(len(audit["image_lock_references"]["openshift"]), 1)
-        self.assertEqual(len(audit["image_lock_references"]["project"]), 5)
+        self.assertEqual(len(audit["image_lock_references"]["project"]), 38)
         self.assertEqual(audit["controller_image_constant_mismatches"], {})
+        self.assertEqual(audit["executable_target_violations"], [])
+
+    def test_rejects_concrete_target_defaults(self):
+        for text, suffix in (
+            (
+                'namespace = os.environ.get("OPENSHIFT_NAMESPACE", "fixed-project")',
+                ".py",
+            ),
+            ('namespace="${OPENSHIFT_NAMESPACE:-fixed-project}"', ".sh"),
+            ('const endpoint="gateway.fixed-project.svc.cluster.local:80"', ".go"),
+        ):
+            self.assertTrue(has_target_default(text, suffix))
+        self.assertFalse(
+            has_target_default(
+                'namespace="${OPENSHIFT_NAMESPACE:?Required canonical namespace}"',
+                ".sh",
+            )
+        )
 
     def test_generated_image_values_match_image_lock(self):
         audit = collect_audit()

@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 
@@ -27,14 +25,11 @@ func object(kind, name string, fields map[string]interface{}) *unstructured.Unst
 	return &unstructured.Unstructured{Object: value}
 }
 
-func TestConfiguredStorageClassUsesEnvironment(t *testing.T) {
-	t.Setenv("OPENSHIFT_STORAGE_CLASS_TEST", "  cluster-block-class  ")
-	if got := configuredStorageClass("OPENSHIFT_STORAGE_CLASS_TEST", "placeholder"); got != "cluster-block-class" {
-		t.Fatalf("configured storage class = %q", got)
-	}
-	t.Setenv("OPENSHIFT_STORAGE_CLASS_TEST", "")
-	if got := configuredStorageClass("OPENSHIFT_STORAGE_CLASS_TEST", "placeholder"); got != "placeholder" {
-		t.Fatalf("default storage class = %q", got)
+func TestConfiguredStorageClassUsesCanonicalConfig(t *testing.T) {
+	t.Setenv("OPENSHIFT_STORAGE_CLASS", "ignored-environment")
+	useControllerConfig(t, &ControllerConfig{BlockStorageClass: "canonical-block", SharedStorageClass: "canonical-shared"})
+	if configuredStorageClass(openshiftStorageClassEnv) != "canonical-block" || configuredStorageClass(openshiftSharedStorageClassEnv) != "canonical-shared" {
+		t.Fatal("canonical storage was not used")
 	}
 }
 
@@ -78,9 +73,9 @@ func TestCanonicalControllerConfigSuppliesEndpoints(t *testing.T) {
 func TestCanonicalImageOverridesSubstituteWorkloadImages(t *testing.T) {
 	source := "source.example.com/skill@sha256:" + strings.Repeat("a", 64)
 	destination := "destination.example.com/skill@sha256:" + strings.Repeat("b", 64)
-	useControllerConfig(t, &ControllerConfig{
-		ImageOverrides: map[string]string{source: destination},
-	})
+	config := *controllerConfig
+	config.ImageOverrides = map[string]string{source: destination}
+	useControllerConfig(t, &config)
 	resource := object("Deployment", "override-smoke", map[string]interface{}{
 		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
 			"containers": []interface{}{map[string]interface{}{
@@ -1148,66 +1143,24 @@ func TestAdaptOpenShiftResourcesPinsNamespaceScopedServiceImages(t *testing.T) {
 }
 
 func TestOpenShiftImageConfigurationMatchesImageLock(t *testing.T) {
-	data, err := os.ReadFile("../../../image-lock.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var lock struct {
-		Images []struct {
-			ChartImageKey           string `json:"chart_image_key"`
-			QuayRepository          string `json:"quay_repository"`
-			QuayDigest              string `json:"quay_digest"`
-			OpenshiftImageReference string `json:"openshift_image_reference"`
-		} `json:"images"`
-		ProjectImages []struct {
-			Name       string `json:"name"`
-			Repository string `json:"repository"`
-			Digest     string `json:"digest"`
-		} `json:"project_images"`
-	}
-	if err := json.Unmarshal(data, &lock); err != nil {
-		t.Fatal(err)
-	}
-
-	authorized := make(map[string]bool)
-	images := make(map[string]string)
-	openshiftImages := make(map[string]string)
-	for _, image := range lock.Images {
-		reference := image.QuayRepository + "@" + image.QuayDigest
-		authorized[reference] = true
-		images[image.ChartImageKey] = reference
-		if image.OpenshiftImageReference != "" {
-			authorized[image.OpenshiftImageReference] = true
-			openshiftImages[image.ChartImageKey] = image.OpenshiftImageReference
+	model := controllerConfig.ImageModel
+	authorized := map[string]bool{}
+	for _, image := range model.ChartImages {
+		authorized[image.Destination] = true
+		if image.OpenShiftDestination != "" {
+			authorized[image.OpenShiftDestination] = true
 		}
 	}
-	projectImages := make(map[string]string)
-	for _, image := range lock.ProjectImages {
-		reference := image.Repository + "@" + image.Digest
-		authorized[reference] = true
-		projectImages[image.Name] = reference
+	for _, image := range model.ProjectImages {
+		authorized[image.Destination] = true
 	}
-
-	if quayResourceRegistryImage != openshiftImages["resource_registry"] {
-		t.Fatalf("resource registry image = %q, want OpenShift lock image %q", quayResourceRegistryImage, openshiftImages["resource_registry"])
-	}
-	if workcellServiceImage != projectImages["workcell-cluster-service"] {
-		t.Fatalf("workcell image = %q, want project lock image %q", workcellServiceImage, projectImages["workcell-cluster-service"])
-	}
-	if quayZenohdImage != images["zenohd"] {
-		t.Fatalf("zenohd image = %q, want lock image %q", quayZenohdImage, images["zenohd"])
-	}
-	if quayJupyterServerImage != images["code_execution_jupyter_server"] {
-		t.Fatalf("Jupyter image = %q, want lock image %q", quayJupyterServerImage, images["code_execution_jupyter_server"])
-	}
-	overrides := imageOverrides()
-	if len(overrides) != 4 {
-		t.Fatalf("image override count = %d, want 4", len(overrides))
-	}
-	for source, destination := range overrides {
-		if !authorized[destination] {
-			t.Fatalf("image override %q has unauthorized destination %q", source, destination)
+	for _, image := range imageOverrides() {
+		if !authorized[image] {
+			t.Fatal("override destination is outside the canonical lock")
 		}
+	}
+	if len(imageOverrides()) != 4 {
+		t.Fatal("override count changed")
 	}
 }
 
@@ -1462,9 +1415,7 @@ func testRoutingConfig() openshiftRoutingConfig {
 }
 
 func TestRoutingConfigRequiresVerifiedInternalGatewayDetails(t *testing.T) {
-	t.Setenv(ingressAddressEnv, "istio-ingressgateway.mesh-system.svc.cluster.local:80")
-	t.Setenv(ingressGatewayEnv, "mesh-system/gateway")
-	t.Setenv(ingressSelectorEnv, `{"app":"istio-ingressgateway"}`)
+	useControllerConfig(t, &ControllerConfig{IngressAddress: "istio-ingressgateway.mesh-system.svc.cluster.local:80", IngressGateway: "mesh-system/gateway", IngressPodSelector: map[string]string{"app": "istio-ingressgateway"}})
 	routing := routingConfigFromEnvironment()
 	if err := routing.validate(); err != nil {
 		t.Fatal(err)
@@ -1477,7 +1428,7 @@ func TestRoutingConfigRequiresVerifiedInternalGatewayDetails(t *testing.T) {
 		"alias.istio-ingressgateway.mesh-system.svc.cluster.local:443",
 		"bad_name.mesh-system.svc.cluster.local:443",
 	} {
-		t.Setenv(ingressAddressEnv, address)
+		controllerConfig.IngressAddress = address
 		invalidRouting := routingConfigFromEnvironment()
 		if err := invalidRouting.validate(); err == nil {
 			t.Fatalf("invalid internal ingress address %q was accepted", address)
@@ -2134,6 +2085,7 @@ func TestAdaptOpenShiftResourcesFailsClosed(t *testing.T) {
 			"handle": upstreamIngressAddress,
 		},
 	})
+	useControllerConfig(t, &ControllerConfig{})
 	if _, err := adaptOpenShiftResources([]*unstructured.Unstructured{gatewayReference}, pilotNamespace); err == nil || !strings.Contains(err.Error(), ingressAddressEnv) {
 		t.Fatalf("legacy gateway reference without routing configuration should be rejected, got %v", err)
 	}

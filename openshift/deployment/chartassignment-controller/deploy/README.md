@@ -2,7 +2,12 @@
 > [!NOTE]
 > This project was developed with assistance from AI tools.
 
-> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
+Use the [canonical deployment procedure](../../../README.md#canonical-operational-helpers).
+The Deployment and RBAC files here are templates; render them into ignored
+`openshift/.generated/` before applying. The controller and offline render commands
+require `--target-config` and `--image-lock`; environment-only startup is removed.
+The procedures below record earlier deployment experiments and must be adapted
+to the generated manifests for a new installation.
 
 
 These manifests are for an isolated smoke test in `your-project-namespace`. They do

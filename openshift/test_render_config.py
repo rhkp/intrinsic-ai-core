@@ -52,6 +52,8 @@ def realistic_config() -> dict:
             },
             "scheduling": {"gpu_taint_key": "example-gpu"},
             "networking": {
+                "mesh_namespace": "mesh-system",
+                "mesh_revision": "mesh",
                 "ingress_address": (
                     "intrinsic-grpc-gateway.example-namespace.svc.cluster.local:80"
                 ),
@@ -74,13 +76,11 @@ def realistic_config() -> dict:
 
 def realistic_lock() -> dict:
     return {
-        "schema_version": 1,
-        "registry_prefix": "quay.io/example-org/intrinsic",
+        "schema_version": 2,
         "images": [],
         "project_images": [
             {
-                "name": "demo",
-                "repository": "registry.example.com:5000/example-namespace/demo",
+                "name": "chartassignment-controller",
                 "digest": "sha256:" + "a" * 64,
             }
         ],
@@ -221,6 +221,50 @@ class RenderConfigTest(unittest.TestCase):
         with self.assertRaises(ConfigError):
             validate_config(realistic_config(), lock)
 
+    def test_namespace_only_change_updates_all_generated_references(self):
+        config = realistic_config()
+        original = config["target"]["namespace"]
+        for field in (
+            "ingress_address",
+            "ingress_gateway",
+            "zenoh_router_endpoint",
+            "rhoai_triton_endpoint",
+        ):
+            config["target"]["networking"][field] = config["target"]["networking"][
+                field
+            ].replace(original, "{namespace}")
+        lock = realistic_lock()
+        first = render_outputs(config, lock)
+        config["target"]["namespace"] = "relocated-namespace"
+        validate_config(config, lock)
+        second = render_outputs(config, lock)
+        for key in first:
+            with self.subTest(key=key):
+                self.assertNotIn(original, second[key])
+        deployment = yaml.safe_load(second["controller_deployment"])
+        container = deployment["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn("/relocated-namespace/", container["image"])
+        self.assertIn("--watch-namespace=relocated-namespace", container["args"])
+        for doc in yaml.safe_load_all(second["controller_rbac"]):
+            self.assertEqual(doc["metadata"]["namespace"], "relocated-namespace")
+            for subject in doc.get("subjects", []):
+                self.assertEqual(subject["namespace"], "relocated-namespace")
+        self.assertIn(
+            "gateway.relocated-namespace.svc.cluster.local:80",
+            second["target_config"].replace("intrinsic-grpc-gateway", "gateway"),
+        )
+        self.assertNotEqual(first["controller_patch"], second["controller_patch"])
+
+    def test_generated_controller_is_single_reconciler_and_has_no_env_fallback(self):
+        deployment = yaml.safe_load(self.outputs["controller_deployment"])
+        self.assertEqual(
+            deployment["spec"]["strategy"]["rollingUpdate"],
+            {"maxSurge": 0, "maxUnavailable": 1},
+        )
+        container = deployment["spec"]["template"]["spec"]["containers"][0]
+        self.assertNotIn("envFrom", container)
+        self.assertIn("@sha256:", container["image"])
+
     def test_outputs_are_deterministic(self):
         second = render_outputs(self.config, self.lock)
         self.assertEqual(self.outputs, second)
@@ -281,18 +325,27 @@ class RenderConfigTest(unittest.TestCase):
         pod_spec = document["spec"]["template"]["spec"]
         self.assertEqual(
             pod_spec["volumes"],
-            [{"name": "intrinsic-controller-config", "configMap": {"name": "intrinsic-target-config"}}],
+            [
+                {
+                    "name": "intrinsic-controller-config",
+                    "configMap": {"name": "intrinsic-target-config"},
+                }
+            ],
         )
         container = pod_spec["containers"][0]
         self.assertEqual(container["volumeMounts"][0]["readOnly"], True)
-        self.assertIn("--target-config=/etc/intrinsic/controller-config/target-config.json", container["args"])
-        self.assertIn("--image-lock=/etc/intrinsic/controller-config/image-lock.json", container["args"])
+        self.assertIn(
+            "--target-config=/etc/intrinsic/controller-config/target-config.json",
+            container["args"],
+        )
+        self.assertIn(
+            "--image-lock=/etc/intrinsic/controller-config/image-lock.json",
+            container["args"],
+        )
 
     def test_quay_image_values_match_current_renderer(self):
         current = (
-            Path(__file__).resolve().parent
-            / "deployment"
-            / "quay-image-values.yaml"
+            Path(__file__).resolve().parent / "deployment" / "quay-image-values.yaml"
         ).read_text(encoding="utf-8")
         self.assertEqual(self.outputs["quay_image_values"], current)
 

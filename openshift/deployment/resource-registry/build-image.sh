@@ -2,7 +2,9 @@
 # This project was developed with assistance from AI tools.
 set -euo pipefail
 
-readonly namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)/canonical-env.sh"
+
+readonly namespace="${OPENSHIFT_NAMESPACE}"
 readonly workspace_deployment="omts-build-workspace"
 readonly source_dir="/workspace/source/intrinsic-omts"
 readonly image_target="@intrinsic-core//intrinsic/resources/service:resource_registry_main"
@@ -12,7 +14,7 @@ readonly script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly context="$(mktemp -d "${TMPDIR:-/tmp}/resource-registry-build.XXXXXX")"
 trap 'rm -rf "${context}"' EXIT
 
-oc apply -f "${script_dir}/build.yaml"
+python3 "${canonical_root}/render_template.py" "${script_dir}/build.yaml" | oc apply -n "${namespace}" -f -
 oc exec -n "${namespace}" "deploy/${workspace_deployment}" -c workspace -- \
   sh -lc "cd '${source_dir}' && bazel build '${image_target}'"
 

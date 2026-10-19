@@ -8,13 +8,9 @@ resource specifications out of command output and repository artifacts.
 from __future__ import annotations
 
 import json
-import os
-import shutil
 import subprocess
 from dataclasses import dataclass
 from typing import Any
-
-TARGET_PROJECT = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
 
 
 class PilotError(RuntimeError):
@@ -43,38 +39,6 @@ class ClusterAccess:
         return result
 
 
-def resolve_context(fragment: str | None = None) -> ClusterAccess:
-    """Select one configured context without displaying its identity."""
-    fragment = os.environ.get("OPENSHIFT_CONTEXT", fragment or "").strip()
-    if not fragment:
-        raise PilotError("Set OPENSHIFT_CONTEXT or pass a context-name hint explicitly.")
-    if not shutil.which("oc"):
-        raise PilotError("The OpenShift CLI (oc) is required.")
-    result = subprocess.run(
-        ["oc", "config", "view", "-o", "json"],
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode:
-        raise PilotError("Could not read configured OpenShift contexts.")
-    try:
-        contexts = json.loads(result.stdout).get("contexts", [])
-    except json.JSONDecodeError as exc:
-        raise PilotError("Configured OpenShift contexts are unreadable.") from exc
-
-    matches = [item for item in contexts if fragment.casefold() in item.get("name", "").casefold()]
-    identities = {
-        (item.get("context", {}).get("cluster"), item.get("context", {}).get("user"))
-        for item in matches
-    }
-    if not matches:
-        raise PilotError("No configured context matched the requested cluster hint.")
-    if len(identities) != 1:
-        raise PilotError("The cluster hint matches multiple clusters or identities.")
-    return ClusterAccess(matches[0]["name"])
-
-
 def get_json(access: ClusterAccess, *args: str, missing_ok: bool = False) -> Any:
     """Read JSON into memory without exposing unfiltered CLI output."""
     result = access.oc(*args, "-o", "json", check=False)
@@ -83,14 +47,20 @@ def get_json(access: ClusterAccess, *args: str, missing_ok: bool = False) -> Any
             marker in result.stderr.casefold() for marker in ("notfound", "not found")
         ):
             return None
-        raise PilotError("OpenShift query failed or is unavailable; raw output was suppressed.")
+        raise PilotError(
+            "OpenShift query failed or is unavailable; raw output was suppressed."
+        )
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        raise PilotError("OpenShift returned an unexpected response; output was suppressed.") from exc
+        raise PilotError(
+            "OpenShift returned an unexpected response; output was suppressed."
+        ) from exc
 
 
-def can_i(access: ClusterAccess, verb: str, resource: str, namespace: str | None = None) -> bool:
+def can_i(
+    access: ClusterAccess, verb: str, resource: str, namespace: str | None = None
+) -> bool:
     args = ["auth", "can-i", verb, resource]
     if namespace:
         args.extend(["-n", namespace])

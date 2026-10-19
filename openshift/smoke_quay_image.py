@@ -11,15 +11,19 @@ import sys
 import time
 from pathlib import Path
 
-from common import PilotError, TARGET_PROJECT, can_i, get_json, resolve_context
+from common import PilotError, can_i, get_json
+from runtime_config import load_runtime_target
+from render_config import DEFAULT_CONFIG_PATH, load_image_lock
+from image_model import normalize_lock
 
 ROOT = Path(__file__).resolve().parent
-LOCK = ROOT / "image-lock.json"
 WAIT_SECONDS = 150
 
 
-def image_for(basename: str) -> str:
-    lock = json.loads(LOCK.read_text())
+def image_for(basename: str, target, config_path: Path = DEFAULT_CONFIG_PATH) -> str:
+    lock = normalize_lock(
+        load_image_lock(target.document, config_path), target.document["target"]
+    )
     matches = [
         image
         for image in lock["images"]
@@ -33,19 +37,25 @@ def image_for(basename: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("basename", help="chart repository basename from image-lock.json")
+    parser.add_argument(
+        "basename", help="chart repository basename from image-lock.json"
+    )
     args = parser.parse_args()
 
     access = None
     name = f"intrinsic-image-smoke-{secrets.token_hex(4)}"
     created = False
     try:
-        image = image_for(args.basename)
-        access = resolve_context()
+        target = load_runtime_target()
+        image = image_for(args.basename, target)
+        access = target.connect()
+        TARGET_PROJECT = target.namespace
         if not get_json(access, "get", "namespace", TARGET_PROJECT, missing_ok=True):
             raise PilotError("Target project is absent; no smoke pod was created.")
         if not can_i(access, "create", "pods", TARGET_PROJECT):
-            raise PilotError("Current identity cannot create a project-scoped smoke pod.")
+            raise PilotError(
+                "Current identity cannot create a project-scoped smoke pod."
+            )
 
         manifest = {
             "apiVersion": "v1",
@@ -83,7 +93,9 @@ def main() -> int:
             "create", "-f", "-", check=False, input_data=json.dumps(manifest)
         )
         if result.returncode:
-            raise PilotError("Could not create the temporary image smoke pod; raw CLI output was suppressed.")
+            raise PilotError(
+                "Could not create the temporary image smoke pod; raw CLI output was suppressed."
+            )
         created = True
 
         deadline = time.monotonic() + WAIT_SECONDS
@@ -98,8 +110,14 @@ def main() -> int:
             state = status.get("state", {})
             if state.get("waiting"):
                 reason = state["waiting"].get("reason", "waiting")
-                if reason in {"ImagePullBackOff", "ErrImagePull", "CreateContainerConfigError"}:
-                    raise PilotError(f"Image smoke could not start ({reason}); pod will be removed.")
+                if reason in {
+                    "ImagePullBackOff",
+                    "ErrImagePull",
+                    "CreateContainerConfigError",
+                }:
+                    raise PilotError(
+                        f"Image smoke could not start ({reason}); pod will be removed."
+                    )
             if state.get("terminated"):
                 term = state["terminated"]
                 raise PilotError(
@@ -107,11 +125,17 @@ def main() -> int:
                 )
             if state.get("running") and pod.get("status", {}).get("phase") == "Running":
                 if not isinstance(run_as_user, int) or run_as_user <= 0:
-                    raise PilotError("OpenShift did not assign a non-root UID; pod will be removed.")
-                print("Restricted-SCC image startup smoke: passed (non-root UID assigned; pod removed).")
+                    raise PilotError(
+                        "OpenShift did not assign a non-root UID; pod will be removed."
+                    )
+                print(
+                    "Restricted-SCC image startup smoke: passed (non-root UID assigned; pod removed)."
+                )
                 return 0
             if pod.get("status", {}).get("phase") == "Failed":
-                raise PilotError("Image smoke pod failed; raw pod details were suppressed.")
+                raise PilotError(
+                    "Image smoke pod failed; raw pod details were suppressed."
+                )
             time.sleep(3)
 
         raise PilotError("Image smoke timed out; pod will be removed.")
@@ -121,8 +145,14 @@ def main() -> int:
     finally:
         if access and created:
             access.oc(
-                "delete", "pod", name, "-n", TARGET_PROJECT,
-                "--wait=true", "--timeout=30s", check=False,
+                "delete",
+                "pod",
+                name,
+                "-n",
+                TARGET_PROJECT,
+                "--wait=true",
+                "--timeout=30s",
+                check=False,
             )
 
 

@@ -11,13 +11,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 
 import yaml
 
 
-DEFAULT_PROJECT = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
-DEFAULT_REGISTRY = "image-registry.openshift-image-registry.svc:5000/your-project-namespace"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from runtime_config import load_runtime_target
+from render_config import DEFAULT_CONFIG_PATH
+
 CLUSTER_NAME = "openshift-pilot"
 
 
@@ -25,7 +28,9 @@ def read_assignment(path: Path) -> dict:
     value = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict) or value.get("kind") != "ChartAssignment":
         raise ValueError(f"{path.name} is not a ChartAssignment document")
-    if not isinstance(value.get("spec"), dict) or not isinstance(value["spec"].get("chart"), dict):
+    if not isinstance(value.get("spec"), dict) or not isinstance(
+        value["spec"].get("chart"), dict
+    ):
         raise ValueError(f"{path.name} has no chart specification")
     return value
 
@@ -49,13 +54,19 @@ def set_target(assignment: dict, project: str, registry: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base", required=True, type=Path, help="pinned intrinsic-base-0.0.1.yaml")
-    parser.add_argument("--app", required=True, type=Path, help="pinned intrinsic-app-chart-0.0.1.yaml")
+    parser.add_argument(
+        "--base", required=True, type=Path, help="pinned intrinsic-base-0.0.1.yaml"
+    )
+    parser.add_argument(
+        "--app", required=True, type=Path, help="pinned intrinsic-app-chart-0.0.1.yaml"
+    )
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--project", default=DEFAULT_PROJECT)
-    parser.add_argument("--registry", default=DEFAULT_REGISTRY)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()
 
+    target = load_runtime_target(args.config).document["target"]
+    project = target["namespace"]
+    registry = target["registry"]["internal_host"] + "/" + project
     base = read_assignment(args.base)
     app = read_assignment(args.app)
     app_inline = app["spec"]["chart"].get("inline")
@@ -63,7 +74,7 @@ def main() -> None:
         raise ValueError("app chart inline package is missing")
 
     for assignment in (base, app):
-        set_target(assignment, args.project, args.registry)
+        set_target(assignment, project, registry)
     base["spec"]["chart"]["values"].setdefault("embed_chart", {})[
         "intrinsic_app_chart"
     ] = app_inline

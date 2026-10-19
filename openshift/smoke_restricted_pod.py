@@ -8,7 +8,8 @@ import json
 import secrets
 import sys
 
-from common import PilotError, TARGET_PROJECT, can_i, get_json, resolve_context
+from common import PilotError, can_i, get_json
+from runtime_config import load_runtime_target
 
 IMAGE = "registry.access.redhat.com/ubi9/ubi-minimal:latest"
 SUCCESS_MARKER = "restricted-nonroot-ok"
@@ -19,11 +20,15 @@ def main() -> int:
     name = f"intrinsic-scc-smoke-{secrets.token_hex(4)}"
     created = False
     try:
-        access = resolve_context()
+        target = load_runtime_target()
+        access = target.connect()
+        TARGET_PROJECT = target.namespace
         if not get_json(access, "get", "namespace", TARGET_PROJECT, missing_ok=True):
             raise PilotError("Target project is absent; no smoke pod was created.")
         if not can_i(access, "create", "pods", TARGET_PROJECT):
-            raise PilotError("Current identity cannot create a project-scoped smoke pod.")
+            raise PilotError(
+                "Current identity cannot create a project-scoped smoke pod."
+            )
 
         manifest = {
             "apiVersion": "v1",
@@ -36,36 +41,51 @@ def main() -> int:
             "spec": {
                 "restartPolicy": "Never",
                 "securityContext": {"seccompProfile": {"type": "RuntimeDefault"}},
-                "containers": [{
-                    "name": "smoke",
-                    "image": IMAGE,
-                    "imagePullPolicy": "Always",
-                    "command": ["/bin/sh", "-c", f'test "$(id -u)" -ne 0 && echo {SUCCESS_MARKER}'],
-                    "resources": {
-                        "requests": {"cpu": "10m", "memory": "16Mi"},
-                        "limits": {"cpu": "100m", "memory": "64Mi"},
-                    },
-                    "securityContext": {
-                        "allowPrivilegeEscalation": False,
-                        "capabilities": {"drop": ["ALL"]},
-                        "runAsNonRoot": True,
-                        "readOnlyRootFilesystem": True,
-                    },
-                }],
+                "containers": [
+                    {
+                        "name": "smoke",
+                        "image": IMAGE,
+                        "imagePullPolicy": "Always",
+                        "command": [
+                            "/bin/sh",
+                            "-c",
+                            f'test "$(id -u)" -ne 0 && echo {SUCCESS_MARKER}',
+                        ],
+                        "resources": {
+                            "requests": {"cpu": "10m", "memory": "16Mi"},
+                            "limits": {"cpu": "100m", "memory": "64Mi"},
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": False,
+                            "capabilities": {"drop": ["ALL"]},
+                            "runAsNonRoot": True,
+                            "readOnlyRootFilesystem": True,
+                        },
+                    }
+                ],
             },
         }
         result = access.oc(
             "create", "-f", "-", check=False, input_data=json.dumps(manifest)
         )
         if result.returncode:
-            raise PilotError("Could not create the temporary smoke pod; raw CLI output was suppressed.")
+            raise PilotError(
+                "Could not create the temporary smoke pod; raw CLI output was suppressed."
+            )
         created = True
         wait = access.oc(
-            "wait", "--for=jsonpath={.status.phase}=Succeeded", f"pod/{name}",
-            "-n", TARGET_PROJECT, "--timeout=120s", check=False,
+            "wait",
+            "--for=jsonpath={.status.phase}=Succeeded",
+            f"pod/{name}",
+            "-n",
+            TARGET_PROJECT,
+            "--timeout=120s",
+            check=False,
         )
         if wait.returncode:
-            raise PilotError("Smoke pod did not complete; raw CLI output was suppressed.")
+            raise PilotError(
+                "Smoke pod did not complete; raw CLI output was suppressed."
+            )
         logs = access.oc("logs", name, "-n", TARGET_PROJECT, check=False)
         if logs.returncode or SUCCESS_MARKER not in logs.stdout:
             raise PilotError("Smoke pod did not confirm restricted non-root execution.")
@@ -76,7 +96,16 @@ def main() -> int:
         return 1
     finally:
         if access and created:
-            access.oc("delete", "pod", name, "-n", TARGET_PROJECT, "--wait=true", "--timeout=30s", check=False)
+            access.oc(
+                "delete",
+                "pod",
+                name,
+                "-n",
+                TARGET_PROJECT,
+                "--wait=true",
+                "--timeout=30s",
+                check=False,
+            )
 
 
 if __name__ == "__main__":

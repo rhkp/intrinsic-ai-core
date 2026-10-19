@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import re
@@ -18,6 +19,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from render_quay_image_values import render_values
+from image_model import normalize_lock
 
 
 ROOT = Path(__file__).resolve().parent
@@ -26,6 +28,13 @@ EXAMPLE_PATH = ROOT / "config.example.json"
 DEFAULT_CONFIG_PATH = ROOT / "config.local.json"
 
 OUTPUT_PATHS = {
+    "controller_deployment": Path(
+        "deployment/chartassignment-controller/deploy/controller-deployment.yaml"
+    ),
+    "controller_rbac": Path(
+        "deployment/chartassignment-controller/deploy/controller-rbac.yaml"
+    ),
+    "workspace": Path("deployment/omts-workspace/workspace.yaml"),
     "env": Path(".env"),
     "target_config": Path("target-config.json"),
     "configmap": Path(
@@ -136,7 +145,9 @@ def validate_semantics(config: dict[str, Any], lock: dict[str, Any]) -> None:
         or parsed_url.query
         or parsed_url.fragment
     ):
-        raise ConfigError("local.api_server_url must be an HTTPS URL without credentials")
+        raise ConfigError(
+            "local.api_server_url must be an HTTPS URL without credentials"
+        )
 
     namespace = target["namespace"]
     if not DNS_LABEL.fullmatch(namespace):
@@ -149,10 +160,8 @@ def validate_semantics(config: dict[str, Any], lock: dict[str, Any]) -> None:
         raise ConfigError("target.registry.quay_prefix does not match quay_org")
     if not HOST.fullmatch(registry["internal_host"]):
         raise ConfigError("target.registry.internal_host is invalid")
-    if lock.get("schema_version") != 1:
-        raise ConfigError("image lock schema_version must be 1")
-    if lock.get("registry_prefix") != registry["quay_prefix"]:
-        raise ConfigError("target.registry.quay_prefix does not match the image lock")
+    if lock.get("schema_version") != 2:
+        raise ConfigError("image lock schema_version must be 2")
 
     storage = target["storage"]
     for field in ("block_class", "shared_filesystem_class"):
@@ -172,19 +181,27 @@ def validate_semantics(config: dict[str, Any], lock: dict[str, Any]) -> None:
             "target.networking.ingress_address must be service.namespace.svc.cluster.local:80"
         )
     if address_match.group(2) != namespace:
-        raise ConfigError("target.networking.ingress_address is outside the target namespace")
+        raise ConfigError(
+            "target.networking.ingress_address is outside the target namespace"
+        )
     gateway_match = INGRESS_GATEWAY.fullmatch(networking["ingress_gateway"])
     if not gateway_match:
-        raise ConfigError("target.networking.ingress_gateway must use namespace/name form")
+        raise ConfigError(
+            "target.networking.ingress_gateway must use namespace/name form"
+        )
     if gateway_match.group(1) != namespace:
-        raise ConfigError("target.networking.ingress_gateway is outside the target namespace")
+        raise ConfigError(
+            "target.networking.ingress_gateway is outside the target namespace"
+        )
 
     selector = networking["ingress_pod_selector"]
     if not selector:
         raise ConfigError("target.networking.ingress_pod_selector must not be empty")
     for key, value in selector.items():
         if not LABEL_KEY.fullmatch(key) or not LABEL_VALUE.fullmatch(value):
-            raise ConfigError("target.networking.ingress_pod_selector contains an invalid label")
+            raise ConfigError(
+                "target.networking.ingress_pod_selector contains an invalid label"
+            )
 
     validate_host_port(
         networking["zenoh_router_endpoint"],
@@ -199,48 +216,13 @@ def validate_semantics(config: dict[str, Any], lock: dict[str, Any]) -> None:
     if not LOCK_PATH.fullmatch(lock_reference):
         raise ConfigError("target.images.lock must be a relative file path")
 
-    project_prefix = f"{registry['internal_host']}/{namespace}/"
-    project_images = lock.get("project_images", [])
-    if not isinstance(project_images, list):
-        raise ConfigError("image lock project_images must be a list")
-    for image in project_images:
-        if not isinstance(image, dict):
-            raise ConfigError("image lock project image is invalid")
-        name = image.get("name")
-        repository = image.get("repository")
-        digest = image.get("digest")
-        if not isinstance(name, str) or not name:
-            raise ConfigError("image lock project image name is missing")
-        expected_repository = project_prefix + name
-        if repository != expected_repository:
-            raise ConfigError("image lock project image is outside the target namespace")
-        if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
-            raise ConfigError("image lock project image digest is invalid")
-        if image.get("controller_override") and not image.get("source_image"):
-            raise ConfigError("image lock controller override has no source image")
-    images = lock.get("images", [])
-    if not isinstance(images, list):
-        raise ConfigError("image lock images must be a list")
-    for image in images:
-        if not isinstance(image, dict):
-            raise ConfigError("image lock image is invalid")
-        basename = image.get("chart_repository_basename")
-        repository = image.get("quay_repository")
-        digest = image.get("quay_digest")
-        if not isinstance(basename, str) or not basename:
-            raise ConfigError("image lock repository basename is missing")
-        expected_repository = f"{registry['quay_prefix']}/{basename}"
-        if repository != expected_repository:
-            raise ConfigError("image lock repository is not composed from the registry prefix and basename")
-        if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
-            raise ConfigError("image lock digest is invalid")
-        if image.get("controller_override") and not (
-            image.get("source_image") or image.get("chart_source_image")
-        ):
-            raise ConfigError("image lock controller override has no source image")
-        reference = image.get("openshift_image_reference")
-        if reference is not None and not reference.startswith(project_prefix):
-            raise ConfigError("image lock OpenShift reference is outside the target namespace")
+    for field in ("mesh_namespace", "mesh_revision"):
+        if not DNS_LABEL.fullmatch(networking[field]):
+            raise ConfigError(f"target.networking.{field} must be a DNS label")
+    try:
+        normalize_lock(lock, target)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ConfigError("portable image lock is invalid") from exc
 
 
 def load_config(path: Path, allow_placeholders: bool = False) -> dict[str, Any]:
@@ -248,7 +230,7 @@ def load_config(path: Path, allow_placeholders: bool = False) -> dict[str, Any]:
     validate_schema(config)
     if not allow_placeholders:
         reject_placeholders(config)
-    return config
+    return expand_config(config)
 
 
 def load_image_lock(config: dict[str, Any], config_path: Path) -> dict[str, Any]:
@@ -264,10 +246,30 @@ def validate_config(
     lock: dict[str, Any],
     allow_placeholders: bool = False,
 ) -> None:
+    config = expand_config(config)
     validate_schema(config)
     if not allow_placeholders:
         reject_placeholders(config)
         validate_semantics(config, lock)
+    try:
+        normalize_lock(lock, config["target"])
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ConfigError("portable image lock is invalid") from exc
+
+
+def expand_config(config: dict[str, Any]) -> dict[str, Any]:
+    config = copy.deepcopy(config)
+    target = config["target"]
+    for field in (
+        "ingress_address",
+        "ingress_gateway",
+        "zenoh_router_endpoint",
+        "rhoai_triton_endpoint",
+    ):
+        target["networking"][field] = target["networking"][field].replace(
+            "{namespace}", target["namespace"]
+        )
+    return config
 
 
 def target_document(config: dict[str, Any]) -> dict[str, Any]:
@@ -304,6 +306,9 @@ def render_env(config: dict[str, Any]) -> str:
         "OPENSHIFT_API_SERVER_URL": local["api_server_url"],
         "OPENSHIFT_GPU_TAINT_KEY": target["scheduling"]["gpu_taint_key"],
         "QUAY_REGISTRY_ORG": target["registry"]["quay_org"],
+        "QUAY_REGISTRY_PREFIX": target["registry"]["quay_prefix"],
+        "INTRINSIC_REGISTRY_HOST": target["registry"]["internal_host"],
+        "INTRINSIC_GATEWAY_ADDRESS": target["networking"]["ingress_address"],
         "OPENSHIFT_STORAGE_CLASS": target["storage"]["block_class"],
         "OPENSHIFT_SHARED_STORAGE_CLASS": target["storage"]["shared_filesystem_class"],
         "PVC_SIZE": target["storage"]["pvc_size"],
@@ -314,8 +319,12 @@ def render_env(config: dict[str, Any]) -> str:
             sort_keys=True,
             separators=(",", ":"),
         ),
-        "INTRINSIC_ZENOH_ROUTER_ENDPOINT": target["networking"]["zenoh_router_endpoint"],
-        "INTRINSIC_RHOAI_TRITON_ENDPOINT": target["networking"]["rhoai_triton_endpoint"],
+        "INTRINSIC_ZENOH_ROUTER_ENDPOINT": target["networking"][
+            "zenoh_router_endpoint"
+        ],
+        "INTRINSIC_RHOAI_TRITON_ENDPOINT": target["networking"][
+            "rhoai_triton_endpoint"
+        ],
     }
     lines = ["# Generated by openshift/render_config.py. Do not edit."]
     lines.extend(f"{key}={env_value(value)}" for key, value in values.items())
@@ -351,7 +360,9 @@ def render_configmap(
     )
 
 
-def render_controller_patch(config: dict[str, Any], controller_config_checksum: str) -> str:
+def render_controller_patch(
+    config: dict[str, Any], controller_config_checksum: str
+) -> str:
     namespace = config["target"]["namespace"]
     document = {
         "apiVersion": "apps/v1",
@@ -364,6 +375,10 @@ def render_controller_patch(config: dict[str, Any], controller_config_checksum: 
             },
         },
         "spec": {
+            "strategy": {
+                "type": "RollingUpdate",
+                "rollingUpdate": {"maxSurge": 0, "maxUnavailable": 1},
+            },
             "template": {
                 "metadata": {
                     "annotations": {
@@ -398,21 +413,77 @@ def render_controller_patch(config: dict[str, Any], controller_config_checksum: 
                                 "--image-lock=/etc/intrinsic/controller-config/image-lock.json",
                             ],
                         }
-                    ]
+                    ],
                 },
-            }
+            },
         },
     }
     return yaml.safe_dump(document, sort_keys=True, default_flow_style=False)
 
 
+def render_template(text: str, config: dict, lock: dict) -> str:
+    config = expand_config(config)
+    values = dict(
+        item.split("=", 1) for item in shlex.split(render_env(config), comments=True)
+    )
+    model = normalize_lock(lock, config["target"])
+    for image in model["project_images"]:
+        if image["name"] == "chartassignment-controller":
+            values["CONTROLLER_IMAGE"] = f"{image['repository']}@{image['digest']}"
+
+    def replace(match):
+        if match[1] not in values:
+            raise ConfigError("template requires an unknown canonical setting")
+        return values[match[1]]
+
+    return re.sub(r"\$\{([A-Z][A-Z0-9_]*)\}", replace, text)
+
+
+def render_controller_deployment(config: dict, lock: dict, config_checksum: str) -> str:
+    source = (
+        ROOT / "deployment/chartassignment-controller/deploy/controller-deployment.yaml"
+    )
+    document = yaml.safe_load(render_template(source.read_text(), config, lock))
+    patch = yaml.safe_load(render_controller_patch(config, config_checksum))
+    document["metadata"].update(patch["metadata"])
+    document["spec"]["strategy"] = patch["spec"]["strategy"]
+    pod = document["spec"]["template"]
+    pod["metadata"].update(patch["spec"]["template"]["metadata"])
+    patch_pod = patch["spec"]["template"]["spec"]
+    pod["spec"]["volumes"].extend(patch_pod["volumes"])
+    container = pod["spec"]["containers"][0]
+    container.pop("envFrom", None)
+    settings = patch_pod["containers"][0]
+    container["args"] = settings["args"]
+    container["volumeMounts"].extend(settings["volumeMounts"])
+    return yaml.safe_dump(document, sort_keys=True)
+
+
+def render_rbac(config: dict, lock: dict) -> str:
+    source = ROOT / "deployment/chartassignment-controller/deploy/controller-rbac.yaml"
+    docs = list(yaml.safe_load_all(render_template(source.read_text(), config, lock)))
+    for doc in docs:
+        doc["metadata"]["namespace"] = config["target"]["namespace"]
+    return yaml.safe_dump_all(docs, sort_keys=True)
+
+
 def render_outputs(config: dict[str, Any], lock: dict[str, Any]) -> dict[str, str]:
+    config = expand_config(config)
     target_config = render_target_config(config)
     image_lock = canonical_json(lock)
     target_config_checksum = checksum(target_config)
     image_lock_checksum = checksum(image_lock)
     controller_config_checksum = checksum(target_config + image_lock)
-    return {
+    outputs = {
+        "controller_deployment": render_controller_deployment(
+            config, lock, controller_config_checksum
+        ),
+        "controller_rbac": render_rbac(config, lock),
+        "workspace": render_template(
+            (ROOT / "deployment/omts-workspace/workspace.yaml").read_text(),
+            config,
+            lock,
+        ),
         "env": render_env(config),
         "target_config": target_config,
         "configmap": render_configmap(
@@ -422,9 +493,15 @@ def render_outputs(config: dict[str, Any], lock: dict[str, Any]) -> dict[str, st
             image_lock,
             image_lock_checksum,
         ),
-        "quay_image_values": render_values(lock),
+        "quay_image_values": render_values(normalize_lock(lock, config["target"])),
         "controller_patch": render_controller_patch(config, controller_config_checksum),
     }
+
+    attribution = "# This project was developed with assistance from AI tools.\n"
+    for key in outputs:
+        if key != "target_config" and not outputs[key].startswith(attribution):
+            outputs[key] = attribution + outputs[key]
+    return outputs
 
 
 def write_outputs(outputs: dict[str, str], output_root: Path) -> None:
@@ -432,6 +509,7 @@ def write_outputs(outputs: dict[str, str], output_root: Path) -> None:
         destination = output_root / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text(outputs[key], encoding="utf-8")
+        destination.chmod(0o600)
 
 
 def check_outputs(outputs: dict[str, str], output_root: Path) -> list[str]:
@@ -451,7 +529,7 @@ def check_outputs(outputs: dict[str, str], output_root: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
-    parser.add_argument("--output-root", type=Path, default=ROOT)
+    parser.add_argument("--output-root", type=Path, default=ROOT / ".generated")
     parser.add_argument("--allow-placeholders", action="store_true")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--check", action="store_true")

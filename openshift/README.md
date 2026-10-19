@@ -2,17 +2,9 @@
 > [!NOTE]
 > This project was developed with assistance from AI tools.
 
-> Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
-
-For helpers that have not yet migrated to canonical configuration, copy
-`openshift/.env.sample` to the ignored `openshift/.env`, replace its placeholder
-values, then export them before running commands:
-
-```sh
-set -a
-source openshift/.env
-set +a
-```
+Operational helpers use the ignored canonical target configuration. Environment
+variables do not select another cluster or project. Keep credentials separately
+in the ignored `openshift/.env`; never copy them into target configuration.
 
 ## Canonical target configuration
 
@@ -46,6 +38,8 @@ example files:
 - the target ConfigMap containing the validated target config and image lock
 - `deployment/quay-image-values.yaml`
 - the controller namespace/checksum/read-only-volume patch
+- the complete controller Deployment and namespace-scoped RBAC
+- the workspace manifest with canonical registry and gateway settings
 
 Tests cover schema acceptance and rejection, semantic validation, cross-field
 invariants, deterministic rendering, golden outputs, and drift detection.
@@ -77,6 +71,12 @@ not enable leader election. The local
 patch, and `openshift/.generated/rollback-controller.patch.json` restores the
 previous controller specification. Neither file belongs in Git. Do not delete
 ChartAssignments, ResourceSets, PVCs, or build caches to roll back configuration.
+For E2.4 rollback, first apply the ignored
+`openshift/.generated/rollback-target-config.configmap.json`, then apply
+`rollback-controller.patch.json` with `oc patch --type=json --patch-file`.
+Restore the matching ConfigMap and Deployment together because the previous
+controller expects the previous lock schema. Rollback and restoration were
+rehearsed successfully; the final deployed controller uses schema version 2.
 
 ### Canonical operational helpers
 
@@ -93,8 +93,51 @@ The routing check verifies current Service/Gateway ports, mTLS, mesh membership,
 ready endpoints, selectors, and ConfigMap data without changing resources. When
 an intentional routing update is needed, omit `--check` to apply only the
 derived routing ConfigMap. Missing or invalid configuration fails before cluster
-access. Other operational helpers remain on the compatibility path until their
-E2.4 migration is complete.
+access. Build/apply shell scripts source `canonical-env.sh`, which validates the
+same configuration and API address before exporting quoted settings and binding
+`oc` to the exact context. Set `INTRINSIC_CONFIG` only to choose another ignored
+canonical file. In-cluster scripts require the generated Pod environment.
+
+The image lock uses portable schema version 2: basenames, immutable digests,
+source provenance, and optional source-reference tokens. Registry prefixes,
+project repositories, and full OpenShift destination references are composed
+from `target.registry` and `target.namespace`. Old schema version 1 locks fail
+closed. The lock also includes the 32 existing dynamic demo resource/skill
+images, allowing all 223 rendered objects and 59 image references to validate. Keep `{namespace}` in namespace-qualified endpoint fields so changing
+only `target.namespace` relocates generated references coherently. The mesh
+namespace and revision are explicit `target.networking` fields.
+
+`controller-deployment.yaml` and `controller-rbac.yaml` in the source tree are
+templates. Apply their generated counterparts after reviewing the diff:
+
+```sh
+source openshift/canonical-env.sh
+python3 openshift/render_config.py
+oc -n "$OPENSHIFT_NAMESPACE" apply -f openshift/.generated/deployment/chartassignment-controller/deploy/target-config.configmap.yaml
+oc -n "$OPENSHIFT_NAMESPACE" apply -f openshift/.generated/deployment/chartassignment-controller/deploy/controller-rbac.yaml
+oc -n "$OPENSHIFT_NAMESPACE" apply -f openshift/.generated/deployment/chartassignment-controller/deploy/controller-deployment.yaml
+oc -n "$OPENSHIFT_NAMESPACE" rollout status deployment/chartassignment-controller --timeout=180s
+```
+
+Before applying, record the current Deployment, ConfigMap, application pod UIDs,
+and PVC UIDs/specifications privately. Use a reviewed immutable controller digest
+in the local lock. The generated strategy permits one reconciler at a time.
+Workspace apply skips an existing PVC, preserving its size and contents.
+
+Offline chart rendering now requires both generated files explicitly:
+
+```sh
+# Run from openshift/deployment/chartassignment-controller.
+go run ./cmd/render-openshift-chart \
+  --target-config=../../.generated/target-config.json \
+  --image-lock=../../image-lock.local.json < /private/tmp/assignment.yaml > /private/tmp/rendered.yaml
+# Run from repository root.
+python3 openshift/validate_rendered_manifests.py --config openshift/config.local.json /private/tmp/rendered.yaml
+```
+
+The CI workflow runs the canonical tests, strict executable-target audit,
+provenance verification, shell syntax checks, and Go checks. Vendored upstream
+sources remain governed by the provenance manifest and controller adaptations.
 
 
 **Status (2026-10-08):** The OpenShift-specific registry and ArtifactService

@@ -1,0 +1,108 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: omts-build-workspace
+  namespace: your-project-namespace
+  labels:
+    app.kubernetes.io/name: intrinsic-omts-demo
+    app.kubernetes.io/component: build-workspace
+    app.kubernetes.io/part-of: intrinsic-openshift-demo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: your-block-storage-class
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omts-build-workspace
+  namespace: your-project-namespace
+  labels:
+    app.kubernetes.io/name: intrinsic-omts-demo
+    app.kubernetes.io/component: build-workspace
+    app.kubernetes.io/part-of: intrinsic-openshift-demo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: intrinsic-omts-demo
+      app.kubernetes.io/component: build-workspace
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: intrinsic-omts-demo
+        app.kubernetes.io/component: build-workspace
+      annotations:
+        sidecar.istio.io/inject: "true"
+        traffic.sidecar.istio.io/excludeOutboundPorts: "5000"
+    spec:
+      serviceAccountName: omts-deployer
+      automountServiceAccountToken: true
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsNonRoot: true
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: workspace
+          image: image-registry.openshift-image-registry.svc:5000/your-project-namespace/omts-build-tools:20260922.0
+          imagePullPolicy: Always
+          command:
+            - /bin/bash
+            - -lc
+            - mkdir -p "$HOME" "$TMPDIR" "$HOME/.cache/bazelisk" "$HOME/intrinsic-distfiles" && exec sleep infinity
+          env:
+            - name: OPENSHIFT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPENSHIFT_SERVICE_ACCOUNT
+              value: omts-deployer
+            - name: INTRINSIC_GATEWAY_ADDRESS
+              value: intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+            - name: INTRINSIC_REGISTRY_HOST
+              value: image-registry.openshift-image-registry.svc:5000
+            - name: OPENSHIFT_SERVICE_CA_FILE
+              value: /var/run/registry-ca/service-ca.crt
+            - name: DOCKER_CONFIG
+              value: /tmp/omts-registry-auth
+            - name: OMTS_BUILD_JOBS
+              value: "4"
+          resources:
+            requests:
+              cpu: "4"
+              memory: 32Gi
+              ephemeral-storage: 2Gi
+            limits:
+              cpu: "6"
+              memory: 36Gi
+              ephemeral-storage: 8Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: registry-service-ca
+              mountPath: /var/run/registry-ca
+              readOnly: true
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: omts-build-workspace
+        - name: registry-service-ca
+          configMap:
+            name: openshift-service-ca.crt
+            items:
+              - key: service-ca.crt
+                path: service-ca.crt

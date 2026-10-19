@@ -13,26 +13,30 @@ import (
 )
 
 var (
-	controllerConfig *ControllerConfig
-	hostPortPattern  = regexp.MustCompile(`^[a-z0-9.-]+:[0-9]+$`)
-	gatewayPattern   = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?/[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$`)
-	digestPattern    = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	controllerConfig     *ControllerConfig
+	hostPortPattern      = regexp.MustCompile(`^[a-z0-9.-]+:[0-9]+$`)
+	gatewayPattern       = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?/[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$`)
+	imageBasenamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+	digestPattern        = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
 
 var placeholderMarkers = []string{"your-", "replace-with-", "example.invalid"}
 
 type ControllerConfig struct {
-	Namespace           string
-	BlockStorageClass   string
-	SharedStorageClass  string
-	GPUTaintKey         string
-	IngressAddress      string
-	IngressGateway      string
-	IngressPodSelector  map[string]string
-	ZenohRouterEndpoint string
-	RHOAITritonEndpoint string
-	ImageModel          *ImageModel
-	ImageOverrides      map[string]string
+	Namespace            string
+	MeshNamespace        string
+	MeshRevision         string
+	InternalRegistryHost string
+	BlockStorageClass    string
+	SharedStorageClass   string
+	GPUTaintKey          string
+	IngressAddress       string
+	IngressGateway       string
+	IngressPodSelector   map[string]string
+	ZenohRouterEndpoint  string
+	RHOAITritonEndpoint  string
+	ImageModel           *ImageModel
+	ImageOverrides       map[string]string
 }
 
 type ImageModel struct {
@@ -88,6 +92,8 @@ type schedulingConfig struct {
 }
 
 type networkingConfig struct {
+	MeshNamespace       string            `json:"mesh_namespace"`
+	MeshRevision        string            `json:"mesh_revision"`
 	IngressAddress      string            `json:"ingress_address"`
 	IngressGateway      string            `json:"ingress_gateway"`
 	IngressPodSelector  map[string]string `json:"ingress_pod_selector"`
@@ -101,7 +107,7 @@ type imagesConfig struct {
 
 type imageLockDocument struct {
 	SchemaVersion  int            `json:"schema_version"`
-	RegistryPrefix string         `json:"registry_prefix"`
+	RegistryPrefix string         `json:"-"`
 	Images         []lockImage    `json:"images"`
 	ProjectImages  []projectImage `json:"project_images"`
 }
@@ -109,19 +115,23 @@ type imageLockDocument struct {
 type lockImage struct {
 	UpstreamRelease         string `json:"upstream_release"`
 	ChartRepositoryBasename string `json:"chart_repository_basename"`
-	QuayRepository          string `json:"quay_repository"`
+	QuayRepository          string `json:"-"`
 	QuayDigest              string `json:"quay_digest"`
 	ChartImageKey           string `json:"chart_image_key"`
 	SourceImage             string `json:"source_image"`
 	SourceImageDigest       string `json:"source_image_digest"`
 	ChartSourceImage        string `json:"chart_source_image"`
 	ControllerOverride      bool   `json:"controller_override"`
-	OpenShiftImageReference string `json:"openshift_image_reference"`
+	OpenShiftImageReference string `json:"-"`
+	OpenShiftImage          struct {
+		Name   string `json:"name"`
+		Digest string `json:"digest"`
+	} `json:"openshift_image"`
 }
 
 type projectImage struct {
 	Name               string `json:"name"`
-	Repository         string `json:"repository"`
+	Repository         string `json:"-"`
 	Digest             string `json:"digest"`
 	SourceImage        string `json:"source_image"`
 	ControllerOverride bool   `json:"controller_override"`
@@ -151,6 +161,30 @@ func loadControllerConfig(configPath, lockPath string, allowPlaceholders bool) (
 		return nil, fmt.Errorf("target config must contain one JSON object")
 	}
 
+	var portable map[string]json.RawMessage
+	if err := json.Unmarshal(lockData, &portable); err != nil {
+		return nil, fmt.Errorf("invalid image lock")
+	}
+	if _, exists := portable["registry_prefix"]; exists {
+		return nil, fmt.Errorf("obsolete image lock registry prefix")
+	}
+	for _, collection := range []string{"images", "project_images"} {
+		var entries []map[string]json.RawMessage
+		if err := json.Unmarshal(portable[collection], &entries); err != nil {
+			return nil, fmt.Errorf("invalid image collection")
+		}
+		for _, entry := range entries {
+			for _, field := range []string{"repository", "quay_repository", "openshift_image_reference"} {
+				if _, exists := entry[field]; exists {
+					return nil, fmt.Errorf("obsolete repeated image identity")
+				}
+			}
+		}
+	}
+	document.Target.Networking.IngressAddress = strings.ReplaceAll(document.Target.Networking.IngressAddress, "{namespace}", document.Target.Namespace)
+	document.Target.Networking.IngressGateway = strings.ReplaceAll(document.Target.Networking.IngressGateway, "{namespace}", document.Target.Namespace)
+	document.Target.Networking.ZenohRouterEndpoint = strings.ReplaceAll(document.Target.Networking.ZenohRouterEndpoint, "{namespace}", document.Target.Namespace)
+	document.Target.Networking.RHOAITritonEndpoint = strings.ReplaceAll(document.Target.Networking.RHOAITritonEndpoint, "{namespace}", document.Target.Namespace)
 	var lock imageLockDocument
 	decoder = json.NewDecoder(bytes.NewReader(lockData))
 	if err := decoder.Decode(&lock); err != nil {
@@ -178,17 +212,20 @@ func loadControllerConfig(configPath, lockPath string, allowPlaceholders bool) (
 	}
 
 	return &ControllerConfig{
-		Namespace:           document.Target.Namespace,
-		BlockStorageClass:   document.Target.Storage.BlockClass,
-		SharedStorageClass:  document.Target.Storage.SharedFilesystemClass,
-		GPUTaintKey:         document.Target.Scheduling.GPUTaintKey,
-		IngressAddress:      document.Target.Networking.IngressAddress,
-		IngressGateway:      document.Target.Networking.IngressGateway,
-		IngressPodSelector:  document.Target.Networking.IngressPodSelector,
-		ZenohRouterEndpoint: document.Target.Networking.ZenohRouterEndpoint,
-		RHOAITritonEndpoint: document.Target.Networking.RHOAITritonEndpoint,
-		ImageModel:          model,
-		ImageOverrides:      overrides,
+		Namespace:            document.Target.Namespace,
+		MeshNamespace:        document.Target.Networking.MeshNamespace,
+		MeshRevision:         document.Target.Networking.MeshRevision,
+		InternalRegistryHost: document.Target.Registry.InternalHost,
+		BlockStorageClass:    document.Target.Storage.BlockClass,
+		SharedStorageClass:   document.Target.Storage.SharedFilesystemClass,
+		GPUTaintKey:          document.Target.Scheduling.GPUTaintKey,
+		IngressAddress:       document.Target.Networking.IngressAddress,
+		IngressGateway:       document.Target.Networking.IngressGateway,
+		IngressPodSelector:   document.Target.Networking.IngressPodSelector,
+		ZenohRouterEndpoint:  document.Target.Networking.ZenohRouterEndpoint,
+		RHOAITritonEndpoint:  document.Target.Networking.RHOAITritonEndpoint,
+		ImageModel:           model,
+		ImageOverrides:       overrides,
 	}, nil
 }
 
@@ -245,6 +282,8 @@ func rejectTargetPlaceholders(document *targetConfigDocument) error {
 		document.Target.Networking.ZenohRouterEndpoint,
 		document.Target.Networking.RHOAITritonEndpoint,
 		document.Target.Images.Lock,
+		document.Target.Networking.MeshNamespace,
+		document.Target.Networking.MeshRevision,
 	}
 	for _, value := range values {
 		for _, marker := range placeholderMarkers {
@@ -267,7 +306,7 @@ func validateControllerConfig(document *targetConfigDocument, lock *imageLockDoc
 	if document.SchemaVersion != 1 {
 		return fmt.Errorf("unsupported target config schema version %d", document.SchemaVersion)
 	}
-	if lock.SchemaVersion != 1 {
+	if lock.SchemaVersion != 2 {
 		return fmt.Errorf("unsupported image lock schema version %d", lock.SchemaVersion)
 	}
 	target := document.Target
@@ -305,15 +344,17 @@ func validateControllerConfig(document *targetConfigDocument, lock *imageLockDoc
 	if len(target.Networking.IngressPodSelector) == 0 {
 		return fmt.Errorf("ingress pod selector must not be empty")
 	}
-	if lock.RegistryPrefix != target.Registry.QuayPrefix {
-		return fmt.Errorf("image lock registry prefix does not match target config")
+	for _, value := range []string{target.Networking.MeshNamespace, target.Networking.MeshRevision} {
+		if len(validation.IsDNS1123Label(value)) != 0 {
+			return fmt.Errorf("mesh namespace or revision is invalid")
+		}
 	}
 	return nil
 }
 
 func buildImageModel(document *targetConfigDocument, lock *imageLockDocument) (*ImageModel, error) {
 	model := &ImageModel{
-		RegistryPrefix: lock.RegistryPrefix,
+		RegistryPrefix: document.Target.Registry.QuayPrefix,
 		ChartImages:    make(map[string]NormalizedImage),
 		ProjectImages:  make(map[string]NormalizedImage),
 	}
@@ -321,10 +362,7 @@ func buildImageModel(document *targetConfigDocument, lock *imageLockDocument) (*
 		if image.ChartImageKey == "" || image.ChartRepositoryBasename == "" || image.QuayDigest == "" {
 			return nil, fmt.Errorf("image lock entry is incomplete")
 		}
-		expectedRepository := lock.RegistryPrefix + "/" + image.ChartRepositoryBasename
-		if image.QuayRepository != expectedRepository {
-			return nil, fmt.Errorf("image lock repository for %q must be %q", image.ChartImageKey, expectedRepository)
-		}
+		expectedRepository := document.Target.Registry.QuayPrefix + "/" + image.ChartRepositoryBasename
 		if !digestPattern.MatchString(image.QuayDigest) {
 			return nil, fmt.Errorf("image lock digest for %q is invalid", image.ChartImageKey)
 		}
@@ -335,28 +373,36 @@ func buildImageModel(document *targetConfigDocument, lock *imageLockDocument) (*
 		if source == "" {
 			source = image.SourceImage
 		}
+		source = expandImageSource(source, document)
 		if image.ControllerOverride && source == "" {
 			return nil, fmt.Errorf("controller override for %q has no source image", image.ChartImageKey)
 		}
 		destination := expectedRepository + "@" + image.QuayDigest
+		openShiftDestination := ""
+		if image.OpenShiftImage.Name != "" || image.OpenShiftImage.Digest != "" {
+			if len(validation.IsDNS1123Subdomain(image.OpenShiftImage.Name)) != 0 || !digestPattern.MatchString(image.OpenShiftImage.Digest) {
+				return nil, fmt.Errorf("invalid OpenShift image destination")
+			}
+			openShiftDestination = document.Target.Registry.InternalHost + "/" + document.Target.Namespace + "/" + image.OpenShiftImage.Name + "@" + image.OpenShiftImage.Digest
+		}
+		if !imageBasenamePattern.MatchString(image.ChartRepositoryBasename) {
+			return nil, fmt.Errorf("invalid image basename")
+		}
 		model.ChartImages[image.ChartImageKey] = NormalizedImage{
 			Key:                  image.ChartImageKey,
 			RepositoryBasename:   image.ChartRepositoryBasename,
 			Digest:               image.QuayDigest,
 			SourceImage:          source,
 			Destination:          destination,
-			OpenShiftDestination: image.OpenShiftImageReference,
+			OpenShiftDestination: openShiftDestination,
 			ControllerOverride:   image.ControllerOverride,
 		}
 	}
 	for _, image := range lock.ProjectImages {
-		if image.Name == "" || image.Repository == "" || image.Digest == "" {
+		if !imageBasenamePattern.MatchString(image.Name) || image.Digest == "" {
 			return nil, fmt.Errorf("project image lock entry is incomplete")
 		}
 		expectedRepository := document.Target.Registry.InternalHost + "/" + document.Target.Namespace + "/" + image.Name
-		if image.Repository != expectedRepository {
-			return nil, fmt.Errorf("project image repository for %q must be %q", image.Name, expectedRepository)
-		}
 		if !digestPattern.MatchString(image.Digest) {
 			return nil, fmt.Errorf("project image digest for %q is invalid", image.Name)
 		}
@@ -371,7 +417,7 @@ func buildImageModel(document *targetConfigDocument, lock *imageLockDocument) (*
 			Key:                image.Name,
 			RepositoryBasename: image.Name,
 			Digest:             image.Digest,
-			SourceImage:        image.SourceImage,
+			SourceImage:        expandImageSource(image.SourceImage, document),
 			Destination:        destination,
 			ControllerOverride: image.ControllerOverride,
 		}
@@ -400,4 +446,8 @@ func buildImageOverrides(model *ImageModel) (map[string]string, error) {
 		overrides[image.SourceImage] = image.Destination
 	}
 	return overrides, nil
+}
+
+func expandImageSource(source string, document *targetConfigDocument) string {
+	return strings.NewReplacer("{namespace}", document.Target.Namespace, "{internal_host}", document.Target.Registry.InternalHost, "{quay_prefix}", document.Target.Registry.QuayPrefix).Replace(source)
 }

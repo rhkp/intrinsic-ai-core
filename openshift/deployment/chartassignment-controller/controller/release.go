@@ -318,6 +318,12 @@ func loadAndExpandChart(as *apps.ChartAssignment) ([]*unstructured.Unstructured,
 // RenderOpenShiftResources validates and renders one ChartAssignment using the
 // same policy path as the controller, without writing resources to the API.
 func RenderOpenShiftResources(as *apps.ChartAssignment) ([]*unstructured.Unstructured, error) {
+	if controllerConfig == nil {
+		return nil, fmt.Errorf("canonical controller configuration is required")
+	}
+	if as.Spec.NamespaceName != controllerConfig.Namespace {
+		return nil, fmt.Errorf("ChartAssignment namespace conflicts with canonical target")
+	}
 	resources, _, err := loadAndExpandChart(as)
 	return resources, err
 }

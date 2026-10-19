@@ -21,10 +21,8 @@ def _required_path(name: str, default: str) -> Path:
 
 
 def main() -> None:
-    namespace = os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
-    registry_host = os.environ.get(
-        "INTRINSIC_REGISTRY_HOST", "image-registry.openshift-image-registry.svc:5000"
-    )
+    namespace = os.environ.get("OPENSHIFT_NAMESPACE", "")
+    registry_host = os.environ.get("INTRINSIC_REGISTRY_HOST", "")
     if not re.fullmatch(r"[a-zA-Z0-9.-]+:[0-9]{1,5}", registry_host):
         raise SystemExit("INTRINSIC_REGISTRY_HOST must be a host and port")
     if not re.fullmatch(r"[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?", namespace):
@@ -37,7 +35,9 @@ def main() -> None:
     if namespace_path.is_file():
         mounted_namespace = namespace_path.read_text(encoding="utf-8").strip()
         if mounted_namespace != namespace:
-            raise SystemExit("mounted service account namespace does not match configuration")
+            raise SystemExit(
+                "mounted service account namespace does not match configuration"
+            )
 
     token = token_path.read_text(encoding="utf-8").strip()
     if not token or any(char.isspace() for char in token):
@@ -51,7 +51,9 @@ def main() -> None:
     ).read_bytes()
     marker = b"-----BEGIN CERTIFICATE-----"
     if marker not in system_ca or marker not in service_ca:
-        raise SystemExit("system or OpenShift service CA bundle is not a PEM certificate")
+        raise SystemExit(
+            "system or OpenShift service CA bundle is not a PEM certificate"
+        )
 
     docker_config_dir = Path(
         os.environ.get("DOCKER_CONFIG", str(Path.home() / ".docker"))

@@ -84,9 +84,9 @@ through a behavior-preserving, offline-verifiable rollout.
   behavior while introducing the configuration model.
 - Do not replace the image provenance lock with mutable tags.
 
-### E2 current-state inventory
+### E2 baseline inventory (before migration)
 
-The active configuration currently spans these surfaces:
+Before E2, configuration spanned these surfaces:
 
 | Surface | Examples | Risk |
 | --- | --- | --- |
@@ -98,14 +98,14 @@ The active configuration currently spans these surfaces:
 | Operational scripts | defaults such as `your-project-namespace` | Wrong target can pass silently if a default is accepted |
 | Controller deployment | watch namespace and immutable controller image digest | Must change atomically with target configuration |
 
-A specific consistency gap must be fixed first:
+The E2.1 consistency gap (resolved):
 `openshift/image-lock.json` contains an `openshift_image_reference` for the
 resource-registry image, but `validate_rendered_manifests.py` currently builds
 its accepted reference set only from `images[].quay_repository`,
 `images[].quay_digest`, and `project_images`. The validator must include every
 authorized destination representation before configuration centralization begins.
 
-### E2 proposed canonical model
+### E2 canonical model
 
 Use a checked-in sanitized example and an ignored local file:
 
@@ -120,7 +120,7 @@ values. The renderer should emit a cluster-facing configuration document that
 contains only deployment values, so local context and API URL are not mounted
 into workloads.
 
-Suggested top-level model:
+Checked-in model (real values remain in ignored local configuration):
 
 ```json
 {
@@ -133,25 +133,28 @@ Suggested top-level model:
     "namespace": "your-project-namespace",
     "registry": {
       "quay_prefix": "quay.io/your-registry-org/intrinsic",
+      "quay_org": "your-registry-org",
       "internal_host": "image-registry.openshift-image-registry.svc:5000"
     },
     "storage": {
       "block_class": "your-block-storage-class",
       "shared_filesystem_class": "your-shared-filesystem-storage-class",
-      "pvc_size": "your-approved-pvc-size"
+      "pvc_size": "20Gi"
     },
     "scheduling": {
       "gpu_taint_key": "your-gpu-taint-key"
     },
     "networking": {
-      "ingress_address": "intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80",
-      "ingress_gateway": "your-project-namespace/intrinsic-grpc-internal",
+      "ingress_address": "intrinsic-grpc-gateway.{namespace}.svc.cluster.local:80",
+      "ingress_gateway": "{namespace}/intrinsic-grpc-internal",
       "ingress_pod_selector": {
         "app.kubernetes.io/name": "intrinsic-grpc-gateway",
         "istio": "intrinsic-grpc-gateway"
       },
-      "zenoh_router_endpoint": "zenoh-router.your-project-namespace.svc.cluster.local:7447",
-      "rhoai_triton_endpoint": "replace-with-approved-internal-service:port"
+      "zenoh_router_endpoint": "zenoh-router.{namespace}.svc.cluster.local:7447",
+      "rhoai_triton_endpoint": "triton-rhoai-grpc.{namespace}.svc.cluster.local:9000",
+      "mesh_namespace": "your-mesh-namespace",
+      "mesh_revision": "your-service-mesh-control-plane"
     },
     "images": {
       "lock": "image-lock.json"
@@ -168,9 +171,9 @@ renderer should compose full image references from:
 <registry prefix or internal host>/<namespace>/<repository basename>@<digest>
 ```
 
-The final lock schema should therefore store repository names and digests, not
-repeated full namespace-qualified references. Until that migration is complete,
-the renderer may normalize the current lock format in memory.
+The schema version 2 lock stores repository basenames and digests. The renderer
+and controller compose destination references from the canonical target. Old
+schema version 1 locks and repeated destination identity fields are rejected.
 
 ### E2 incremental delivery plan
 
@@ -405,36 +408,55 @@ ResourceSets, or workload resources.
 
 #### Milestone E2.4 — Migrate consumers and remove compatibility
 
-**Status:** in progress; routing and general-preflight slice complete on
-2026-10-19. The remaining consumers and controller compatibility removal below
-are not complete.
+**Status:** complete and deployed on 2026-10-19.
 
-**Completed first slice**
+**Completion evidence:**
 
-- Added a shared operational loader that validates the canonical target and
-  image lock before any cluster command. It binds to the exact configured
-  context and checks the approved API address without printing either value.
-- Migrated `configure_routing.py` and `preflight.py` to that loader. They accept
-  `--config`, no longer select targets from `.env` or environment defaults, and
-  fail closed on missing, placeholder, invalid, or mismatched configuration.
-- Added `configure_routing.py --check`: verifies live gateway, Service,
-  endpoints, mesh membership, selector, and routing ConfigMap without applying
-  resources. The apply path derives the same five ConfigMap data keys from
-  canonical settings and sends the manifest through stdin.
-- Corrected an existing verifier mismatch confirmed against the previous
-  committed helper: the deployed Service maps both client ports to the Gateway's
-  mTLS listener on 443, matching its checked-in manifest. Verification now checks
-  that mapping and the required `ISTIO_MUTUAL` listener rather than requiring an
-  unused plaintext listener on 80. Shared ingress, selector drift, invalid TLS,
-  missing endpoints, and incorrect port mappings remain rejected.
-- The 56 Python tests and focused Ruff lint/format checks pass. Tests cover
-  validation before cluster access, context/API mismatch, stale environment
-  values, namespace relocation, configured gateway names, read-only checks,
-  failure before apply, and the retained mesh checks.
-- Canonical preflight and routing `--check` passed against the live deployment.
-  Before/after comparison confirmed unchanged workload, pod, PVC, and ConfigMap
-  identities and specifications. This slice required no controller rollout or
-  application change.
+- Operational preflight, routing, image rendering, manifest validation, smoke
+  helpers, build/apply scripts, and ChartAssignment preflight consume validated
+  canonical settings or generated Pod environment. Workstation commands bind to
+  the exact approved context/API. Existing workspace PVCs are skipped on apply.
+- Controller and offline render entry points require target configuration and
+  the image lock. Storage, GPU taint, registry, mesh namespace/revision, ingress,
+  Zenoh, RHOAI, and image destinations have no controller fallback constants.
+- Portable image-lock schema version 2 removes repeated registry prefixes and
+  destination references. Source tokens expand from the target. The controller
+  image and 32 previously omitted dynamic demo images are now recorded by
+  digest; all deployed application image references remain unchanged.
+- Eight generated artifacts include the full controller Deployment, namespace
+  RBAC, and workspace manifest. A namespace-only regression covers endpoint,
+  registry, watch namespace, RBAC subject, and checksum coherence.
+- CI runs canonical regression tests, strict target-default policy, shell
+  syntax, Go checks, and provenance verification. The policy rejects concrete
+  environment defaults as well as example placeholders in owned executable
+  paths. Vendored source copies retain their separately verified adaptations.
+- All 63 Python tests, Go tests, `go vet`, focused Ruff checks, shell syntax,
+  `gofmt`, strict configuration audit, and provenance verification pass.
+- All four charts rendered identically to the working baseline: 223 objects,
+  zero differences. Server dry-run confirmed unchanged application templates
+  and PVC specifications. The offline validator accepts all 223 objects and
+  59 image references. Its UID check now recognizes only the two existing
+  controller-approved realtime simulation exceptions; negative tests reject
+  other identities, token automount, and extra capabilities.
+- The controller-only rollout is Ready with the expected config checksum.
+  All four ChartAssignments are Ready and four ResourceSets Settled. All 10
+  original PVCs remain Bound with identical UIDs/specifications, and every
+  application pod and workload specification is unchanged. Build caches remain
+  intact; no application image rebuild or reinstall was performed.
+- Rollback to the exact previous controller and schema was exercised, followed
+  by no-op reconciliation. Both rollback and restoration preserved application
+  and PVC identities. The final controller uses the completed portable lock.
+- Gateway mTLS, private-image pull/startup as a non-root process, both RHOAI
+  model readiness checks, and synthetic wrapper inference passed. Temporary
+  smoke resources were removed.
+- The explicit four-file cell reset succeeded. A one-cycle cached demo request
+  completed FoundationPose on RHOAI in **8.060 seconds**, then reproduced the
+  known gripper/stock collision. It had no connection failure, unreachable
+  target, or timeout. The wrapper has no native Triton container. Full pick
+  completion remains an E5 issue, outside configuration migration acceptance.
+
+Live values, snapshots, detailed traces, and exact rollout/rollback patches
+remain in ignored local files or private temporary evidence, never Git.
 
 **Goal:** make the canonical config and image lock the only accepted sources
 after the controller path is proven stable.

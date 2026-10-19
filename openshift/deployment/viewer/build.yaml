@@ -3,13 +3,13 @@ apiVersion: image.openshift.io/v1
 kind: ImageStream
 metadata:
   name: intrinsic-rviz-novnc
-  namespace: your-project-namespace
+  namespace: ${OPENSHIFT_NAMESPACE}
 ---
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   name: intrinsic-rviz-novnc
-  namespace: your-project-namespace
+  namespace: ${OPENSHIFT_NAMESPACE}
 spec:
   runPolicy: Serial
   source:

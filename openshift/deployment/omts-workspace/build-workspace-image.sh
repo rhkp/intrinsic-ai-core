@@ -2,23 +2,15 @@
 # This project was developed with assistance from AI tools.
 set -euo pipefail
 
-readonly namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)/canonical-env.sh"
+
+readonly namespace="${OPENSHIFT_NAMESPACE}"
 readonly workspace_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly repo_root="$(cd "${workspace_dir}/../../.." && pwd)"
 readonly runner_dir="${repo_root}/openshift/deployment/omts-runner"
 readonly context="$(mktemp -d "${TMPDIR:-/tmp}/omts-workspace-context.XXXXXX")"
 trap 'rm -rf "${context}"' EXIT
 
-expected_api_server="${OPENSHIFT_API_SERVER_URL:-}"
-if [[ -z "${expected_api_server}" ]]; then
-  echo "Set OPENSHIFT_API_SERVER_URL to the intended cluster API URL before building." >&2
-  exit 2
-fi
-cluster_api="$(oc get infrastructure cluster -o jsonpath='{.status.apiServerURL}')"
-if [[ "${cluster_api}" != "${expected_api_server}" ]]; then
-  echo "Refusing to build: the current OpenShift API does not match OPENSHIFT_API_SERVER_URL." >&2
-  exit 1
-fi
 oc get namespace "${namespace}" >/dev/null
 
 mkdir -p \

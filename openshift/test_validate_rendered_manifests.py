@@ -57,15 +57,26 @@ class RenderedManifestValidationTest(unittest.TestCase):
             validate_documents([self.deployment()], self.namespace, set())
 
     def test_locked_references_include_openshift_destination(self):
-        lock_path = Path(__file__).resolve().parent / "image-lock.json"
-        lock = json.loads(lock_path.read_text(encoding="utf-8"))
-        expected = next(
-            image["openshift_image_reference"]
+        from render_config import EXAMPLE_PATH, load_config, load_image_lock
+
+        config = load_config(EXAMPLE_PATH, True)
+        lock = load_image_lock(config, EXAMPLE_PATH)
+        refs = locked_references(lock, config["target"])
+        image = next(
+            image["openshift_image"]
             for image in lock["images"]
-            if image.get("openshift_image_reference")
+            if image.get("openshift_image")
         )
-        references = locked_references(lock_path, self.namespace)
-        self.assertIn(expected, references)
+        expected = (
+            config["target"]["registry"]["internal_host"]
+            + "/"
+            + self.namespace
+            + "/"
+            + image["name"]
+            + "@"
+            + image["digest"]
+        )
+        self.assertIn(expected, refs)
 
     def test_rejects_openshift_destination_outside_target_project(self):
         lock = {
@@ -86,34 +97,46 @@ class RenderedManifestValidationTest(unittest.TestCase):
             path = Path(directory) / "image-lock.json"
             path.write_text(json.dumps(lock), encoding="utf-8")
             with self.assertRaises(ValidationError):
-                locked_references(path, self.namespace)
+                locked_references(
+                    lock,
+                    {
+                        "namespace": self.namespace,
+                        "registry": {
+                            "quay_prefix": "quay.io/example/intrinsic",
+                            "internal_host": "registry.example.com:5000",
+                        },
+                    },
+                )
 
     def test_locked_references_use_target_registry_composition(self):
         lock = {
-            "registry_prefix": "quay.io/example/intrinsic",
+            "schema_version": 2,
             "images": [
                 {
+                    "chart_image_key": "demo",
                     "chart_repository_basename": "demo",
-                    "quay_repository": "quay.io/example/intrinsic/demo",
                     "quay_digest": "sha256:" + "a" * 64,
                 }
             ],
-            "project_images": [
-                {
-                    "name": "adapted",
-                    "repository": "registry.example.com:5000/your-project-namespace/adapted",
-                    "digest": "sha256:" + "b" * 64,
-                }
-            ],
+            "project_images": [{"name": "adapted", "digest": "sha256:" + "b" * 64}],
         }
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "image-lock.json"
-            path.write_text(json.dumps(lock), encoding="utf-8")
-            references = locked_references(path, self.namespace, "registry.example.com:5000")
-        self.assertIn("quay.io/example/intrinsic/demo@sha256:" + "a" * 64, references)
+        refs = locked_references(
+            lock,
+            {
+                "namespace": self.namespace,
+                "registry": {
+                    "quay_prefix": "quay.io/example/intrinsic",
+                    "internal_host": "registry.example.com:5000",
+                },
+            },
+        )
+        self.assertIn("quay.io/example/intrinsic/demo@sha256:" + "a" * 64, refs)
         self.assertIn(
-            "registry.example.com:5000/your-project-namespace/adapted@sha256:" + "b" * 64,
-            references,
+            "registry.example.com:5000/"
+            + self.namespace
+            + "/adapted@sha256:"
+            + "b" * 64,
+            refs,
         )
 
     def test_rejects_repeated_repository_drift(self):
@@ -150,7 +173,16 @@ class RenderedManifestValidationTest(unittest.TestCase):
                 path = Path(directory) / "image-lock.json"
                 path.write_text(json.dumps(lock), encoding="utf-8")
                 with self.assertRaises(ValidationError):
-                    locked_references(path, self.namespace, "registry.example.com:5000")
+                    locked_references(
+                        lock,
+                        {
+                            "namespace": self.namespace,
+                            "registry": {
+                                "quay_prefix": "quay.io/example/intrinsic",
+                                "internal_host": "registry.example.com:5000",
+                            },
+                        },
+                    )
 
     def test_accepts_project_scoped_mesh_virtual_service(self):
         virtual_service = {
@@ -164,7 +196,14 @@ class RenderedManifestValidationTest(unittest.TestCase):
                 "http": [
                     {
                         "match": [{"uri": {"prefix": "/demo.v1.Service/"}}],
-                        "route": [{"destination": {"host": "demo-service", "port": {"number": 8080}}}],
+                        "route": [
+                            {
+                                "destination": {
+                                    "host": "demo-service",
+                                    "port": {"number": 8080},
+                                }
+                            }
+                        ],
                     }
                 ],
             },
@@ -187,7 +226,14 @@ class RenderedManifestValidationTest(unittest.TestCase):
                 "http": [
                     {
                         "match": [{"uri": {"prefix": "/demo.v1.Service/"}}],
-                        "route": [{"destination": {"host": "demo-service", "port": {"number": 8080}}}],
+                        "route": [
+                            {
+                                "destination": {
+                                    "host": "demo-service",
+                                    "port": {"number": 8080},
+                                }
+                            }
+                        ],
                     }
                 ],
             },
@@ -205,16 +251,30 @@ class RenderedManifestValidationTest(unittest.TestCase):
             "spec": {
                 "podSelector": {"matchLabels": {"app": "skill"}},
                 "policyTypes": ["Egress"],
-                "egress": [{
-                    "to": [{
-                        "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": self.namespace}},
-                        "podSelector": {"matchLabels": {"app.kubernetes.io/name": "intrinsic-grpc-gateway"}},
-                    }],
-                    "ports": [{"protocol": "TCP", "port": 8080}],
-                }],
+                "egress": [
+                    {
+                        "to": [
+                            {
+                                "namespaceSelector": {
+                                    "matchLabels": {
+                                        "kubernetes.io/metadata.name": self.namespace
+                                    }
+                                },
+                                "podSelector": {
+                                    "matchLabels": {
+                                        "app.kubernetes.io/name": "intrinsic-grpc-gateway"
+                                    }
+                                },
+                            }
+                        ],
+                        "ports": [{"protocol": "TCP", "port": 8080}],
+                    }
+                ],
             },
         }
-        kinds, _ = validate_documents([self.deployment(), network_policy], self.namespace, {self.image})
+        kinds, _ = validate_documents(
+            [self.deployment(), network_policy], self.namespace, {self.image}
+        )
         self.assertEqual(kinds["NetworkPolicy"], 1)
 
     def test_rejects_network_policy_with_flat_pod_selector_labels(self):
@@ -225,11 +285,15 @@ class RenderedManifestValidationTest(unittest.TestCase):
             "spec": {
                 "podSelector": {"matchLabels": {"app": "skill"}},
                 "policyTypes": ["Egress"],
-                "egress": [{"to": [{"podSelector": {"app": "intrinsic-grpc-gateway"}}]}],
+                "egress": [
+                    {"to": [{"podSelector": {"app": "intrinsic-grpc-gateway"}}]}
+                ],
             },
         }
         with self.assertRaises(ValidationError):
-            validate_documents([self.deployment(), network_policy], self.namespace, {self.image})
+            validate_documents(
+                [self.deployment(), network_policy], self.namespace, {self.image}
+            )
 
     def test_rejects_external_mesh_virtual_service_destination(self):
         virtual_service = {
@@ -240,7 +304,9 @@ class RenderedManifestValidationTest(unittest.TestCase):
                 "hosts": ["*"],
                 "gateways": ["mesh-system/gateway"],
                 "exportTo": [".", "mesh-system"],
-                "http": [{"route": [{"destination": {"host": "outside.example.invalid"}}]}],
+                "http": [
+                    {"route": [{"destination": {"host": "outside.example.invalid"}}]}
+                ],
             },
         }
         with self.assertRaises(ValidationError):
@@ -248,15 +314,48 @@ class RenderedManifestValidationTest(unittest.TestCase):
                 [self.deployment(), virtual_service], self.namespace, {self.image}
             )
 
+    def test_only_exact_simulated_realtime_container_may_run_as_root(self):
+        doc = self.deployment()
+        doc["kind"] = "StatefulSet"
+        doc["metadata"]["name"] = "rs-ur-module"
+        spec = doc["spec"]["template"]["spec"]
+        spec.update(
+            serviceAccountName="intrinsic-sim-realtime",
+            automountServiceAccountToken=False,
+        )
+        container = spec["containers"][0]
+        container.update(
+            name="rs-ur-module",
+            image="registry.example.com/project/ai.intrinsic.ur3e_hardware_module_core_service.gazebo_hwm_stub_image@sha256:"
+            + "a" * 64,
+            securityContext={
+                "runAsUser": 0,
+                "allowPrivilegeEscalation": False,
+                "capabilities": {"add": ["IPC_LOCK"]},
+            },
+        )
+        validate_documents([doc], self.namespace, {container["image"]})
+        self.assertEqual(container["securityContext"]["runAsUser"], 0)
+        for field, value in (
+            ("serviceAccountName", "default"),
+            ("automountServiceAccountToken", True),
+        ):
+            old = spec[field]
+            spec[field] = value
+            with self.assertRaises(ValidationError):
+                validate_documents([doc], self.namespace, {container["image"]})
+            spec[field] = old
+        container["securityContext"]["capabilities"]["add"].append("SYS_ADMIN")
+        with self.assertRaises(ValidationError):
+            validate_documents([doc], self.namespace, {container["image"]})
+
     def test_rejects_host_access_fixed_uid_and_old_dns(self):
         hostpath = self.deployment()
         hostpath["spec"]["template"]["spec"]["volumes"] = [
             {"name": "host", "hostPath": {"path": "/tmp"}}
         ]
         fixed_uid = self.deployment()
-        fixed_uid["spec"]["template"]["spec"]["securityContext"] = {
-            "runAsUser": 1000
-        }
+        fixed_uid["spec"]["template"]["spec"]["securityContext"] = {"runAsUser": 1000}
         old_dns = self.deployment()
         old_dns["data"] = {
             "endpoint": "service.app-intrinsic-base.svc.cluster.local:80"

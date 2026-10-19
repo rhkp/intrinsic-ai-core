@@ -1,0 +1,84 @@
+# This project was developed with assistance from AI tools.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
+  name: chartassignment-controller
+  namespace: your-project-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chartassignment-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
+      labels:
+        app: chartassignment-controller
+    spec:
+      automountServiceAccountToken: true
+      containers:
+      - args:
+        - --watch-namespace=your-project-namespace
+        - --cloud-cluster=true
+        - --webhook-enabled=false
+        - --healthz-port=8080
+        - --target-config=/etc/intrinsic/controller-config/target-config.json
+        - --image-lock=/etc/intrinsic/controller-config/image-lock.json
+        image: image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:10250f48a26cf927e81d71eddae6e381736f88742512c84162a4551ae7825a26
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        name: controller
+        ports:
+        - containerPort: 8080
+          name: healthz
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: healthz
+          initialDelaySeconds: 3
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 1
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /etc/intrinsic/controller-config
+          name: intrinsic-controller-config
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: chartassignment-controller
+      volumes:
+      - emptyDir:
+          sizeLimit: 128Mi
+        name: tmp
+      - configMap:
+          name: intrinsic-target-config
+        name: intrinsic-controller-config

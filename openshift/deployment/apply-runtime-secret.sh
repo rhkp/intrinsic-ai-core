@@ -2,10 +2,12 @@
 # This project was developed with assistance from AI tools.
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)/canonical-env.sh"
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 repo_root="$(cd -- "$script_dir/.." && pwd)"
 env_file="$script_dir/.env"
-project="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
+project="${OPENSHIFT_NAMESPACE}"
 secret_name="${OPENSHIFT_SECRET_NAME:-intrinsic-runtime-secrets}"
 
 if [[ ! -f "$env_file" ]]; then

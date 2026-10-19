@@ -2,9 +2,11 @@
 # This project was developed with assistance from AI tools.
 set -euo pipefail
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)/canonical-env.sh"
+
 readonly release="20260922.0"
-readonly registry_org="${QUAY_REGISTRY_ORG:-your-registry-org}"
-readonly default_image="quay.io/${registry_org}/intrinsic/omts-demo-runner:${release}"
+readonly registry_org="${QUAY_REGISTRY_ORG}"
+readonly default_image="${QUAY_REGISTRY_PREFIX}/omts-demo-runner:${release}"
 readonly runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly repo_root="$(cd "${runner_dir}/../../.." && pwd)"
 source_dir="${INTRINSIC_OMTS_SRC:-${HOME}/intrinsic-omts}"

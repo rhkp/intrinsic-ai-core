@@ -59,6 +59,7 @@ func testTargetConfig() map[string]interface{} {
 				"gpu_taint_key": "test-gpu",
 			},
 			"networking": map[string]interface{}{
+				"mesh_namespace": "mesh-system", "mesh_revision": "mesh",
 				"ingress_address":       "gateway.test-namespace.svc.cluster.local:80",
 				"ingress_gateway":       "test-namespace/gateway",
 				"ingress_pod_selector":  map[string]string{"app": "gateway"},
@@ -74,38 +75,38 @@ func testTargetConfig() map[string]interface{} {
 
 func testImageLock() map[string]interface{} {
 	return map[string]interface{}{
-		"schema_version":  1,
-		"registry_prefix": "quay.io/test-org/intrinsic",
+		"schema_version": 2,
+
 		"images": []map[string]interface{}{
 			{
 				"chart_repository_basename": "zenohd",
-				"quay_repository":           "quay.io/test-org/intrinsic/zenohd",
-				"quay_digest":               "sha256:" + strings.Repeat("1", 64),
-				"chart_image_key":           "zenohd",
-				"source_image":              "zenohd:1.7.2",
-				"chart_source_image":        "mirror.example.com/zenohd:1.7.2",
-				"controller_override":       true,
+
+				"quay_digest":         "sha256:" + strings.Repeat("1", 64),
+				"chart_image_key":     "zenohd",
+				"source_image":        "zenohd:1.7.2",
+				"chart_source_image":  "mirror.example.com/zenohd:1.7.2",
+				"controller_override": true,
 			},
 			{
 				"chart_repository_basename": "jupyter",
-				"quay_repository":           "quay.io/test-org/intrinsic/jupyter",
-				"quay_digest":               "sha256:" + strings.Repeat("2", 64),
-				"chart_image_key":           "jupyter",
-				"source_image":              "jupyter:latest",
-				"controller_override":       false,
+
+				"quay_digest":         "sha256:" + strings.Repeat("2", 64),
+				"chart_image_key":     "jupyter",
+				"source_image":        "jupyter:latest",
+				"controller_override": false,
 			},
 		},
 		"project_images": []map[string]interface{}{
 			{
-				"name":                "move-to-contact",
-				"repository":          "registry.example.com:5000/test-namespace/move-to-contact",
+				"name": "move-to-contact",
+
 				"digest":              "sha256:" + strings.Repeat("3", 64),
 				"source_image":        "source.example.com/move-to-contact",
 				"controller_override": true,
 			},
 			{
-				"name":                "other",
-				"repository":          "registry.example.com:5000/test-namespace/other",
+				"name": "other",
+
 				"digest":              "sha256:" + strings.Repeat("4", 64),
 				"source_image":        "source.example.com/other",
 				"controller_override": false,

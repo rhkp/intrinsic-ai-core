@@ -2,7 +2,9 @@
 # This project was developed with assistance from AI tools.
 set -euo pipefail
 
-readonly namespace="${OPENSHIFT_NAMESPACE:-your-project-namespace}"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)/canonical-env.sh"
+
+readonly namespace="${OPENSHIFT_NAMESPACE}"
 readonly runner_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly repo_root="$(cd "${runner_dir}/../../.." && pwd)"
 readonly context="$(mktemp -d "${TMPDIR:-/tmp}/omts-build-context.XXXXXX")"
@@ -59,8 +61,8 @@ for patch_file in \
   cp "${patch_source_dir}/${patch_file}" "${context}/patches/${patch_file}"
 done
 
-oc apply -f "${runner_dir}/registry-push-rbac.yaml"
-oc apply -f "${runner_dir}/build-tool-image.yaml"
+python3 "${canonical_root}/render_template.py" "${runner_dir}/registry-push-rbac.yaml" | oc apply -n "${namespace}" -f -
+python3 "${canonical_root}/render_template.py" "${runner_dir}/build-tool-image.yaml" | oc apply -n "${namespace}" -f -
 oc start-build omts-demo-tools \
   -n "${namespace}" \
   --from-dir="${context}" \
