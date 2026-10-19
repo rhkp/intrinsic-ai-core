@@ -7,6 +7,7 @@
       "repository": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/move-to-contact-openshift",
       "digest": "sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520",
       "source_image": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/ai.intrinsic.move_to_contact.move_to_contact_skill_image@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b",
+      "controller_override": true,
       "patch": "openshift/deployment/move-to-contact-image/patch_move_to_contact.py"
     },
     {
@@ -21,6 +22,7 @@
       "repository": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/artifacts-service-openshift",
       "digest": "sha256:7e35c59a20a0000f49076f4b99bd328a846ccb576b652d0b9a96177da9f88c42",
       "source_image": "quay.io/your-registry-org/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99",
+      "controller_override": true,
       "patch": "openshift/deployment/artifacts-service/patch_oci_image.py"
     },
     {
@@ -54,6 +56,8 @@
       "chart_image_key": "code_execution_jupyter_server",
       "source_image": "ghcr.io/intrinsic-ai/code-execution-jupyter-server",
       "source_image_digest": "sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c",
+      "chart_source_image": "ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c",
+      "controller_override": true,
       "quay_repository": "quay.io/your-registry-org/intrinsic/code-execution-jupyter-server",
       "quay_tag": "upstream-20260922.0",
       "quay_digest": "sha256:fbd8aa00879fe5976fa431a4ca4fe9b9aa7cb548c49f00c1003f0ce9641f0ed5"
@@ -294,6 +298,8 @@
       "chart_image_key": "zenohd",
       "source_image": "zenohd:1.7.2",
       "source_image_digest": "sha256:9a8195c927169365e516309d55753b9c3a7484a59825cf4fbefb9125cfbdb01d",
+      "chart_source_image": "us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2",
+      "controller_override": true,
       "quay_repository": "quay.io/your-registry-org/intrinsic/zenohd",
       "quay_tag": "upstream-20260922.0",
       "quay_digest": "sha256:1e72a172c19cf1c48279b6d939d26da2eef1e07223208e896ed5a5801c702345"

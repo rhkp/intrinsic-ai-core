@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Intrinsic OpenShift target configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "local",
+    "target"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "local": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "api_server_url"
+      ],
+      "properties": {
+        "context": {
+          "type": "string",
+          "minLength": 1
+        },
+        "api_server_url": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "registry",
+        "storage",
+        "scheduling",
+        "networking",
+        "images"
+      ],
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "registry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "quay_prefix",
+            "quay_org",
+            "internal_host"
+          ],
+          "properties": {
+            "quay_prefix": {
+              "type": "string",
+              "minLength": 1
+            },
+            "quay_org": {
+              "type": "string",
+              "minLength": 1
+            },
+            "internal_host": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "block_class",
+            "shared_filesystem_class",
+            "pvc_size"
+          ],
+          "properties": {
+            "block_class": {
+              "type": "string",
+              "minLength": 1
+            },
+            "shared_filesystem_class": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pvc_size": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "scheduling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gpu_taint_key"
+          ],
+          "properties": {
+            "gpu_taint_key": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "networking": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ingress_address",
+            "ingress_gateway",
+            "ingress_pod_selector",
+            "zenoh_router_endpoint",
+            "rhoai_triton_endpoint"
+          ],
+          "properties": {
+            "ingress_address": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ingress_gateway": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ingress_pod_selector": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "zenoh_router_endpoint": {
+              "type": "string",
+              "minLength": 1
+            },
+            "rhoai_triton_endpoint": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "images": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "lock"
+          ],
+          "properties": {
+            "lock": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

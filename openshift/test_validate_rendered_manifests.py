@@ -88,6 +88,70 @@ class RenderedManifestValidationTest(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 locked_references(path, self.namespace)
 
+    def test_locked_references_use_target_registry_composition(self):
+        lock = {
+            "registry_prefix": "quay.io/example/intrinsic",
+            "images": [
+                {
+                    "chart_repository_basename": "demo",
+                    "quay_repository": "quay.io/example/intrinsic/demo",
+                    "quay_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            "project_images": [
+                {
+                    "name": "adapted",
+                    "repository": "registry.example.com:5000/your-project-namespace/adapted",
+                    "digest": "sha256:" + "b" * 64,
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "image-lock.json"
+            path.write_text(json.dumps(lock), encoding="utf-8")
+            references = locked_references(path, self.namespace, "registry.example.com:5000")
+        self.assertIn("quay.io/example/intrinsic/demo@sha256:" + "a" * 64, references)
+        self.assertIn(
+            "registry.example.com:5000/your-project-namespace/adapted@sha256:" + "b" * 64,
+            references,
+        )
+
+    def test_rejects_repeated_repository_drift(self):
+        base = {
+            "registry_prefix": "quay.io/example/intrinsic",
+            "images": [
+                {
+                    "chart_repository_basename": "demo",
+                    "quay_repository": "quay.io/example/intrinsic/other",
+                    "quay_digest": "sha256:" + "a" * 64,
+                }
+            ],
+            "project_images": [],
+        }
+        cases = [
+            ("chart", base),
+            (
+                "project",
+                {
+                    "registry_prefix": "quay.io/example/intrinsic",
+                    "images": [],
+                    "project_images": [
+                        {
+                            "name": "adapted",
+                            "repository": "registry.example.com:5000/other-namespace/adapted",
+                            "digest": "sha256:" + "b" * 64,
+                        }
+                    ],
+                },
+            ),
+        ]
+        for label, lock in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "image-lock.json"
+                path.write_text(json.dumps(lock), encoding="utf-8")
+                with self.assertRaises(ValidationError):
+                    locked_references(path, self.namespace, "registry.example.com:5000")
+
     def test_accepts_project_scoped_mesh_virtual_service(self):
         virtual_service = {
             "apiVersion": "networking.istio.io/v1beta1",

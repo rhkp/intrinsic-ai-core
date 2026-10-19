@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	controller "example.invalid/intrinsic-openshift/chartassignment-controller/controller"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
@@ -47,6 +48,7 @@ func assertGolden(t *testing.T, name, output string) {
 }
 
 func TestRunRendersInlineChartThroughOpenShiftPolicy(t *testing.T) {
+	setCanonicalControllerConfig(t)
 	archive := inlineTestChart(t)
 	input := "apiVersion: apps.cloudrobotics.com/v1alpha1\n" +
 		"kind: ChartAssignment\n" +
@@ -91,7 +93,7 @@ func TestRunRejectsNamespaceEscape(t *testing.T) {
 }
 
 func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
-	setSmokeRouting(t)
+	setCanonicalControllerConfig(t)
 	values := `resource_instances:
   - name: smoke-resource
     instance_name: smoke-resource
@@ -152,7 +154,7 @@ func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
 }
 
 func TestRunRendersDynamicSkillChartThroughOpenShiftPolicy(t *testing.T) {
-	setSmokeRouting(t)
+	setCanonicalControllerConfig(t)
 	values := `pods:
   - name: smoke-skill-group
     service_account_name: default
@@ -208,11 +210,21 @@ skills: []
 	}
 }
 
-func setSmokeRouting(t *testing.T) {
+func setCanonicalControllerConfig(t *testing.T) {
 	t.Helper()
-	t.Setenv("INTRINSIC_INGRESS_ADDRESS", "intrinsic-grpc-gateway."+smokeNamespace+".svc.cluster.local:80")
-	t.Setenv("INTRINSIC_INGRESS_GATEWAY", smokeNamespace+"/intrinsic-grpc-internal")
-	t.Setenv("INTRINSIC_INGRESS_POD_SELECTOR", `{"app.kubernetes.io/name":"intrinsic-grpc-gateway","istio":"intrinsic-grpc-gateway"}`)
+	controller.SetControllerConfig(&controller.ControllerConfig{
+		Namespace:           smokeNamespace,
+		BlockStorageClass:   "your-block-storage-class",
+		SharedStorageClass:  "your-shared-filesystem-storage-class",
+		GPUTaintKey:         "your-gpu-taint-key",
+		IngressAddress:      "intrinsic-grpc-gateway." + smokeNamespace + ".svc.cluster.local:80",
+		IngressGateway:      smokeNamespace + "/intrinsic-grpc-internal",
+		IngressPodSelector:  map[string]string{"app.kubernetes.io/name": "intrinsic-grpc-gateway", "istio": "intrinsic-grpc-gateway"},
+		ZenohRouterEndpoint: "zenoh-router." + smokeNamespace + ".svc.cluster.local:7447",
+		RHOAITritonEndpoint: "triton." + smokeNamespace + ".svc.cluster.local:8000",
+		ImageOverrides:      map[string]string{},
+	})
+	t.Cleanup(func() { controller.SetControllerConfig(nil) })
 }
 
 func runTemplateChart(t *testing.T, releaseName, templateName, values string) string {

@@ -12,6 +12,70 @@ source openshift/.env
 set +a
 ```
 
+## Canonical target configuration
+
+Copy `openshift/config.example.json` to the ignored
+`openshift/config.local.json`, replace its placeholders, and use the canonical
+renderer:
+
+```sh
+python3 openshift/render_config.py --validate-only
+python3 openshift/render_config.py --output-root openshift/.generated
+python3 openshift/render_config.py --output-root openshift/.generated --check
+```
+
+`--allow-placeholders` exists only for the checked-in example and tests. Runtime
+configuration must reject placeholder values.
+
+The renderer validates:
+
+- JSON Schema structure and unknown fields.
+- Kubernetes namespace, storage-class, quantity, and label syntax.
+- HTTPS API URL and registry syntax.
+- ingress, Zenoh, and RHOAI endpoint syntax.
+- cross-field namespace and image-lock invariants.
+
+It deterministically emits the following under the ignored
+`openshift/.generated/` output root, keeping live generated values out of tracked
+example files:
+
+- `.env`
+- `target-config.json`
+- the target ConfigMap containing the validated target config and image lock
+- `deployment/quay-image-values.yaml`
+- the controller namespace/checksum/read-only-volume patch
+
+Tests cover schema acceptance and rejection, semantic validation, cross-field
+invariants, deterministic rendering, golden outputs, and drift detection.
+
+The controller patch mounts the ConfigMap read-only at
+`/etc/intrinsic/controller-config` and passes both JSON files to the controller.
+Its `intrinsic.ai/controller-config-checksum` annotation changes when either
+JSON document changes, forcing an explicit controller rollout.
+
+For the E2.3 controlled rollout, render with the real ignored
+`config.local.json`, apply the generated ConfigMap first, then apply the
+controller Deployment patch and wait for the single controller replica to become
+Ready. Do not run these steps until the current ChartAssignment and ResourceSet
+state has been snapshotted for rollback comparison.
+
+The E2.3 rollout passed on 2026-10-19: all 223 rendered resources matched the
+compatibility path, application templates and images were unchanged, all four
+ChartAssignments and ResourceSets remained healthy, and all 10 original PVCs
+remained Bound with unchanged identities and specifications. The gateway and
+private-image-pull smokes passed. A real demo request completed on RHOAI after
+the documented scene reset; the demo then reproduced the known gripper/stock
+collision. The full pick cycle remains incomplete. See the
+[E2.3 evidence](../ENHANCEMENTS.md#milestone-e23--move-the-controller-to-validated-configuration).
+
+Apply the controller image and generated configuration in the same patch. Use
+`maxSurge: 0` and `maxUnavailable: 1` for the single controller because it does
+not enable leader election. The local
+`openshift/.generated/controller-rollout.patch.json` records the exact applied
+patch, and `openshift/.generated/rollback-controller.patch.json` restores the
+previous controller specification. Neither file belongs in Git. Do not delete
+ChartAssignments, ResourceSets, PVCs, or build caches to roll back configuration.
+
 
 **Status (2026-10-08):** The OpenShift-specific registry and ArtifactService
 fixes are deployed. `intrinsic-base`, `resources`, `skills`, and

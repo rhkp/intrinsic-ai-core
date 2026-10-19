@@ -8,6 +8,29 @@
 
 ## Current state
 
+### Latest result: canonical controller configuration rollout (2026-10-19)
+
+- E2.2/E2.3 configuration delivery is deployed. The controller reads the target
+  configuration and image lock before starting reconciliation; application
+  image references and templates are unchanged. All four ChartAssignments are
+  Ready and all four ResourceSets are Settled.
+- All 10 original PVCs retain their identities, specifications, and Bound
+  status. The workspace and its caches were preserved, and the demo used its
+  existing cached executable. No application pods were replaced by the rollout.
+- Internal RHOAI model readiness and synthetic wrapper inference passed before
+  and after rollout. The gateway mTLS and private-registry pull smokes passed.
+- A real demo attempt reached RHOAI but stopped on an unreachable pre-grasp
+  target. The documented four-file cell reset succeeded. The subsequent demo
+  retry completed FoundationPose on RHOAI in 8.184 seconds with one output and
+  reached the previously observed gripper/stock collision. Full pick completion
+  remains unproven; do not report it as a configuration-rollout acceptance pass.
+- Ignored `openshift/config.local.json` and `openshift/image-lock.local.json`
+  hold the approved local settings. Ignored `openshift/.generated/` holds the
+  deployed config artifacts and exact controller rollout/rollback patches.
+  Rollback is prepared but has not been exercised. See
+  [E2.3 evidence](../../ENHANCEMENTS.md#milestone-e23--move-the-controller-to-validated-configuration)
+  for the completed gates and the remaining E2.4 compatibility consumer.
+
 ### Latest result: controller-delivered internal gRPC adapter (2026-10-15)
 
 - Rolled out the existing ChartAssignment controller with only the RHOAI

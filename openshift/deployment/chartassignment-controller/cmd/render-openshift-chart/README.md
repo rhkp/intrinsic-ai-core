@@ -19,6 +19,7 @@ umask 077
 go run ./cmd/render-openshift-chart < /path/to/inline-chart-assignment.yaml \
   > /private/tmp/intrinsic-rendered.yaml
 python3 ../../validate_rendered_manifests.py \
+  --target-config ../../target-config.json \
   --namespace your-project-namespace /private/tmp/intrinsic-rendered.yaml
 ```
 

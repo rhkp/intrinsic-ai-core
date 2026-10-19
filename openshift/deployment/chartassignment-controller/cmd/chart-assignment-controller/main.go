@@ -54,6 +54,8 @@ var (
 	stackdriverProjectID = flag.String("trace-stackdriver-project-id", "", "If not empty, traces will be uploaded to this Google Cloud Project. Not relevant for cloud cluster")
 	maxQPS               = flag.Int("apiserver-max-qps", 50, "Maximum number of calls to the API server per second.")
 	logLevel             = flag.Int("log-level", int(slog.LevelInfo), "the log message level required to be logged")
+	targetConfigPath     = flag.String("target-config", "", "Path to the canonical target configuration JSON")
+	imageLockPath        = flag.String("image-lock", "", "Path to the canonical image lock JSON")
 )
 
 func main() {
@@ -61,6 +63,22 @@ func main() {
 	if *watchNamespace == "" {
 		slog.Error("watch-namespace must be set")
 		os.Exit(1)
+	}
+	if (*targetConfigPath == "") != (*imageLockPath == "") {
+		slog.Error("target-config and image-lock must be provided together")
+		os.Exit(1)
+	}
+	if *targetConfigPath != "" {
+		config, err := controller.LoadControllerConfig(*targetConfigPath, *imageLockPath)
+		if err != nil {
+			slog.Error("Failed to load canonical controller configuration", ilog.Err(err))
+			os.Exit(1)
+		}
+		if err := config.ValidateEnvironmentCompatibility(*watchNamespace); err != nil {
+			slog.Error("Canonical controller configuration conflicts with the active environment", ilog.Err(err))
+			os.Exit(1)
+		}
+		controller.SetControllerConfig(config)
 	}
 	logHandler := ilog.NewLogHandler(slog.Level(*logLevel), os.Stderr)
 	slog.SetDefault(slog.New(logHandler))

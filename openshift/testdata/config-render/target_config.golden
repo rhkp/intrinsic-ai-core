@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "target": {
+    "images": {
+      "lock": "image-lock.json"
+    },
+    "namespace": "your-project-namespace",
+    "networking": {
+      "ingress_address": "intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80",
+      "ingress_gateway": "your-project-namespace/intrinsic-grpc-internal",
+      "ingress_pod_selector": {
+        "app.kubernetes.io/name": "intrinsic-grpc-gateway",
+        "istio": "intrinsic-grpc-gateway"
+      },
+      "rhoai_triton_endpoint": "replace-with-approved-internal-service:port",
+      "zenoh_router_endpoint": "zenoh-router.your-project-namespace.svc.cluster.local:7447"
+    },
+    "registry": {
+      "internal_host": "image-registry.openshift-image-registry.svc:5000",
+      "quay_org": "your-registry-org",
+      "quay_prefix": "quay.io/your-registry-org/intrinsic"
+    },
+    "scheduling": {
+      "gpu_taint_key": "your-gpu-taint-key"
+    },
+    "storage": {
+      "block_class": "your-block-storage-class",
+      "pvc_size": "20Gi",
+      "shared_filesystem_class": "your-shared-filesystem-storage-class"
+    }
+  }
+}

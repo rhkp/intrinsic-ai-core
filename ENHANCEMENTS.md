@@ -1,5 +1,8 @@
 # Enhancement backlog
 
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
 This document records high-impact improvements identified during the repository
 review on 2026-10-19. Work these items one at a time, in priority order unless
 an operational incident changes the current blocker.
@@ -177,6 +180,8 @@ each has its own rollback boundary.
 
 #### Milestone E2.1 — Establish a no-change safety net
 
+**Status:** complete on 2026-10-19.
+
 **Goal:** make the current behavior measurable without changing it.
 
 **Resolved baseline finding (2026-10-19):** the offline audit found that
@@ -210,6 +215,8 @@ requires the two to match.
 **Rollback:** revert the audit and tests only; no cluster change is required.
 
 #### Milestone E2.2 — Add canonical configuration beside the current path
+
+**Status:** complete on 2026-10-19.
 
 **Goal:** introduce the authoritative model and renderer while the existing
 environment and controller behavior remain active.
@@ -257,6 +264,68 @@ environment and controller behavior remain active.
 existing environment path remains untouched.
 
 #### Milestone E2.3 — Move the controller to validated configuration
+
+**Status:** complete on 2026-10-19.
+
+**Implementation status (2026-10-19):** the offline controller path is implemented
+and tested. The typed loader normalizes image identity, rejects placeholder and
+drifted lock data, preserves the legacy override map exactly, and checks all
+controller-consumed environment values for conflicts. The renderer delivers the
+target config and image lock through one read-only ConfigMap, and its controller
+patch rolls on the combined checksum. The offline manifest validator now composes
+references with the same normalized model. All available renderer fixtures pass
+through canonical configuration with zero golden-output change.
+
+The controlled cluster rollout and post-rollout checks in steps 12–17 passed
+on 2026-10-19. This completes E2.3; E2.4 and the broader model-lifecycle and
+rollback-rehearsal work remain separate.
+
+**Controlled rollout evidence (2026-10-19)**
+
+- Fixed two remaining image-selection paths: Resource Registry and Workcell
+  now take their deployment images from the canonical image model. Missing
+  canonical destinations fail rather than falling back to placeholder images.
+  Focused regression tests cover both selection and missing-image failures.
+- Rendered all four live ChartAssignments through canonical and compatibility
+  configuration: all 223 resources were identical. Server-side dry runs also
+  reported zero application-template, image-reference, or PVC-specification
+  changes.
+- Applied the target ConfigMap first, then rolled only the controller image and
+  configuration mounts. The rollout used one replica, `maxSurge: 0`, and
+  `maxUnavailable: 1` to prevent overlapping controllers without leader election.
+- Triggered no-op reconciliation for all four ChartAssignments. All four are
+  Ready and all four ResourceSets are Settled. Application pod identities and
+  templates were preserved; all active project pods are Ready.
+- All 10 original PVCs retain their identities, specifications, and Bound
+  status. No application uninstall, PVC deletion, cache cleanup, or OMTS rebuild
+  was performed. The existing persistent workspace and cached executables were
+  reused.
+- The strict-mTLS gateway smoke passed five pings and removed its temporary
+  resources. A separate temporary pod verified private-registry pulls under the
+  application service account with an assigned non-root UID; it was removed.
+- Both RHOAI models reported Ready, and synthetic RF-DETR inference passed
+  through the existing wrapper before and after rollout. The RHOAI predictor's
+  GPU device query passed.
+- Ran the existing cached one-cycle demo. The first attempt reached RHOAI but
+  stopped on an unreachable pre-grasp target. After applying the four documented
+  cell-specific scene files and resetting the simulator, the retry completed a
+  real RHOAI FoundationPose request in 8.184 seconds with one output, then stopped
+  on the previously documented `gripper.gripper_finger2` versus
+  `raw_stock_2x3x5.base_link` collision. This reproduces the prior checkpoint;
+  it does not establish a completed pick cycle. Collision resolution remains E5.
+- The 44 Python tests, Go tests, `go vet`, deterministic configuration checks,
+  formatting, and provenance verification passed. Provenance covers 156
+  upstream copies and 61 adaptation-file entries.
+
+Live settings stay in ignored `openshift/config.local.json` and
+`openshift/image-lock.local.json`. Generated rollout artifacts and the exact
+previous-controller rollback patch are retained privately in ignored
+`openshift/.generated/`; raw diagnostic evidence stays outside Git. Rollback
+was prepared but was not exercised against the healthy deployment.
+
+The existing Service Mesh control-plane revision remains a build-time
+compatibility value in E2.3. The rollout preserved it; migrate that remaining
+consumer when completing E2.4.
 
 **Goal:** make the controller consume the canonical config and normalized image
 model while preserving the exact current workload output.
@@ -311,6 +380,24 @@ model while preserving the exact current workload output.
 - The controlled cluster rollout changes no workload image or rendered resource
   except config-delivery metadata.
 - Existing ChartAssignments and ResourceSets remain Ready or Settled.
+
+**Offline test gate:**
+
+```sh
+cd openshift/deployment/chartassignment-controller
+GOCACHE=/private/tmp/intrinsic-go-cache go test ./...
+GOCACHE=/private/tmp/intrinsic-go-cache go vet ./...
+cd ../../..
+python3 -m unittest discover -s openshift -p 'test_*.py' -v
+python3 openshift/render_config.py \
+  --config openshift/config.example.json --allow-placeholders --validate-only
+python3 openshift/audit/audit_config.py
+/usr/bin/git diff --check
+```
+
+The real target check remains `python3 openshift/render_config.py
+--validate-only`; it intentionally fails when the ignored
+`openshift/config.local.json` is absent or still contains placeholders.
 
 **Rollback:** restore the previous controller image and Deployment, then
 re-run no-op reconcile and smoke checks. Do not delete ChartAssignments,

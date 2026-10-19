@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    intrinsic.ai/controller-config-checksum: 6fc324585b6508c1399211d583244ea62108a1f7f3af5dbcb7b21006372dc67a
+  name: chartassignment-controller
+  namespace: your-project-namespace
+spec:
+  template:
+    metadata:
+      annotations:
+        intrinsic.ai/controller-config-checksum: 6fc324585b6508c1399211d583244ea62108a1f7f3af5dbcb7b21006372dc67a
+    spec:
+      containers:
+      - args:
+        - --watch-namespace=your-project-namespace
+        - --cloud-cluster=true
+        - --webhook-enabled=false
+        - --healthz-port=8080
+        - --target-config=/etc/intrinsic/controller-config/target-config.json
+        - --image-lock=/etc/intrinsic/controller-config/image-lock.json
+        name: controller
+        volumeMounts:
+        - mountPath: /etc/intrinsic/controller-config
+          name: intrinsic-controller-config
+          readOnly: true
+      volumes:
+      - configMap:
+          name: intrinsic-target-config
+        name: intrinsic-controller-config

@@ -71,10 +71,39 @@ const (
 )
 
 func configuredStorageClass(environment, fallback string) string {
+	if controllerConfig != nil {
+		switch environment {
+		case openshiftStorageClassEnv:
+			return controllerConfig.BlockStorageClass
+		case openshiftSharedStorageClassEnv:
+			return controllerConfig.SharedStorageClass
+		}
+	}
 	if value := strings.TrimSpace(os.Getenv(environment)); value != "" {
 		return value
 	}
 	return fallback
+}
+
+func configuredGPUTaintKey() string {
+	if controllerConfig != nil {
+		return controllerConfig.GPUTaintKey
+	}
+	return openshiftGPUTaintKey
+}
+
+func configuredZenohRouterEndpoint(namespace string) string {
+	if controllerConfig != nil {
+		return "tcp/" + controllerConfig.ZenohRouterEndpoint
+	}
+	return "tcp/zenoh-router." + namespace + ".svc.cluster.local:7447"
+}
+
+func configuredRHOAITritonEndpoint(namespace string) string {
+	if controllerConfig != nil {
+		return controllerConfig.RHOAITritonEndpoint
+	}
+	return "triton-rhoai-grpc." + namespace + ".svc.cluster.local:9000"
 }
 
 const (
@@ -97,11 +126,43 @@ const (
 // These upstream charts pin two images directly in templates instead of using
 // their image abstraction values. Keep the destinations synchronized with
 // openshift/image-lock.json; the rendered-manifest validator checks the lock.
-var openshiftImageOverrides = map[string]string{
+var defaultImageOverrides = map[string]string{
 	"us-central1-docker.pkg.dev/intrinsic-mirror/intrinsic-build-images/zenohd:1.7.2":                                                                                                                          quayZenohdImage,
 	"ghcr.io/intrinsic-ai/code-execution-jupyter-server@sha256:e14b4e15b1b8341671c372eeadc328b25663c506827dc47e2e60e0f7b7ef1f2c":                                                                               quayJupyterServerImage,
 	"image-registry.openshift-image-registry.svc:5000/your-project-namespace/ai.intrinsic.move_to_contact.move_to_contact_skill_image@sha256:0cfc737f4670c9b9b486ac6e2ec137b8ac552e32a98df5479f8ad929a9898a5b": "image-registry.openshift-image-registry.svc:5000/your-project-namespace/move-to-contact-openshift@sha256:79494450d82e41ca3f856eaf89a46396816e86b96e0c3269a57bbd1bd677e520",
 	"quay.io/your-registry-org/intrinsic/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99":                                                           "image-registry.openshift-image-registry.svc:5000/your-project-namespace/artifacts-service-openshift@sha256:7e35c59a20a0000f49076f4b99bd328a846ccb576b652d0b9a96177da9f88c42",
+}
+
+func imageOverrides() map[string]string {
+	if controllerConfig != nil {
+		return controllerConfig.ImageOverrides
+	}
+	return defaultImageOverrides
+}
+
+func configuredDeploymentImage(name string) (string, error) {
+	if controllerConfig == nil {
+		switch name {
+		case "resource-registry":
+			return quayResourceRegistryImage, nil
+		case "workcell-cluster-service":
+			return workcellServiceImage, nil
+		}
+	}
+	if controllerConfig == nil || controllerConfig.ImageModel == nil {
+		return "", fmt.Errorf("canonical image model is missing for Deployment %q", name)
+	}
+	var image string
+	switch name {
+	case "resource-registry":
+		image = controllerConfig.ImageModel.ChartImages["resource_registry"].OpenShiftDestination
+	case "workcell-cluster-service":
+		image = controllerConfig.ImageModel.ProjectImages[name].Destination
+	}
+	if image == "" {
+		return "", fmt.Errorf("canonical image destination is missing for Deployment %q", name)
+	}
+	return image, nil
 }
 
 type openshiftRoutingConfig struct {
@@ -114,6 +175,21 @@ type openshiftRoutingConfig struct {
 }
 
 func routingConfigFromEnvironment() openshiftRoutingConfig {
+	if controllerConfig != nil {
+		selectorJSON := ""
+		if controllerConfig.IngressPodSelector != nil {
+			encoded, err := json.Marshal(controllerConfig.IngressPodSelector)
+			if err != nil {
+				return openshiftRoutingConfig{}
+			}
+			selectorJSON = string(encoded)
+		}
+		return openshiftRoutingConfig{
+			address:      controllerConfig.IngressAddress,
+			gateway:      controllerConfig.IngressGateway,
+			selectorJSON: selectorJSON,
+		}
+	}
 	return openshiftRoutingConfig{
 		address:      strings.TrimSpace(os.Getenv(ingressAddressEnv)),
 		gateway:      strings.TrimSpace(os.Getenv(ingressGatewayEnv)),
@@ -1019,7 +1095,7 @@ func adaptPodSpec(resource *unstructured.Unstructured, namespace string, needsDa
 			if strings.HasPrefix(image, "localhost:17127/") {
 				return fmt.Errorf("runtime image %q still targets the node-local ArtifactService registry; set the OpenShift registry endpoint in the workspace", image)
 			}
-			if lockedImage, found := openshiftImageOverrides[image]; found {
+			if lockedImage, found := imageOverrides()[image]; found {
 				container["image"] = lockedImage
 			}
 		}
@@ -1094,7 +1170,7 @@ func ensureNvidiaGPUToleration(podSpec map[string]interface{}) error {
 		if !ok {
 			continue
 		}
-		if toleration["key"] == openshiftGPUTaintKey && toleration["operator"] == "Equal" && toleration["value"] == "true" && toleration["effect"] == "NoSchedule" {
+		if toleration["key"] == configuredGPUTaintKey() && toleration["operator"] == "Equal" && toleration["value"] == "true" && toleration["effect"] == "NoSchedule" {
 			return nil
 		}
 	}
@@ -1102,7 +1178,7 @@ func ensureNvidiaGPUToleration(podSpec map[string]interface{}) error {
 		tolerations = []interface{}{}
 	}
 	tolerations = append(tolerations, map[string]interface{}{
-		"key":      openshiftGPUTaintKey,
+		"key":      configuredGPUTaintKey(),
 		"operator": "Equal",
 		"value":    "true",
 		"effect":   "NoSchedule",
@@ -1424,7 +1500,7 @@ target.write_text(text)
 	}
 	env = append(env, map[string]interface{}{
 		"name":  "INTRINSIC_RHOAI_TRITON_ENDPOINT",
-		"value": "triton-rhoai-grpc." + namespace + ".svc.cluster.local:9000",
+		"value": configuredRHOAITritonEndpoint(namespace),
 	})
 	if err := unstructured.SetNestedSlice(appContainer, env, "env"); err != nil {
 		return err
@@ -2166,7 +2242,7 @@ func adaptKnownHostPath(resource *unstructured.Unstructured, volume map[string]i
 // default. Namespace string rewriting only sees manifest values; it cannot
 // alter a default compiled into the World or Simulation binary.
 func ensureProjectZenohRouter(container map[string]interface{}, namespace string) error {
-	endpoint := "tcp/zenoh-router." + namespace + ".svc.cluster.local:7447"
+	endpoint := configuredZenohRouterEndpoint(namespace)
 	args, found, err := unstructured.NestedStringSlice(container, "args")
 	if err != nil {
 		return fmt.Errorf("read container args: %w", err)
@@ -2218,16 +2294,21 @@ func adaptDeploymentForOpenShift(resource *unstructured.Unstructured, podSpec ma
 	switch resource.GetName() {
 	case "resource-registry":
 		containerName = "resource-registry"
-		image = quayResourceRegistryImage
 		watchConfigMaps = true
 	case "workcell-cluster-service":
 		containerName = "workcell-cluster-service"
-		image = workcellServiceImage
 	case "code-execution":
 		containerName = "jupyter-server"
 		configureJupyter = true
 	default:
 		return nil
+	}
+	if !configureJupyter {
+		var err error
+		image, err = configuredDeploymentImage(resource.GetName())
+		if err != nil {
+			return err
+		}
 	}
 
 	containers, found, err := unstructured.NestedSlice(podSpec, "containers")

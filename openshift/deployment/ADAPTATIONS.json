@@ -140,7 +140,7 @@
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "ca92d7dbc740eb199798b5e293ce68faec74e83aa56223046f50ddcb87708126"
+          "sha256": "ce5615d80e16a775240c305b2581091c2331b16cd3c5aa0de6f0c7a06d9f0f28"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -193,11 +193,11 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "771b13643cfbf175000a5d794af11731db9338a613175da2476fdf55fb693a76"
+          "sha256": "a4236adbc38808cd81cf2db99cff9190776aa78455bb6b134b0f7b4853b84f09"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "fdf7ef34ed283061e16f26154271e5f2b48287bd3b4de33b8b06a024d69dd344"
+          "sha256": "6e5ff224ef0e763f2c6521cf2b78b25829d004295a29a3b9f86538928f20092a"
         },
         {
           "path": "openshift/configure_routing.py",
@@ -393,15 +393,15 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "771b13643cfbf175000a5d794af11731db9338a613175da2476fdf55fb693a76"
+          "sha256": "a4236adbc38808cd81cf2db99cff9190776aa78455bb6b134b0f7b4853b84f09"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "fdf7ef34ed283061e16f26154271e5f2b48287bd3b4de33b8b06a024d69dd344"
+          "sha256": "6e5ff224ef0e763f2c6521cf2b78b25829d004295a29a3b9f86538928f20092a"
         },
         {
           "path": "openshift/image-lock.json",
-          "sha256": "ca92d7dbc740eb199798b5e293ce68faec74e83aa56223046f50ddcb87708126"
+          "sha256": "ce5615d80e16a775240c305b2581091c2331b16cd3c5aa0de6f0c7a06d9f0f28"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -426,6 +426,56 @@
         "jupyter_open_shift_adaptation": "HOME and JUPYTER_RUNTIME_DIR use the verified writable /home/defaultuser emptyDir; image entrypoint replaced to bind unauthenticated API to ::1; all three workers created kernels and completed startup requests; 2/2 pod containers Ready with zero restarts",
         "core_image_comparison": "rendered both ChartAssignments before rollout and compared all 20 Core Deployment image sets to live Deployments; repeated live comparison after rollout against pre-fix snapshot; zero image changes, including world-*"
       }
+    },
+    {
+      "id": "canonical-target-configuration-e2",
+      "status": "offline implementation tested; controlled cluster rollout pending",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/config.example.json",
+          "sha256": "2cadddc069d28220d27ec8f7b5a342edebebb7463cf3d12f47a27cc553bf9974"
+        },
+        {
+          "path": "openshift/config.schema.json",
+          "sha256": "2c78b574c42bc41d6bb62400c965cb2509a9d84d63e8d209ade44ea791fea6ba"
+        },
+        {
+          "path": "openshift/render_config.py",
+          "sha256": "9a232d5a6c05dd324afa969e7d78ab76b063667b17ade555ea36fb9c8132943f"
+        },
+        {
+          "path": "openshift/test_render_config.py",
+          "sha256": "ebe669ff7b141910460177c60ff150a598fd57fbcc7e33bae17764414b1bd815"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/config.go",
+          "sha256": "4417021f6cb73b6a4ec9a27a893a72a4a0fc3b9b1112af70903de40534862b91"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/config_test.go",
+          "sha256": "821d5234207ff491ad8f058af0c285f7b0796a1c32829806424abb6edfc5cd59"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_ros_zenoh.go",
+          "sha256": "4ed65c497043f11ee3ab72e832f663a3c07bf091a402e8e294092e8cd7395ad5"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/cmd/chart-assignment-controller/main.go",
+          "sha256": "61abe451e8fe955dd49f663a74c4f63eac4eb32f854fb450321a554450415df6"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/cmd/render-openshift-chart/main_test.go",
+          "sha256": "1a1876f8ecbd976b9002795500c808fd141919586243565722d50720d92c5113"
+        },
+        {
+          "path": "openshift/validate_rendered_manifests.py",
+          "sha256": "06d944ef2233948a6c8e964c29cf4735eb6a9d21fd465d6a5a296d727f2f32d3"
+        },
+        {
+          "path": "openshift/test_validate_rendered_manifests.py",
+          "sha256": "f81269cd874cae000b810405e96485d0cc2dcca8a962d90c604d5f77170b3e2b"
+        }
+      ]
     }
   ]
 }

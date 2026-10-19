@@ -38,6 +38,13 @@ func TestConfiguredStorageClassUsesEnvironment(t *testing.T) {
 	}
 }
 
+func useControllerConfig(t *testing.T, config *ControllerConfig) {
+	t.Helper()
+	previous := controllerConfig
+	SetControllerConfig(config)
+	t.Cleanup(func() { SetControllerConfig(previous) })
+}
+
 func protobufBytesField(number uint64, value []byte) []byte {
 	var encoded [binary.MaxVarintLen64]byte
 	fieldTagBytes := binary.PutUvarint(encoded[:], number<<3|2)
@@ -45,6 +52,90 @@ func protobufBytesField(number uint64, value []byte) []byte {
 	lengthBytes := binary.PutUvarint(encoded[:], uint64(len(value)))
 	result = append(result, encoded[:lengthBytes]...)
 	return append(result, value...)
+}
+
+func TestCanonicalControllerConfigSuppliesEndpoints(t *testing.T) {
+	useControllerConfig(t, &ControllerConfig{
+		ZenohRouterEndpoint: "zenoh.example.com:7447",
+		RHOAITritonEndpoint: "triton.example.com:9000",
+	})
+	if got := configuredZenohRouterEndpoint(pilotNamespace); got != "tcp/zenoh.example.com:7447" {
+		t.Fatalf("Zenoh endpoint = %q", got)
+	}
+	if got := configuredRHOAITritonEndpoint(pilotNamespace); got != "triton.example.com:9000" {
+		t.Fatalf("RHOAI endpoint = %q", got)
+	}
+	container := map[string]interface{}{"args": []interface{}{"server"}}
+	if err := ensureProjectZenohRouter(container, pilotNamespace); err != nil {
+		t.Fatal(err)
+	}
+	args, _, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil || len(args) != 2 || args[1] != "--zenoh_router=tcp/zenoh.example.com:7447" {
+		t.Fatalf("Zenoh args = %v, err = %v", args, err)
+	}
+}
+
+func TestCanonicalImageOverridesSubstituteWorkloadImages(t *testing.T) {
+	source := "source.example.com/skill@sha256:" + strings.Repeat("a", 64)
+	destination := "destination.example.com/skill@sha256:" + strings.Repeat("b", 64)
+	useControllerConfig(t, &ControllerConfig{
+		ImageOverrides: map[string]string{source: destination},
+	})
+	resource := object("Deployment", "override-smoke", map[string]interface{}{
+		"spec": map[string]interface{}{"template": map[string]interface{}{"spec": map[string]interface{}{
+			"containers": []interface{}{map[string]interface{}{
+				"name":  "override-smoke",
+				"image": source,
+			}},
+		}}},
+	})
+
+	adapted, err := adaptOpenShiftResources([]*unstructured.Unstructured{resource}, pilotNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	containers, _, _ := unstructured.NestedSlice(adapted[0].Object, "spec", "template", "spec", "containers")
+	if len(containers) != 1 || containers[0].(map[string]interface{})["image"] != destination {
+		t.Fatalf("adapted image = %#v, want %q", containers, destination)
+	}
+}
+
+func TestCanonicalDeploymentImagesUseImageModel(t *testing.T) {
+	registryImage := "registry.example.com:5000/test-project/registry@sha256:" + strings.Repeat("a", 64)
+	workcellImage := "registry.example.com:5000/test-project/workcell@sha256:" + strings.Repeat("b", 64)
+	useControllerConfig(t, &ControllerConfig{ImageModel: &ImageModel{
+		ChartImages: map[string]NormalizedImage{
+			"resource_registry": {OpenShiftDestination: registryImage},
+		},
+		ProjectImages: map[string]NormalizedImage{
+			"workcell-cluster-service": {Destination: workcellImage},
+		},
+	}})
+	for name, expected := range map[string]string{"resource-registry": registryImage, "workcell-cluster-service": workcellImage} {
+		t.Run(name, func(t *testing.T) {
+			resource := object("Deployment", name, nil)
+			podSpec := map[string]interface{}{"containers": []interface{}{map[string]interface{}{
+				"name": name, "image": "source.example.com/upstream:original",
+			}}}
+			if err := adaptDeploymentForOpenShift(resource, podSpec, "test-project"); err != nil {
+				t.Fatal(err)
+			}
+			if got := podSpec["containers"].([]interface{})[0].(map[string]interface{})["image"]; got != expected {
+				t.Fatalf("image = %v, want %q", got, expected)
+			}
+		})
+	}
+}
+
+func TestCanonicalDeploymentImagesRejectMissingDestination(t *testing.T) {
+	for _, model := range []*ImageModel{nil, {}} {
+		useControllerConfig(t, &ControllerConfig{ImageModel: model})
+		for _, name := range []string{"resource-registry", "workcell-cluster-service"} {
+			if _, err := configuredDeploymentImage(name); err == nil {
+				t.Fatalf("missing canonical image for %q silently accepted", name)
+			}
+		}
+	}
 }
 
 func TestAdaptFlowstateRuntimeConfigUsesProjectZenohRouter(t *testing.T) {
@@ -76,6 +167,35 @@ func TestAdaptFlowstateRuntimeConfigUsesProjectZenohRouter(t *testing.T) {
 	}
 	if err := adaptFlowstateRuntimeConfig(resource, pilotNamespace); err != nil {
 		t.Fatalf("second adaptation: %v", err)
+	}
+}
+
+func TestAdaptFlowstateRuntimeConfigUsesCanonicalZenohRouter(t *testing.T) {
+	useControllerConfig(t, &ControllerConfig{
+		ZenohRouterEndpoint: "zenoh.example.com:7447",
+	})
+	oldEndpoint := []byte(upstreamZenohRouterEndpoint)
+	firstNested := protobufBytesField(1, oldEndpoint)
+	secondNested := protobufBytesField(2, protobufBytesField(1, oldEndpoint))
+	runtimeConfig := append(protobufBytesField(1, firstNested), secondNested...)
+	resource := object("ConfigMap", flowstateRuntimeConfigMapName, map[string]interface{}{
+		"binaryData": map[string]interface{}{flowstateRuntimeConfigKey: base64.StdEncoding.EncodeToString(runtimeConfig)},
+	})
+
+	if err := adaptFlowstateRuntimeConfig(resource, pilotNamespace); err != nil {
+		t.Fatal(err)
+	}
+	encoded, _, err := unstructured.NestedString(resource.Object, "binaryData", flowstateRuntimeConfigKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantEndpoint := []byte("tcp/zenoh.example.com:7447")
+	if got := strings.Count(string(updated), string(wantEndpoint)); got != 2 {
+		t.Fatalf("adapted canonical endpoint count = %d, want 2", got)
 	}
 }
 
@@ -1080,10 +1200,11 @@ func TestOpenShiftImageConfigurationMatchesImageLock(t *testing.T) {
 	if quayJupyterServerImage != images["code_execution_jupyter_server"] {
 		t.Fatalf("Jupyter image = %q, want lock image %q", quayJupyterServerImage, images["code_execution_jupyter_server"])
 	}
-	if len(openshiftImageOverrides) != 4 {
-		t.Fatalf("image override count = %d, want 4", len(openshiftImageOverrides))
+	overrides := imageOverrides()
+	if len(overrides) != 4 {
+		t.Fatalf("image override count = %d, want 4", len(overrides))
 	}
-	for source, destination := range openshiftImageOverrides {
+	for source, destination := range overrides {
 		if !authorized[destination] {
 			t.Fatalf("image override %q has unauthorized destination %q", source, destination)
 		}

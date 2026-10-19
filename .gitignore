@@ -77,6 +77,12 @@ id_rsa
 !openshift/deployment/SOURCE_MANIFEST.json
 !openshift/image-lock.json
 
+# Generated canonical configuration artifacts. Keep live values out of Git.
+/openshift/.generated/
+/openshift/target-config.json
+/openshift/deployment/chartassignment-controller/deploy/target-config.configmap.yaml
+/openshift/deployment/chartassignment-controller/deploy/controller-deployment-patch.yaml
+
 # Local bearer token file referenced by the ignored RHOAI environment.
 /approaches/tried-not-feasible-aws-vm-with-rhoai/~/.config/intrinsic/rhoai-token
 

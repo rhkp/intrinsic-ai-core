@@ -17,6 +17,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent
 IMAGE_LOCK = ROOT / "image-lock.json"
+TARGET_CONFIG = ROOT / "target-config.json"
+INTERNAL_REGISTRY_HOST = "image-registry.openshift-image-registry.svc:5000"
 PROJECT_KINDS = {
     "ConfigMap",
     "ServiceAccount",
@@ -50,7 +52,9 @@ class ValidationError(ValueError):
     """A safe-to-print rendered-manifest validation failure."""
 
 
-def locked_references(path: Path, namespace: str) -> set[str]:
+def locked_references(
+    path: Path, namespace: str, registry_host: str = INTERNAL_REGISTRY_HOST
+) -> set[str]:
     try:
         lock = json.loads(path.read_text())
         images = lock["images"]
@@ -59,15 +63,21 @@ def locked_references(path: Path, namespace: str) -> set[str]:
         raise ValidationError("image lock is unreadable or malformed") from exc
     if not isinstance(images, list) or not isinstance(prefix, str):
         raise ValidationError("image lock schema is invalid")
-    project_prefix = f"image-registry.openshift-image-registry.svc:5000/{namespace}/"
+    project_prefix = f"{registry_host}/{namespace}/"
     refs: set[str] = set()
     for image in images:
         if not isinstance(image, dict):
             raise ValidationError("image lock entry is invalid")
         repository = image.get("quay_repository")
         digest = image.get("quay_digest")
+        basename = image.get("chart_repository_basename")
+        if not isinstance(basename, str) or not basename:
+            raise ValidationError("image lock repository basename is missing")
+        expected_repository = f"{prefix}/{basename}"
         if not isinstance(repository, str) or not repository.startswith(prefix + "/"):
             raise ValidationError("image lock repository is invalid")
+        if repository != expected_repository:
+            raise ValidationError("image lock repository is not composed from the registry prefix and basename")
         if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
             raise ValidationError("image lock digest is invalid")
         ref = f"{repository}@{digest}"
@@ -93,8 +103,14 @@ def locked_references(path: Path, namespace: str) -> set[str]:
             raise ValidationError("project image lock entry is invalid")
         repository = image.get("repository")
         digest = image.get("digest")
+        name = image.get("name")
+        if not isinstance(name, str) or not name:
+            raise ValidationError("project image name is missing")
+        expected_repository = f"{registry_host}/{namespace}/{name}"
         if not isinstance(repository, str) or not repository.startswith(project_prefix):
             raise ValidationError("project image lock repository is outside the target project")
+        if repository != expected_repository:
+            raise ValidationError("project image repository is not composed from the target registry and namespace")
         if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
             raise ValidationError("project image lock digest is invalid")
         ref = f"{repository}@{digest}"
@@ -266,10 +282,26 @@ def main() -> int:
         "--namespace", default=os.environ.get("OPENSHIFT_NAMESPACE", "your-project-namespace")
     )
     parser.add_argument("--image-lock", type=Path, default=IMAGE_LOCK)
+    parser.add_argument("--target-config", type=Path, default=TARGET_CONFIG)
     args = parser.parse_args()
 
     try:
-        locked = locked_references(args.image_lock, args.namespace)
+        try:
+            target_config = json.loads(args.target_config.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValidationError(
+                f"target config {args.target_config.name} is missing or malformed"
+            ) from exc
+        target = target_config.get("target")
+        if not isinstance(target, dict):
+            raise ValidationError("target config has no target object")
+        namespace = target.get("namespace")
+        registry_host = target.get("registry", {}).get("internal_host")
+        if not isinstance(namespace, str) or not isinstance(registry_host, str):
+            raise ValidationError("target config namespace or internal registry host is missing")
+        if args.namespace != namespace:
+            raise ValidationError("target config namespace does not match --namespace")
+        locked = locked_references(args.image_lock, namespace, registry_host)
         documents: list[dict[str, Any]] = []
         for path in args.manifests:
             try:

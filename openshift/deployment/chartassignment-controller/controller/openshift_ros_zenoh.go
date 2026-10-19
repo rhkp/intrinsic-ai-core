@@ -93,7 +93,7 @@ func adaptFlowstateRuntimeConfig(resource *unstructured.Unstructured, namespace 
 	if err != nil {
 		return fmt.Errorf("decode %s: %w", flowstateRuntimeConfigKey, err)
 	}
-	replacement := []byte("tcp/zenoh-router." + namespace + ".svc.cluster.local:7447")
+	replacement := []byte(configuredZenohRouterEndpoint(namespace))
 	old := []byte(upstreamZenohRouterEndpoint)
 	oldCount := bytes.Count(runtimeConfig, old)
 	if oldCount == 0 && bytes.Count(runtimeConfig, replacement) == 2 {
@@ -297,7 +297,7 @@ func adaptZenohClient(resource *unstructured.Unstructured, namespace string, con
 	if target == nil {
 		return fmt.Errorf("%s %q has no %q container", resource.GetKind(), resource.GetName(), containerName)
 	}
-	endpoint := "tcp/zenoh-router." + namespace + ".svc.cluster.local:7447"
+	endpoint := configuredZenohRouterEndpoint(namespace)
 	if useUpstreamZenohDNS {
 		return excludeZenohPortFromIstio(resource)
 	}
