@@ -1,0 +1,8 @@
+# This project was developed with assistance from AI tools.
+apiVersion: v1
+data:
+  result: passed
+kind: ConfigMap
+metadata:
+  name: render-smoke-result
+  namespace: your-project-namespace

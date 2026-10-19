@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,33 @@ import (
 )
 
 const smokeNamespace = "your-project-namespace"
+const goldenAttribution = "# This project was developed with assistance from AI tools.\n"
+
+var updateGolden = flag.Bool("update", false, "update golden rendered output")
+
+func assertGolden(t *testing.T, name, output string) {
+	t.Helper()
+	goldenPath := filepath.Join("testdata", name+".golden.yaml")
+	if *updateGolden {
+		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(goldenPath, []byte(goldenAttribution+output), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	expected, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(expected, []byte(goldenAttribution)) {
+		t.Fatalf("golden output for %s is missing attribution", name)
+	}
+	if strings.TrimPrefix(string(expected), goldenAttribution) != output {
+		t.Fatalf("rendered output for %s does not match golden output", name)
+	}
+}
 
 func TestRunRendersInlineChartThroughOpenShiftPolicy(t *testing.T) {
 	archive := inlineTestChart(t)
@@ -36,6 +64,7 @@ func TestRunRendersInlineChartThroughOpenShiftPolicy(t *testing.T) {
 		!strings.Contains(output.String(), "name: render-smoke-result") {
 		t.Fatalf("rendered output missing expected OpenShift-scoped ConfigMap:\n%s", output.String())
 	}
+	assertGolden(t, "inline-chart", output.String())
 }
 
 func TestRunRejectsRemoteChart(t *testing.T) {
@@ -92,6 +121,7 @@ func TestRunRendersDynamicResourceChartThroughOpenShiftPolicy(t *testing.T) {
       supports_service_state: true
 `
 	output := runTemplateChart(t, "resource-smoke", "resources.yaml", values)
+	assertGolden(t, "dynamic-resource-chart", output)
 	objects := parseRenderedObjects(t, output)
 	statefulSet := findRenderedObject(t, objects, "StatefulSet", "rs-smoke-resource")
 	annotations, found, err := unstructured.NestedStringMap(statefulSet, "spec", "template", "metadata", "annotations")
@@ -136,6 +166,7 @@ func TestRunRendersDynamicSkillChartThroughOpenShiftPolicy(t *testing.T) {
 skills: []
 `
 	output := runTemplateChart(t, "skill-smoke", "skills.yaml", values)
+	assertGolden(t, "dynamic-skill-chart", output)
 	objects := parseRenderedObjects(t, output)
 	deployment := findRenderedObject(t, objects, "Deployment", "smoke-skill-group")
 	annotations, found, err := unstructured.NestedStringMap(deployment, "spec", "template", "metadata", "annotations")

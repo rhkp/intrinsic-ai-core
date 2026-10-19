@@ -59,6 +59,7 @@ def locked_references(path: Path, namespace: str) -> set[str]:
         raise ValidationError("image lock is unreadable or malformed") from exc
     if not isinstance(images, list) or not isinstance(prefix, str):
         raise ValidationError("image lock schema is invalid")
+    project_prefix = f"image-registry.openshift-image-registry.svc:5000/{namespace}/"
     refs: set[str] = set()
     for image in images:
         if not isinstance(image, dict):
@@ -73,10 +74,20 @@ def locked_references(path: Path, namespace: str) -> set[str]:
         if ref in refs:
             raise ValidationError("duplicate image lock entry")
         refs.add(ref)
+        openshift_reference = image.get("openshift_image_reference")
+        if openshift_reference is not None:
+            if (
+                not isinstance(openshift_reference, str)
+                or not openshift_reference.startswith(project_prefix)
+                or not DIGEST.search(openshift_reference)
+            ):
+                raise ValidationError("image lock OpenShift reference is invalid")
+            if openshift_reference in refs:
+                raise ValidationError("duplicate image lock OpenShift reference")
+            refs.add(openshift_reference)
     project_images = lock.get("project_images", [])
     if not isinstance(project_images, list):
         raise ValidationError("project image lock schema is invalid")
-    project_prefix = f"image-registry.openshift-image-registry.svc:5000/{namespace}/"
     for image in project_images:
         if not isinstance(image, dict):
             raise ValidationError("project image lock entry is invalid")

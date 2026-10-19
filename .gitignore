@@ -52,6 +52,31 @@ id_ed25519
 id_rsa
 **/credentials.json
 
+# Default-deny JSON. Live cluster observations, inventories, snapshots, and
+# other environment-specific data must stay ignored. JSON samples use the exact
+# `*.sample.json` suffix and must contain placeholders only. Add any other
+# negation only for a reviewed, sanitized fixture and document why it belongs in
+# Git.
+*.json
+*.json.bak
+*.json.local
+*.json.live
+*.json.new
+*.json.orig
+*.json.prod
+*.json.private
+*.json.rej
+*.json.snapshot
+*.json.tmp
+*.jsonl
+*.ndjson
+!*.sample.json
+!openshift/config.schema.json
+!openshift/config.example.json
+!openshift/deployment/ADAPTATIONS.json
+!openshift/deployment/SOURCE_MANIFEST.json
+!openshift/image-lock.json
+
 # Local bearer token file referenced by the ignored RHOAI environment.
 /approaches/tried-not-feasible-aws-vm-with-rhoai/~/.config/intrinsic/rhoai-token
 

@@ -1,0 +1,105 @@
+# This project was developed with assistance from AI tools.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    solution.intrinsic.ai/instance: smoke-resource
+  name: rs-smoke-resource
+  namespace: your-project-namespace
+spec:
+  selector:
+    matchLabels:
+      app: rs-smoke-resource
+  template:
+    metadata:
+      annotations:
+        context-id: smoke-context
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: rs-smoke-resource
+        intrinsic.ai/platform-layer: resource
+        resource/smoke-resource: "true"
+        solution.intrinsic.ai/instance: smoke-resource
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: INTRINSIC_INGRESS_ADDRESS
+          value: intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        image: quay.io/your-registry-org/intrinsic/http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba
+        name: smoke-resource
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+      serviceAccountName: intrinsic-runtime
+---
+apiVersion: v1
+binaryData:
+  runtime_config.pb: c21va2U=
+data:
+  handle: intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+  resource_id: smoke-resource
+kind: ConfigMap
+metadata:
+  labels:
+    solution.intrinsic.ai/instance: smoke-resource
+  name: rc-smoke-resource
+  namespace: your-project-namespace
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    solution.intrinsic.ai/service-port: "8080"
+    solution.intrinsic.ai/supports-service-state: "true"
+  labels:
+    solution.intrinsic.ai/instance: smoke-resource
+    solution.intrinsic.ai/service-metadata-version: "1"
+  name: rs-smoke-resource
+  namespace: your-project-namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: rs-smoke-resource
+    solution.intrinsic.ai/instance: smoke-resource
+  name: rs-smoke-resource
+  namespace: your-project-namespace
+spec:
+  ports:
+  - name: grpc-rs-smoke-resource
+    port: 8080
+  selector:
+    app: rs-smoke-resource
+  type: ClusterIP
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  labels:
+    solution.intrinsic.ai/instance: smoke-resource
+  name: rs-smoke-resource
+  namespace: your-project-namespace
+spec:
+  exportTo:
+  - .
+  gateways:
+  - your-project-namespace/intrinsic-grpc-internal
+  hosts:
+  - '*'
+  http:
+  - match:
+    - headers:
+        x-resource-instance-name:
+          exact: smoke-resource
+      uri:
+        prefix: /intrinsic_proto.demo.v1.DemoService/
+    route:
+    - destination:
+        host: rs-smoke-resource
+        port:
+          number: 8080

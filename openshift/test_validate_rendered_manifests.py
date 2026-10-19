@@ -1,7 +1,14 @@
 # This project was developed with assistance from AI tools.
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
-from validate_rendered_manifests import ValidationError, validate_documents
+from validate_rendered_manifests import (
+    ValidationError,
+    locked_references,
+    validate_documents,
+)
 
 
 class RenderedManifestValidationTest(unittest.TestCase):
@@ -48,6 +55,38 @@ class RenderedManifestValidationTest(unittest.TestCase):
 
         with self.assertRaises(ValidationError):
             validate_documents([self.deployment()], self.namespace, set())
+
+    def test_locked_references_include_openshift_destination(self):
+        lock_path = Path(__file__).resolve().parent / "image-lock.json"
+        lock = json.loads(lock_path.read_text(encoding="utf-8"))
+        expected = next(
+            image["openshift_image_reference"]
+            for image in lock["images"]
+            if image.get("openshift_image_reference")
+        )
+        references = locked_references(lock_path, self.namespace)
+        self.assertIn(expected, references)
+
+    def test_rejects_openshift_destination_outside_target_project(self):
+        lock = {
+            "registry_prefix": "quay.io/example/intrinsic",
+            "images": [
+                {
+                    "quay_repository": "quay.io/example/intrinsic/demo",
+                    "quay_digest": "sha256:" + "a" * 64,
+                    "openshift_image_reference": (
+                        "image-registry.openshift-image-registry.svc:5000/"
+                        "another-project/demo@sha256:" + "a" * 64
+                    ),
+                }
+            ],
+            "project_images": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "image-lock.json"
+            path.write_text(json.dumps(lock), encoding="utf-8")
+            with self.assertRaises(ValidationError):
+                locked_references(path, self.namespace)
 
     def test_accepts_project_scoped_mesh_virtual_service(self):
         virtual_service = {

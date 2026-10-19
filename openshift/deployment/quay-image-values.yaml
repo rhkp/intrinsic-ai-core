@@ -1,4 +1,3 @@
-# This project was developed with assistance from AI tools.
 registry: "quay.io/your-registry-org/intrinsic"
 images:
   artifacts_service: "/artifacts_service_ap6rsu7y7q2zdhlk@sha256:0976d6fd4ce4916d8388c48709604f79a19e59c7d4adb1adb5a669f9066c0b99"
@@ -14,7 +13,7 @@ images:
   operations: "/operations_5pmhvmypxuo2xwk7@sha256:d2a47ae9e201be3a2aee76b2891b5ef4ea35096afe9c5cfb1e404be8cbf48303"
   proto_builder: "/proto_builder_niq7cd56d5lw6uwm@sha256:f82cc1253d416885e10ba425d02721357bf5298d538e6439cb7c99fad46215ba"
   proto_registry: "/proto_registry_jcser7uxrb3niapo@sha256:07f8ff15a6088d748547d35f43ad001372a54a10762e035e98631c43b52cb21d"
-  resource_registry: "/resource_registry_mz6oamw4xrhc5j4b@sha256:8351aeffecda94238a63dbe446f716697b40086444269a303c5b970712ea5512"
+  resource_registry: "/resource_registry_mz6oamw4xrhc5j4b@sha256:289da3d7464048dbe74a7e9d15f5054cce7ba1ab730eb61db83172593cf441f6"
   runtime_db: "/runtime_db_at5d7mz6o6apivwx@sha256:65833fd82121805e3aa41a48e78b0e4caee15175f5ece47a58c6852381dc8c15"
   scene_object_import: "/scene_object_import_oe3dizct2ubmxapr@sha256:c1e3961bd693a2987e392586aa2cfac19eaf3c4246b83d67a19bf8b019ad0544"
   simulation_service: "/simulation_service_llwlbnovq62efw2u@sha256:77ef6c0aa04c4bfb54d1c0aaa1a81a354388557fbee21c4698f5dc3bc6aba511"

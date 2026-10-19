@@ -144,11 +144,11 @@
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "a2ab7686ffead0e8689330d9f4c58636e583614fdb8f70ab64438dc095c3ec8c"
+          "sha256": "440220a1a2ee9b98a3f3b5421f5377a687b5a238ad829b3778d52a6a3e7c990b"
         },
         {
           "path": "openshift/render_quay_image_values.py",
-          "sha256": "dd05507fb4051bb526012b9da8f768b3fd1c6dd8f1494a5fcd382b39c487d19e"
+          "sha256": "b1c7ddab2035abfa0793de60f5e866fbe1b7b2a5c28deb5277cda323ce250b3d"
         },
         {
           "path": "openshift/smoke_quay_image.py",
@@ -197,7 +197,7 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "ab544f532c24db01042e72381c3c1b90275b8219f5efbc14fa8f0138ccdf483d"
+          "sha256": "fdf7ef34ed283061e16f26154271e5f2b48287bd3b4de33b8b06a024d69dd344"
         },
         {
           "path": "openshift/configure_routing.py",
@@ -397,7 +397,7 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "ab544f532c24db01042e72381c3c1b90275b8219f5efbc14fa8f0138ccdf483d"
+          "sha256": "fdf7ef34ed283061e16f26154271e5f2b48287bd3b4de33b8b06a024d69dd344"
         },
         {
           "path": "openshift/image-lock.json",
@@ -405,7 +405,7 @@
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
-          "sha256": "a2ab7686ffead0e8689330d9f4c58636e583614fdb8f70ab64438dc095c3ec8c"
+          "sha256": "440220a1a2ee9b98a3f3b5421f5377a687b5a238ad829b3778d52a6a3e7c990b"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",

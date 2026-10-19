@@ -1,0 +1,115 @@
+# This project was developed with assistance from AI tools.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smoke-skill-group
+  namespace: your-project-namespace
+spec:
+  selector:
+    matchLabels:
+      app: smoke-skill-group
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: smoke-skill-group
+        intrinsic.ai/platform-layer: skill
+        skill/smoke.skill: "true"
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - args:
+        - /skills/skill_service
+        - --logtostderr
+        - --port=8003
+        - --data_logger_grpc_service_address=intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        - --world_service_address=intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        - --geometry_service_address=intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        - --motion_planner_service_address=intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        - --skill_registry_service_address=intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        - --skill_service_config_filename=/skills/skill_service_config.proto.bin
+        - --grpc_connect_timeout_secs=300
+        - --default_ls_watcher=null
+        - --undefok=default_ls_watcher
+        - --opencensus_metrics_port=9101
+        - --opencensus_tracing
+        env:
+        - name: GRPC_DNS_RESOLVER
+          value: native
+        - name: INTRINSIC_INGRESS_ADDRESS
+          value: intrinsic-grpc-gateway.your-project-namespace.svc.cluster.local:80
+        image: quay.io/your-registry-org/intrinsic/http_gateway_service_jwhjwootqbghfz5q@sha256:bb59153ea8f1c31893e105918ccafcf76c0384a0fb36083ca3cf5029cf562fba
+        name: smoke-skill
+      serviceAccountName: intrinsic-runtime
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: smoke-skill-group
+  namespace: your-project-namespace
+spec:
+  egress:
+  - ports:
+    - port: 443
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: your-project-namespace
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: intrinsic-grpc-gateway
+          istio: intrinsic-grpc-gateway
+  - ports:
+    - port: 7447
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: your-project-namespace
+      podSelector:
+        matchLabels:
+          app: zenoh-router
+  - ports:
+    - port: dns
+      protocol: UDP
+    - port: dns-tcp
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-dns
+      podSelector:
+        matchLabels:
+          dns.operator.openshift.io/daemonset-dns: default
+  - ports:
+    - port: 55678
+      protocol: TCP
+    - port: 4317
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: your-project-namespace
+      podSelector:
+        matchLabels:
+          app: opencensus
+  - ports:
+    - port: 15012
+      protocol: TCP
+    to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: istio-system
+      podSelector:
+        matchLabels:
+          app: istiod
+          istio.io/rev: your-service-mesh-control-plane
+  podSelector:
+    matchLabels:
+      app: smoke-skill-group
+  policyTypes:
+  - Egress

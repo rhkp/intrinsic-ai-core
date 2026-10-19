@@ -13,8 +13,7 @@ LOCK = ROOT / "image-lock.json"
 OUTPUT = ROOT / "deployment" / "quay-image-values.yaml"
 
 
-def main() -> None:
-    lock = json.loads(LOCK.read_text())
+def render_values(lock: dict) -> str:
     registry = lock["registry_prefix"]
     images = lock["images"]
     values: dict[str, str] = {}
@@ -36,8 +35,13 @@ def main() -> None:
     lines.extend(
         f"  {key}: {json.dumps(values[key])}" for key in sorted(values)
     )
-    OUTPUT.write_text("\n".join(lines) + "\n")
-    print(f"Rendered {len(values)} digest-pinned image values to {OUTPUT.relative_to(ROOT)}")
+    return "\n".join(lines) + "\n"
+
+
+def main() -> None:
+    lock = json.loads(LOCK.read_text())
+    OUTPUT.write_text(render_values(lock))
+    print(f"Rendered {len(lock['images'])} digest-pinned image values to {OUTPUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -1023,6 +1025,69 @@ func TestAdaptOpenShiftResourcesPinsNamespaceScopedServiceImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertAdapted(adaptedAgain)
+}
+
+func TestOpenShiftImageConfigurationMatchesImageLock(t *testing.T) {
+	data, err := os.ReadFile("../../../image-lock.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lock struct {
+		Images []struct {
+			ChartImageKey           string `json:"chart_image_key"`
+			QuayRepository          string `json:"quay_repository"`
+			QuayDigest              string `json:"quay_digest"`
+			OpenshiftImageReference string `json:"openshift_image_reference"`
+		} `json:"images"`
+		ProjectImages []struct {
+			Name       string `json:"name"`
+			Repository string `json:"repository"`
+			Digest     string `json:"digest"`
+		} `json:"project_images"`
+	}
+	if err := json.Unmarshal(data, &lock); err != nil {
+		t.Fatal(err)
+	}
+
+	authorized := make(map[string]bool)
+	images := make(map[string]string)
+	openshiftImages := make(map[string]string)
+	for _, image := range lock.Images {
+		reference := image.QuayRepository + "@" + image.QuayDigest
+		authorized[reference] = true
+		images[image.ChartImageKey] = reference
+		if image.OpenshiftImageReference != "" {
+			authorized[image.OpenshiftImageReference] = true
+			openshiftImages[image.ChartImageKey] = image.OpenshiftImageReference
+		}
+	}
+	projectImages := make(map[string]string)
+	for _, image := range lock.ProjectImages {
+		reference := image.Repository + "@" + image.Digest
+		authorized[reference] = true
+		projectImages[image.Name] = reference
+	}
+
+	if quayResourceRegistryImage != openshiftImages["resource_registry"] {
+		t.Fatalf("resource registry image = %q, want OpenShift lock image %q", quayResourceRegistryImage, openshiftImages["resource_registry"])
+	}
+	if workcellServiceImage != projectImages["workcell-cluster-service"] {
+		t.Fatalf("workcell image = %q, want project lock image %q", workcellServiceImage, projectImages["workcell-cluster-service"])
+	}
+	if quayZenohdImage != images["zenohd"] {
+		t.Fatalf("zenohd image = %q, want lock image %q", quayZenohdImage, images["zenohd"])
+	}
+	if quayJupyterServerImage != images["code_execution_jupyter_server"] {
+		t.Fatalf("Jupyter image = %q, want lock image %q", quayJupyterServerImage, images["code_execution_jupyter_server"])
+	}
+	if len(openshiftImageOverrides) != 4 {
+		t.Fatalf("image override count = %d, want 4", len(openshiftImageOverrides))
+	}
+	for source, destination := range openshiftImageOverrides {
+		if !authorized[destination] {
+			t.Fatalf("image override %q has unauthorized destination %q", source, destination)
+		}
+	}
 }
 
 func TestAdaptOpenShiftResourcesConfiguresJupyterWritableHome(t *testing.T) {
