@@ -4,7 +4,9 @@
 
 > Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
 
-Copy `openshift/.env.sample` to the ignored `openshift/.env`, replace its placeholder values, then export them before running commands:
+For helpers that have not yet migrated to canonical configuration, copy
+`openshift/.env.sample` to the ignored `openshift/.env`, replace its placeholder
+values, then export them before running commands:
 
 ```sh
 set -a
@@ -75,6 +77,24 @@ not enable leader election. The local
 patch, and `openshift/.generated/rollback-controller.patch.json` restores the
 previous controller specification. Neither file belongs in Git. Do not delete
 ChartAssignments, ResourceSets, PVCs, or build caches to roll back configuration.
+
+### Canonical operational helpers
+
+General preflight and routing configuration now read the validated canonical
+target and image lock directly. They bind to the exact configured context and
+verify its API address; legacy environment values do not select their target.
+
+```sh
+python3 openshift/preflight.py --config openshift/config.local.json
+python3 openshift/configure_routing.py --config openshift/config.local.json --check
+```
+
+The routing check verifies current Service/Gateway ports, mTLS, mesh membership,
+ready endpoints, selectors, and ConfigMap data without changing resources. When
+an intentional routing update is needed, omit `--check` to apply only the
+derived routing ConfigMap. Missing or invalid configuration fails before cluster
+access. Other operational helpers remain on the compatibility path until their
+E2.4 migration is complete.
 
 
 **Status (2026-10-08):** The OpenShift-specific registry and ArtifactService
@@ -380,9 +400,10 @@ gateway injection in the pilot project; it does not change the shared
 LoadBalancer. The manifest has been applied; the injected proxy is Ready and
 the routing helper verified its Service and listener. The manifest is
 [`deployment/manifests/intrinsic-dedicated-grpc-gateway.yaml`](deployment/manifests/intrinsic-dedicated-grpc-gateway.yaml).
-The local ignored `openshift/.env` holds the non-secret routing values, and
-`python3 openshift/configure_routing.py` applied the project-only routing
-ConfigMap. The controller was restarted and is Ready with that configuration.
+The local ignored `openshift/config.local.json` holds the authoritative routing
+values. `python3 openshift/configure_routing.py --check` verifies the existing
+project-only routing ConfigMap; omitting `--check` applies its canonical values.
+The controller is Ready with the canonical configuration deployed in E2.3.
 The helper rejects the shared ingress Service and checks the dedicated Service
 endpoints, matching Gateway selector, exact internal host, HTTP/2 protocol,
 and port. No Route exists in the project. Service Mesh's generated network

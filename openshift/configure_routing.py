@@ -1,90 +1,25 @@
 #!/usr/bin/env python3
 # This project was developed with assistance from AI tools.
-"""Apply non-secret ingress and storage-class settings from ignored .env."""
+"""Verify or apply routing settings from validated canonical configuration."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
 from pathlib import Path
 
-from common import PilotError, TARGET_PROJECT, get_json, resolve_context
+from common import PilotError, get_json
+from runtime_config import DEFAULT_CONFIG_PATH, load_runtime_target
 
-ENV_FILE = Path(__file__).resolve().parent / ".env"
-PROJECT = TARGET_PROJECT
 CONFIG_MAP = "intrinsic-routing-config"
-GATEWAY_SERVICE = "intrinsic-grpc-gateway"
-GATEWAY_RESOURCE = "intrinsic-grpc-internal"
-GATEWAY_SELECTOR = {
-    "app.kubernetes.io/name": GATEWAY_SERVICE,
-    "istio": GATEWAY_SERVICE,
-}
-REQUIRED = {
-    "INTRINSIC_INGRESS_ADDRESS",
-    "INTRINSIC_INGRESS_GATEWAY",
-    "OPENSHIFT_STORAGE_CLASS",
-    "OPENSHIFT_SHARED_STORAGE_CLASS",
-}
 
 
 def main_error(exc: PilotError) -> int:
     """Emit only the intentionally sanitized operator-facing error."""
     print(f"ERROR: {exc}", file=sys.stderr)
     return 2
-
-
-def read_routing_values() -> dict[str, str]:
-    try:
-        lines = ENV_FILE.read_text().splitlines()
-    except OSError as exc:
-        raise PilotError(
-            "openshift/.env is required; copy .env.sample and set the verified routing values."
-        ) from exc
-
-    values: dict[str, str] = {}
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, separator, value = line.partition("=")
-        if not separator or key not in REQUIRED:
-            continue
-        value = value.strip()
-        if value.startswith(("'", '"')) and value.endswith(value[0]):
-            value = value[1:-1]
-        if not value or any(char in value for char in "`$;\n\r"):
-            raise PilotError(
-                "routing values must be literal DNS names without shell syntax."
-            )
-        if key in values:
-            raise PilotError(f"openshift/.env contains duplicate {key} entries.")
-        values[key] = value
-
-    if set(values) != REQUIRED:
-        raise PilotError(
-            "openshift/.env must define ingress routing and both storage-class values."
-        )
-
-    for key in ("OPENSHIFT_STORAGE_CLASS", "OPENSHIFT_SHARED_STORAGE_CLASS"):
-        if not re.fullmatch(r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?", values[key]):
-            raise PilotError(f"{key} must be a valid Kubernetes DNS label.")
-
-    address = values["INTRINSIC_INGRESS_ADDRESS"]
-    address_match = re.fullmatch(
-        r"([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\.([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\.svc\.cluster\.local:80",
-        address,
-    )
-    if not address_match:
-        raise PilotError(
-            "INTRINSIC_INGRESS_ADDRESS must be service.namespace.svc.cluster.local:80."
-        )
-    gateway = values["INTRINSIC_INGRESS_GATEWAY"]
-    if not re.fullmatch(
-        r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?/[a-z0-9](?:[-a-z0-9]*[a-z0-9])?", gateway
-    ):
-        raise PilotError("INTRINSIC_INGRESS_GATEWAY must use namespace/name form.")
-    return values
 
 
 def safe_selector(selector: object) -> dict[str, str]:
@@ -121,8 +56,10 @@ def ready_pods(access, namespace: str, selector: dict[str, str]) -> list[dict]:
     ]
 
 
-def verify_project_mesh_membership(access, mesh_namespace: str) -> None:
-    namespace = get_json(access, "get", "namespace", PROJECT)
+def verify_project_mesh_membership(
+    access, mesh_namespace: str, *, project: str
+) -> None:
+    namespace = get_json(access, "get", "namespace", project)
     labels = namespace.get("metadata", {}).get("labels", {})
     member = get_json(
         access,
@@ -130,7 +67,7 @@ def verify_project_mesh_membership(access, mesh_namespace: str) -> None:
         "servicemeshmembers.maistra.io",
         "default",
         "--namespace",
-        PROJECT,
+        project,
         missing_ok=True,
     )
     member_selected = False
@@ -155,7 +92,7 @@ def verify_project_mesh_membership(access, mesh_namespace: str) -> None:
     selected = False
     for roll in rolls:
         members = roll.get("spec", {}).get("members", [])
-        if PROJECT in members:
+        if project in members:
             selected = True
             break
         for selector in roll.get("spec", {}).get("memberSelectors", []):
@@ -174,7 +111,13 @@ def verify_project_mesh_membership(access, mesh_namespace: str) -> None:
         )
 
 
-def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
+def verified_ingress_selector(
+    access,
+    values: dict[str, str],
+    *,
+    project: str,
+    expected_selector: dict[str, str],
+) -> dict[str, str]:
     address = values["INTRINSIC_INGRESS_ADDRESS"]
     match = re.fullmatch(
         r"([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\.([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\.svc\.cluster\.local:80",
@@ -187,20 +130,20 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
     service_name, namespace = match.groups()
     service_host = f"{service_name}.{namespace}.svc.cluster.local"
     gateway_namespace, gateway_name = values["INTRINSIC_INGRESS_GATEWAY"].split("/", 1)
-    if service_name != GATEWAY_SERVICE or namespace != PROJECT:
+    if service_name == "istio-ingressgateway" or namespace != project:
         raise PilotError(
             "The configured ingress Service must be the dedicated gateway Service in the target project."
         )
-    if gateway_namespace != PROJECT or gateway_name != GATEWAY_RESOURCE:
+    if gateway_namespace != project:
         raise PilotError(
             "The configured Gateway must be the dedicated project-scoped Gateway."
         )
-    verify_project_mesh_membership(access, namespace)
+    verify_project_mesh_membership(access, namespace, project=project)
 
     service = get_json(access, "get", "service", service_name, "--namespace", namespace)
     spec = service.get("spec", {})
     selector = safe_selector(spec.get("selector"))
-    if any(selector.get(key) != value for key, value in GATEWAY_SELECTOR.items()):
+    if selector != safe_selector(expected_selector):
         raise PilotError(
             "The ingress Service selector must target only the dedicated gateway workload."
         )
@@ -213,7 +156,16 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
         service_ports
     ):
         raise PilotError(
-            "The configured internal Gateway Service must expose both the tunnel and mesh ports."
+            "The configured internal Gateway Service must expose both client ports."
+        )
+    client_ports = {
+        port["port"]: port.get("targetPort", port["port"])
+        for port in spec.get("ports", [])
+        if port.get("protocol", "TCP") == "TCP" and port.get("port") in {80, 443}
+    }
+    if client_ports != {80: 443, 443: 443}:
+        raise PilotError(
+            "Both Gateway Service client ports must target the mTLS listener on port 443."
         )
 
     endpoints = get_json(
@@ -250,13 +202,6 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
             "The Gateway selector must exactly match the dedicated ingress Service selector."
         )
     listeners = gateway_spec.get("servers", [])
-    tunnel_listener = any(
-        server.get("port", {}).get("number") == 80
-        and server.get("port", {}).get("protocol") == "HTTP2"
-        and service_host in server.get("hosts", [])
-        and not server.get("tls")
-        for server in listeners
-    )
     mesh_listener = any(
         server.get("port", {}).get("number") == 443
         and server.get("port", {}).get("protocol") == "HTTPS"
@@ -264,12 +209,12 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
         and server.get("tls") == {"mode": "ISTIO_MUTUAL"}
         for server in listeners
     )
-    if not tunnel_listener or not mesh_listener:
+    if not mesh_listener:
         raise PilotError(
-            "The dedicated Gateway must expose its loopback-tunnel HTTP/2 listener and Istio mTLS mesh listener."
+            "The dedicated Gateway must expose the configured host and its Istio mTLS listener."
         )
 
-    pods = ready_pods(access, PROJECT, gateway_selector)
+    pods = ready_pods(access, project, gateway_selector)
     matched = {
         pod.get("metadata", {}).get("name")
         for pod in pods
@@ -283,32 +228,41 @@ def verified_ingress_selector(access, values: dict[str, str]) -> dict[str, str]:
     return selector
 
 
-def apply() -> None:
-    values = read_routing_values()
-    access = resolve_context()
-    selector = verified_ingress_selector(access, values)
-    args = [
-        "create",
-        "configmap",
-        CONFIG_MAP,
-        "--namespace",
-        PROJECT,
-        f"--from-literal=INTRINSIC_INGRESS_ADDRESS={values['INTRINSIC_INGRESS_ADDRESS']}",
-        f"--from-literal=INTRINSIC_INGRESS_GATEWAY={values['INTRINSIC_INGRESS_GATEWAY']}",
-        f"--from-literal=OPENSHIFT_STORAGE_CLASS={values['OPENSHIFT_STORAGE_CLASS']}",
-        f"--from-literal=OPENSHIFT_SHARED_STORAGE_CLASS={values['OPENSHIFT_SHARED_STORAGE_CLASS']}",
-        "--from-literal=INTRINSIC_INGRESS_POD_SELECTOR="
-        + json.dumps(selector, sort_keys=True, separators=(",", ":")),
-        "--dry-run=client",
-        "-o",
-        "json",
-    ]
-    generated = access.oc(*args, check=False)
-    if generated.returncode:
-        raise PilotError(
-            "Could not generate the routing ConfigMap; raw CLI output was suppressed."
+def apply(config_path: Path = DEFAULT_CONFIG_PATH, *, check_only: bool = False) -> None:
+    target = load_runtime_target(config_path)
+    access = target.connect()
+    selector = verified_ingress_selector(
+        access,
+        target.routing_values(),
+        project=target.namespace,
+        expected_selector=target.ingress_selector,
+    )
+    manifest = target.routing_configmap(selector)
+    if check_only:
+        current = get_json(
+            access,
+            "get",
+            "configmap",
+            CONFIG_MAP,
+            "--namespace",
+            target.namespace,
+            missing_ok=True,
         )
-    applied = access.oc("apply", "-f", "-", check=False, input_data=generated.stdout)
+        if not current or current.get("data") != manifest["data"]:
+            raise PilotError(
+                "The routing ConfigMap is missing or differs from canonical configuration."
+            )
+        print(
+            "OpenShift gRPC routing matches canonical configuration; no resources changed."
+        )
+        return
+    applied = access.oc(
+        "apply",
+        "-f",
+        "-",
+        check=False,
+        input_data=json.dumps(manifest),
+    )
     if applied.returncode:
         raise PilotError(
             "Could not apply the routing ConfigMap; raw CLI output was suppressed."
@@ -317,7 +271,15 @@ def apply() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify live routing without applying changes",
+    )
+    args = parser.parse_args()
     try:
-        apply()
+        apply(args.config, check_only=args.check)
     except PilotError as exc:
         raise SystemExit(main_error(exc))

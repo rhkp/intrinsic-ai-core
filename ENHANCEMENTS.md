@@ -405,6 +405,37 @@ ResourceSets, or workload resources.
 
 #### Milestone E2.4 — Migrate consumers and remove compatibility
 
+**Status:** in progress; routing and general-preflight slice complete on
+2026-10-19. The remaining consumers and controller compatibility removal below
+are not complete.
+
+**Completed first slice**
+
+- Added a shared operational loader that validates the canonical target and
+  image lock before any cluster command. It binds to the exact configured
+  context and checks the approved API address without printing either value.
+- Migrated `configure_routing.py` and `preflight.py` to that loader. They accept
+  `--config`, no longer select targets from `.env` or environment defaults, and
+  fail closed on missing, placeholder, invalid, or mismatched configuration.
+- Added `configure_routing.py --check`: verifies live gateway, Service,
+  endpoints, mesh membership, selector, and routing ConfigMap without applying
+  resources. The apply path derives the same five ConfigMap data keys from
+  canonical settings and sends the manifest through stdin.
+- Corrected an existing verifier mismatch confirmed against the previous
+  committed helper: the deployed Service maps both client ports to the Gateway's
+  mTLS listener on 443, matching its checked-in manifest. Verification now checks
+  that mapping and the required `ISTIO_MUTUAL` listener rather than requiring an
+  unused plaintext listener on 80. Shared ingress, selector drift, invalid TLS,
+  missing endpoints, and incorrect port mappings remain rejected.
+- The 56 Python tests and focused Ruff lint/format checks pass. Tests cover
+  validation before cluster access, context/API mismatch, stale environment
+  values, namespace relocation, configured gateway names, read-only checks,
+  failure before apply, and the retained mesh checks.
+- Canonical preflight and routing `--check` passed against the live deployment.
+  Before/after comparison confirmed unchanged workload, pod, PVC, and ConfigMap
+  identities and specifications. This slice required no controller rollout or
+  application change.
+
 **Goal:** make the canonical config and image lock the only accepted sources
 after the controller path is proven stable.
 

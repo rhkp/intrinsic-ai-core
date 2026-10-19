@@ -201,11 +201,11 @@
         },
         {
           "path": "openshift/configure_routing.py",
-          "sha256": "2623ec62f0640a94b6704d16c4a86f9ec963ea4fcd189b52761840f3fed601ed"
+          "sha256": "e73026cbe795f38513a1ccb084298ca3b26bb3910faa19121f06693a675227e7"
         },
         {
           "path": "openshift/test_configure_routing.py",
-          "sha256": "a26650dbe518af21faf13e2711ae9450edfaa47c892ca7cf964e057f6b000c3d"
+          "sha256": "c4632f75882617f08dd777f31fc02ef6542cbf695e22a2c96221af4866ae7469"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/deploy/controller-deployment.yaml",
@@ -474,6 +474,28 @@
         {
           "path": "openshift/test_validate_rendered_manifests.py",
           "sha256": "f81269cd874cae000b810405e96485d0cc2dcca8a962d90c604d5f77170b3e2b"
+        }
+      ]
+    },
+    {
+      "id": "canonical-operational-routing-preflight-e24",
+      "status": "routing and general preflight migrated and verified read-only; remaining E2.4 consumers pending",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/runtime_config.py",
+          "sha256": "586eaaeb731757738de6267eb477bab8f32c9d32444574770314859159616502"
+        },
+        {
+          "path": "openshift/preflight.py",
+          "sha256": "47df3e96fd49c093944a74085bb7585eebc19ff2b96f8cadc9154b784f4b1ba0"
+        },
+        {
+          "path": "openshift/test_runtime_config.py",
+          "sha256": "746524c91584fbaf286d31def5e4735610a1ac626facf5a811ceb816940da862"
+        },
+        {
+          "path": "openshift/test_preflight.py",
+          "sha256": "fa09e02e3ff64abc116fb00c75192df08300f291e38b78fa38800111e614b364"
         }
       ]
     }

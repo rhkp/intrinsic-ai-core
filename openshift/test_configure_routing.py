@@ -1,67 +1,115 @@
 # This project was developed with assistance from AI tools.
+import contextlib
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from configure_routing import (
-    GATEWAY_RESOURCE,
-    GATEWAY_SERVICE,
-    PROJECT,
     PilotError,
-    read_routing_values,
+    apply,
     safe_selector,
     verify_project_mesh_membership,
     verified_ingress_selector,
 )
 
+from runtime_config import RuntimeTarget, load_runtime_target
+from test_runtime_config import write_target
+
+PROJECT = "your-project-namespace"
+GATEWAY_SERVICE = "intrinsic-grpc-gateway"
+GATEWAY_RESOURCE = "intrinsic-grpc-internal"
+EXPECTED_SELECTOR = {
+    "app.kubernetes.io/name": GATEWAY_SERVICE,
+    "istio": GATEWAY_SERVICE,
+}
+
 
 class RoutingConfigurationTest(unittest.TestCase):
-    def test_reads_internal_routing_and_storage_values_from_sample(self):
-        sample = Path(__file__).with_name(".env.sample")
-        with patch("configure_routing.ENV_FILE", sample):
-            values = read_routing_values()
-        self.assertEqual(
-            set(values),
-            {
-                "INTRINSIC_INGRESS_ADDRESS",
-                "INTRINSIC_INGRESS_GATEWAY",
-                "OPENSHIFT_STORAGE_CLASS",
-                "OPENSHIFT_SHARED_STORAGE_CLASS",
-            },
-        )
-        self.assertTrue(values["INTRINSIC_INGRESS_ADDRESS"].endswith(":80"))
-
-    def test_rejects_invalid_storage_class(self):
-        with tempfile.TemporaryDirectory() as temp:
-            env_file = Path(temp) / ".env"
-            env_file.write_text(
-                "INTRINSIC_INGRESS_ADDRESS=service.ns.svc.cluster.local:80\n"
-                "INTRINSIC_INGRESS_GATEWAY=ns/gateway\n"
-                "OPENSHIFT_STORAGE_CLASS=invalid/value\n"
-                "OPENSHIFT_SHARED_STORAGE_CLASS=shared-class\n"
-            )
-            with patch("configure_routing.ENV_FILE", env_file):
-                with self.assertRaises(PilotError):
-                    read_routing_values()
-
-    def test_rejects_shell_syntax_and_non_internal_addresses(self):
-        with tempfile.TemporaryDirectory() as temp:
-            env_file = Path(temp) / ".env"
-            for address in (
-                "service.example.invalid:80",
-                "service.ns.svc.cluster.local:443",
-                "service.alias.ns.svc.cluster.local:80",
-                "$(print-secret).ns.svc.cluster.local:80",
+    def test_apply_uses_canonical_config_without_legacy_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = write_target(directory)
+            target = load_runtime_target(path)
+            access = Mock()
+            access.oc.return_value.returncode = 0
+            with (
+                patch.object(RuntimeTarget, "connect", return_value=access),
+                patch(
+                    "configure_routing.verified_ingress_selector",
+                    return_value=target.ingress_selector,
+                ) as verify,
+                patch.dict("os.environ", {"OPENSHIFT_NAMESPACE": "stale-project"}),
+                contextlib.redirect_stdout(io.StringIO()),
             ):
-                with self.subTest(address=address):
-                    env_file.write_text(
-                        f"INTRINSIC_INGRESS_ADDRESS={address}\n"
-                        "INTRINSIC_INGRESS_GATEWAY=mesh-system/gateway\n"
-                    )
-                    with patch("configure_routing.ENV_FILE", env_file):
-                        with self.assertRaises(PilotError):
-                            read_routing_values()
+                apply(path)
+        verify.assert_called_once_with(
+            access,
+            target.routing_values(),
+            project=target.namespace,
+            expected_selector=target.ingress_selector,
+        )
+        self.assertEqual(access.oc.call_args.args, ("apply", "-f", "-"))
+        actual = json.loads(access.oc.call_args.kwargs["input_data"])
+        self.assertEqual(actual, target.routing_configmap(target.ingress_selector))
+        self.assertNotIn("api_server_url", json.dumps(actual))
+
+    def test_check_mode_never_applies_resources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = write_target(directory)
+            target = load_runtime_target(path)
+            access = Mock()
+            current = target.routing_configmap(target.ingress_selector)
+            with (
+                patch.object(RuntimeTarget, "connect", return_value=access),
+                patch(
+                    "configure_routing.verified_ingress_selector",
+                    return_value=target.ingress_selector,
+                ),
+                patch("configure_routing.get_json", return_value=current),
+                contextlib.redirect_stdout(io.StringIO()),
+            ):
+                apply(path, check_only=True)
+        access.oc.assert_not_called()
+
+    def test_check_reports_drift_without_applying(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = write_target(directory)
+            target = load_runtime_target(path)
+            for current in [None, {"data": {"stale": "value"}}]:
+                access = Mock()
+                with (
+                    patch.object(RuntimeTarget, "connect", return_value=access),
+                    patch(
+                        "configure_routing.verified_ingress_selector",
+                        return_value=target.ingress_selector,
+                    ),
+                    patch("configure_routing.get_json", return_value=current),
+                ):
+                    with self.assertRaises(PilotError):
+                        apply(path, check_only=True)
+                access.oc.assert_not_called()
+
+    def test_missing_config_and_unverified_gateway_cannot_apply(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing.json"
+            with patch.object(RuntimeTarget, "connect") as connect:
+                with self.assertRaises(PilotError):
+                    apply(path)
+            connect.assert_not_called()
+            path = write_target(directory)
+            access = Mock()
+            with (
+                patch.object(RuntimeTarget, "connect", return_value=access),
+                patch(
+                    "configure_routing.verified_ingress_selector",
+                    side_effect=PilotError("Gateway not Ready"),
+                ),
+            ):
+                with self.assertRaises(PilotError):
+                    apply(path)
+            access.oc.assert_not_called()
 
     def test_accepts_simple_service_selector_and_rejects_empty_selector(self):
         self.assertEqual(
@@ -87,7 +135,7 @@ class RoutingConfigurationTest(unittest.TestCase):
             "status": {"conditions": [{"type": "Ready", "status": "True"}]},
         }
         with patch("configure_routing.get_json", side_effect=[project, member, rolls]):
-            verify_project_mesh_membership(object(), "istio-system")
+            verify_project_mesh_membership(object(), "istio-system", project=PROJECT)
 
     def test_rejects_member_without_control_plane_reference(self):
         project = {"metadata": {"labels": {}}}
@@ -97,7 +145,9 @@ class RoutingConfigurationTest(unittest.TestCase):
         }
         with patch("configure_routing.get_json", side_effect=[project, member]):
             with self.assertRaises(PilotError):
-                verify_project_mesh_membership(object(), "istio-system")
+                verify_project_mesh_membership(
+                    object(), "istio-system", project=PROJECT
+                )
 
     def test_rejects_pending_service_mesh_member(self):
         project = {"metadata": {"labels": {}}}
@@ -112,9 +162,11 @@ class RoutingConfigurationTest(unittest.TestCase):
         }
         with patch("configure_routing.get_json", side_effect=[project, member]):
             with self.assertRaises(PilotError):
-                verify_project_mesh_membership(object(), "istio-system")
+                verify_project_mesh_membership(
+                    object(), "istio-system", project=PROJECT
+                )
 
-    def test_verifies_tunnel_and_mesh_gateway_listeners(self):
+    def test_verifies_mesh_gateway_listener_and_service_mapping(self):
         project = {"metadata": {"labels": {}}}
         rolls = {"items": []}
         member = {
@@ -134,7 +186,7 @@ class RoutingConfigurationTest(unittest.TestCase):
                     "istio": "intrinsic-grpc-gateway",
                 },
                 "ports": [
-                    {"port": 80, "protocol": "TCP"},
+                    {"port": 80, "targetPort": 443, "protocol": "TCP"},
                     {"port": 443, "protocol": "TCP"},
                 ],
             }
@@ -211,7 +263,9 @@ class RoutingConfigurationTest(unittest.TestCase):
             "INTRINSIC_INGRESS_GATEWAY": f"{PROJECT}/{GATEWAY_RESOURCE}",
         }
         with patch("configure_routing.get_json", side_effect=responses()):
-            selector = verified_ingress_selector(object(), values)
+            selector = verified_ingress_selector(
+                object(), values, project=PROJECT, expected_selector=EXPECTED_SELECTOR
+            )
         self.assertEqual(
             selector,
             {
@@ -220,19 +274,49 @@ class RoutingConfigurationTest(unittest.TestCase):
             },
         )
 
+        with patch(
+            "configure_routing.get_json", side_effect=responses(include_tunnel=False)
+        ):
+            self.assertEqual(
+                verified_ingress_selector(
+                    object(),
+                    values,
+                    project=PROJECT,
+                    expected_selector=EXPECTED_SELECTOR,
+                ),
+                EXPECTED_SELECTOR,
+            )
+
+        for invalid_target in [80, "plaintext"]:
+            invalid_responses = responses()
+            invalid_responses[3]["spec"]["ports"][0]["targetPort"] = invalid_target
+            with patch("configure_routing.get_json", side_effect=invalid_responses):
+                with self.assertRaises(PilotError):
+                    verified_ingress_selector(
+                        object(),
+                        values,
+                        project=PROJECT,
+                        expected_selector=EXPECTED_SELECTOR,
+                    )
+        service["spec"]["ports"][0]["targetPort"] = 443
+
         for kwargs in [
             {"mesh_hosts": [service_host]},
             {"mesh_hosts": ["*"]},
             {"mesh_protocol": "HTTP2"},
             {"mesh_tls": "SIMPLE"},
-            {"include_tunnel": False},
         ]:
             with self.subTest(**kwargs):
                 with patch(
                     "configure_routing.get_json", side_effect=responses(**kwargs)
                 ):
                     with self.assertRaises(PilotError):
-                        verified_ingress_selector(object(), values)
+                        verified_ingress_selector(
+                            object(),
+                            values,
+                            project=PROJECT,
+                            expected_selector=EXPECTED_SELECTOR,
+                        )
 
     def test_rejects_shared_mesh_ingress_service(self):
         values = {
@@ -240,7 +324,104 @@ class RoutingConfigurationTest(unittest.TestCase):
             "INTRINSIC_INGRESS_GATEWAY": f"{PROJECT}/{GATEWAY_RESOURCE}",
         }
         with self.assertRaises(PilotError):
-            verified_ingress_selector(object(), values)
+            verified_ingress_selector(
+                object(), values, project=PROJECT, expected_selector=EXPECTED_SELECTOR
+            )
+
+    def test_uses_configured_gateway_names_namespace_and_selector(self):
+        project = "relocated-project"
+        host = f"custom-gateway.{project}.svc.cluster.local"
+        selector = {"app": "custom-gateway"}
+        values = {
+            "INTRINSIC_INGRESS_ADDRESS": host + ":80",
+            "INTRINSIC_INGRESS_GATEWAY": project + "/custom-listener",
+        }
+        responses = [
+            {"metadata": {"labels": {}}},
+            {
+                "spec": {
+                    "controlPlaneRef": {"namespace": "mesh-system", "name": "mesh"}
+                },
+                "status": {"conditions": [{"type": "Ready", "status": "True"}]},
+            },
+            {"items": []},
+            {
+                "spec": {
+                    "type": "ClusterIP",
+                    "selector": selector,
+                    "ports": [{"port": 80, "targetPort": 443}, {"port": 443}],
+                }
+            },
+            {
+                "subsets": [
+                    {
+                        "addresses": [
+                            {
+                                "ip": "pod-ip",
+                                "targetRef": {"kind": "Pod", "name": "gateway-pod"},
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "spec": {
+                    "selector": selector,
+                    "servers": [
+                        {"port": {"number": 80, "protocol": "HTTP2"}, "hosts": [host]},
+                        {
+                            "port": {"number": 443, "protocol": "HTTPS"},
+                            "hosts": [host, "*"],
+                            "tls": {"mode": "ISTIO_MUTUAL"},
+                        },
+                    ],
+                }
+            },
+            {
+                "items": [
+                    {
+                        "metadata": {"name": "gateway-pod"},
+                        "status": {
+                            "phase": "Running",
+                            "podIP": "pod-ip",
+                            "conditions": [{"type": "Ready", "status": "True"}],
+                        },
+                    }
+                ]
+            },
+        ]
+        with patch("configure_routing.get_json", side_effect=responses) as queries:
+            actual = verified_ingress_selector(
+                object(),
+                values,
+                project=project,
+                expected_selector=selector,
+            )
+        self.assertEqual(actual, selector)
+        self.assertEqual(
+            queries.call_args_list[3].args[1:],
+            ("get", "service", "custom-gateway", "--namespace", project),
+        )
+        self.assertEqual(
+            queries.call_args_list[5].args[1:],
+            (
+                "get",
+                "gateways.networking.istio.io",
+                "custom-listener",
+                "--namespace",
+                project,
+            ),
+        )
+
+        responses[3] = {"spec": {"selector": {"app": "unreviewed-gateway"}}}
+        with patch("configure_routing.get_json", side_effect=responses):
+            with self.assertRaises(PilotError):
+                verified_ingress_selector(
+                    object(),
+                    values,
+                    project=project,
+                    expected_selector=selector,
+                )
 
 
 if __name__ == "__main__":
