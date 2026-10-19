@@ -140,6 +140,26 @@ provenance verification, shell syntax checks, and Go checks. Vendored upstream
 sources remain governed by the provenance manifest and controller adaptations.
 
 
+## Demo acceptance gates
+
+Run the read-only dependency checks:
+
+```sh
+python3 openshift/validate_demo_gates.py --json
+```
+
+For an explicit simulated reset and one bounded cached demo cycle:
+
+```sh
+python3 openshift/validate_demo_gates.py --through-phase 6 --allow-app-actions --json
+```
+
+A nonzero result identifies the failing gate, including the known gripper/stock
+collision. Successful RHOAI inference is reported separately from full cycle
+completion. PVCs and caches are preserved. See the
+[phase descriptions and safeguards](DEMO_DEPENDENCY_LADDER.md#executable-acceptance-command).
+
+
 **Status (2026-10-08):** The OpenShift-specific registry and ArtifactService
 fixes are deployed. `intrinsic-base`, `resources`, `skills`, and
 `intrinsic-app-chart` ChartAssignments are Settled; solution images use the

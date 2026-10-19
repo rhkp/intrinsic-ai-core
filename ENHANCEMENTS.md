@@ -550,6 +550,30 @@ release, regenerate its artifacts, and repeat no-op reconcile plus smoke checks.
 
 **Priority:** 3
 
+**Status:** implemented and verified on 2026-10-19.
+
+- [validate_demo_gates.py](openshift/validate_demo_gates.py) implements phases
+  1–6, exact canonical targeting, bounded/captured queries, fail-fast dependency
+  handling, sanitized JSON and explicit application-action authorization.
+- All 42 default read-only gates pass. Running Pods alone cannot pass: checks
+  require current workload ownership/generations/revisions, Ready containers,
+  valid endpoint identities/ports and current settled ResourceSets.
+- The explicit application phase verified scene/config hashes, reset all four
+  documented files, checked ICON recovery and robot placement, then reproduced
+  the known collision with a nonzero result. RHOAI completion is independently
+  reported and was rechecked against that cycle's live logs after correcting
+  the deployed completion-record format. Full pick completion remains E5.
+- All original application workloads, 10 PVCs and build caches were preserved.
+  The command installs nothing and does not rebuild application artifacts.
+- All 94 Python tests, Go tests/vet, Ruff lint/format, strict configuration
+  audit and provenance checks pass.
+- The offline suite covers action isolation, stale readiness, resource identity,
+  image-lock drift, GPU absence, safe reporting, changed scene files, timeouts,
+  process cleanup and collision classification. Existing CI discovers these tests.
+
+See [the executable ladder](openshift/DEMO_DEPENDENCY_LADDER.md#executable-acceptance-command)
+for the commands, evidence contract and runtime limits.
+
 **Problem:** The ladder in `openshift/DEMO_DEPENDENCY_LADDER.md` is clear but
 manual. A running Pod is not currently sufficient to prove each gate.
 

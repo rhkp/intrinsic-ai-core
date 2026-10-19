@@ -8,6 +8,31 @@
 
 ## Current state
 
+### Latest result: E3 executable acceptance gates (2026-10-19)
+
+- `python3 openshift/validate_demo_gates.py --json` runs phases 1–5 read-only.
+  All 42 gates passed, including current rollouts/ResourceSets, authenticated
+  registry lookup, actual workspace gRPC connectivity, live ICON state,
+  RHOAI/KServe GPU access, authenticated models and separated wrapper topology.
+- Phase 6 requires `--through-phase 6 --allow-app-actions`. It rechecks fresh
+  readiness and executive idleness, verifies exact simulation images and source
+  hashes, resets the four documented files, checks runtime/ICON recovery and
+  scene alignment, then runs the existing cached one-cycle executable.
+- The explicit run passed reset, alignment, recovery and PVC preservation. The
+  cycle failed on the known gripper/stock collision. RHOAI completion was
+  confirmed from that cycle's live logs after correcting the parser for the
+  deployed `with N outputs` record format; this recheck caused no robot motion.
+  Inference success and application-cycle success remain separate outcomes.
+- PVCs and caches were preserved; no image build, rollout, model deployment,
+  new serving resource or application reinstall was required. Detailed raw
+  logs/credentials are never printed by the validator.
+- All 94 Python tests, Go tests/vet, focused Ruff checks, strict target audit
+  and provenance verification pass.
+- The command returns nonzero for failed or unverified gates. Full pick success
+  remains E5; an E3 readiness pass is not a completed pick.
+- See the [executable ladder](../DEMO_DEPENDENCY_LADDER.md#executable-acceptance-command)
+  for phase selection, sanitized evidence fields and timeout semantics.
+
 ### Latest result: E2 canonical consumer migration complete (2026-10-19)
 
 - E2.4 is deployed. Canonical configuration and the portable schema version 2

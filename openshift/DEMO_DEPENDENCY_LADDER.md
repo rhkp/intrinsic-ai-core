@@ -1,9 +1,77 @@
 # OpenShift demo dependency ladder
 
+> [!NOTE]
+> This project was developed with assistance from AI tools.
+
 This is the critical path for the configured simulation demo. Kubernetes
 Services use TCP; the API calls listed below are gRPC over TCP unless noted.
 Check live Service ports and ChartAssignment conditions before each run. A
 running Pod alone does not pass a layer.
+
+## Executable acceptance command
+
+Use the validated, ignored `openshift/config.local.json` and portable image lock:
+
+```sh
+# Read-only by default: phases 1–5, no scene reset or application execution.
+python3 openshift/validate_demo_gates.py
+python3 openshift/validate_demo_gates.py --json
+
+# Select one phase or run the dependency chain through a phase.
+python3 openshift/validate_demo_gates.py --phase 4 --json
+python3 openshift/validate_demo_gates.py --through-phase 5 --json
+
+# Explicitly allow the documented simulated scene reset and one cached cycle.
+python3 openshift/validate_demo_gates.py --through-phase 6 --allow-app-actions --json
+```
+
+| CLI phase | Checks |
+| --- | --- |
+| 1 — workspace | Current workspace rollout, dedicated mesh Gateway, an actual gRPC status response from the workspace, TLS-verified registry authentication and a manifest digest lookup |
+| 2 — artifacts | ArtifactService ready endpoints backed by current workloads; visibility of an existing locked solution-image upload |
+| 3 — core | Current base ChartAssignment, latest settled ResourceSet, required service ports and ready endpoint pods owned by current workloads |
+| 4 — solution | Current app/resource/skill ChartAssignments and ResourceSets, asset service endpoints, immutable image-lock matches and backend READY status |
+| 5 — runtime | Current simulator/ICON/UR/gripper/planner/wrapper rollouts, seven Gazebo ports, live ICON hardware state, RHOAI/KServe readiness, GPU device access, authenticated model readiness and wrapper metadata; no native Triton container |
+| 6 — application | Fresh pre-action readiness, idle executive, exact simulation images, approved scene/config hashes, four-file reset, post-reset runtime/ICON readiness, robot alignment/attachments/frames, one bounded cached cycle, separately observed RHOAI inference and unchanged PVCs |
+
+Phase numbers are one greater than the historical layer numbers below.
+`--phase 6` always includes phases 1–5. Selecting phase 6 without
+`--allow-app-actions` exits before accessing the cluster. A failed phase skips
+later phases. The command never deploys, rebuilds, deletes PVCs, clears caches,
+or cancels another executive operation.
+
+The application uses the existing cached executables. `--cycle-timeout` accepts
+30–600 seconds (default 180); a timeout fails the gate and terminates the local
+launcher process group. It does not claim the backend operation was canceled;
+the executive must be idle before another reset is allowed.
+
+The JSON report includes gate name, phase, pass/fail/skipped status, observation
+time, relevant condition, safe failure reason, and boolean/count evidence.
+`age_seconds` is the age of the resource's last positive condition transition,
+or `null` when no condition timestamp is available. It is not an expiration
+policy. Reports exclude API URLs, namespace/context identities, credentials,
+raw logs, resource UIDs and cluster capacity. Reports can be redirected to
+ignored `openshift/.generated/` for a run record.
+
+`application_cycle_complete` is true only for a successful bounded cycle.
+`rhoai_demo_inference_observed` records a FoundationPose completion during that
+cycle separately. A known collision remains a **failed cycle with exit code 1**,
+even when deployment readiness and RHOAI inference pass. A read-only pass does
+not establish pick-cycle success or execute synthetic inference.
+
+### Verified automation result — 2026-10-19
+
+All 42 read-only gates passed. The explicitly enabled application run passed
+reset, ICON recovery, scene alignment and PVC preservation, then reproduced the
+known gripper/stock collision. RHOAI's completion-record parser was corrected
+against the deployed `with N outputs` format and that same cycle's model
+completion was rechecked read-only. The cycle did not complete. Application
+workloads and all 10 PVCs/caches were preserved.
+
+## Historical topology observations
+
+The table records the earlier 2026-10-08 baseline. Current inference runs in
+RHOAI; phase 5 checks the remote predictor and the wrapper's separated topology.
 
 | Layer | Services and transport | Gate before moving up | target cluster observation (2026-10-08) |
 | --- | --- | --- | --- |

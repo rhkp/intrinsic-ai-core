@@ -509,7 +509,7 @@
         },
         {
           "path": "openshift/README.md",
-          "sha256": "a0118df6a89cf57fcedf3165d38ab32c36f5c28246e421078649d4e15a30cbe8"
+          "sha256": "c1298a428982556024497f9a2725d564448ac97d648d2e9e88a1df4f3213746c"
         },
         {
           "path": "openshift/audit/audit_config.py",
@@ -670,6 +670,24 @@
         {
           "path": "openshift/testdata/config-render/workspace.golden",
           "sha256": "42d95f60a0e3ea483dd53c9cf6a3eac6ed101c2098dd7a36394662c54ff0ae07"
+        }
+      ]
+    },
+    {
+      "id": "executable-demo-dependency-gates-e3",
+      "status": "Read-only acceptance verified; explicit reset/cycle correctly reports the known collision and preserves PVCs; RHOAI completion parser rechecked against live logs",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/validate_demo_gates.py",
+          "sha256": "601c7f413ade8e23ce38e6a358158328ec415b4ff3be497c1e61aa8fbb4d3596"
+        },
+        {
+          "path": "openshift/demo_probe.py",
+          "sha256": "e9346325613409003ee98ef7fde93531cf8d6a845e605e4abaea89fbd27b7c25"
+        },
+        {
+          "path": "openshift/test_validate_demo_gates.py",
+          "sha256": "60f3e488180e4be11c8e5bdcd8663d72b1de06fdf2e641976d6a15ad6c459b13"
         }
       ]
     }
