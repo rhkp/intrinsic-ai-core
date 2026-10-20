@@ -606,6 +606,22 @@ class ProbeTest(unittest.TestCase):
         self.assertFalse(result["cycle_completed"])
         self.assertTrue(result["known_collision"])
 
+    def test_other_gripper_finger_collision_also_fails_cycle(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(demo_probe, "WORKSPACE", Path(directory)),
+            patch.object(
+                demo_probe,
+                "bounded_process",
+                return_value=subprocess.CompletedProcess(
+                    [], 0, "gripper.gripper_finger1 raw_stock_2x3x5.base_link", ""
+                ),
+            ),
+        ):
+            result = demo_probe.action_probe(self.request(directory, "cycle"))
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["known_collision"])
+
     def test_sdk_pending_backend_is_a_connectivity_pass_and_health_failure(self):
         from types import SimpleNamespace
         from unittest.mock import MagicMock

@@ -6,6 +6,14 @@ Operational helpers use the ignored canonical target configuration. Environment
 variables do not select another cluster or project. Keep credentials separately
 in the ignored `openshift/.env`; never copy them into target configuration.
 
+## Completed simulated cycle
+
+The E5 release-clearance correction completed two independently reset full
+configured simulation cycles with RHOAI inference on 2026-10-20. The repeat
+passed all 52 gates; all five behavior-tree stages succeeded. PVCs and caches
+were preserved. See [the collision diagnosis and reproducible commands](COLLISION_DIAGNOSTICS.md)
+for the application patch, trace exporter and explicit reset/run command.
+
 ## Canonical target configuration
 
 Copy `openshift/config.example.json` to the ignored

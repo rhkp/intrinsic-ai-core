@@ -509,7 +509,7 @@
         },
         {
           "path": "openshift/README.md",
-          "sha256": "c1298a428982556024497f9a2725d564448ac97d648d2e9e88a1df4f3213746c"
+          "sha256": "ec693bb529818a81f89067f81928db8609945b16abcc7dea48bb8cd38183eb85"
         },
         {
           "path": "openshift/audit/audit_config.py",
@@ -565,7 +565,7 @@
         },
         {
           "path": "openshift/deployment/omts-runner/build-tool-image.sh",
-          "sha256": "009eedb43ed06dc074d7be72730f11a162f3f5d7d54ef3a295fad619e6de0758"
+          "sha256": "6ac114631577b75cb6921b28bd5f683d0914a50895b876e837b9fd7e94b4b773"
         },
         {
           "path": "openshift/deployment/omts-runner/build-tool-image.yaml",
@@ -585,7 +585,7 @@
         },
         {
           "path": "openshift/deployment/omts-workspace/build-workspace-image.sh",
-          "sha256": "02a3860163e7910ff09e148a294dfde90415f1c91a3e4190f83cff0be249fc4f"
+          "sha256": "6980320f04e99e096b0ff56073a8d04d18000824ee35b370031c3c2f7c6d312f"
         },
         {
           "path": "openshift/deployment/omts-workspace/workspace.yaml",
@@ -683,13 +683,64 @@
         },
         {
           "path": "openshift/demo_probe.py",
-          "sha256": "e9346325613409003ee98ef7fde93531cf8d6a845e605e4abaea89fbd27b7c25"
+          "sha256": "60ad62d2b6f5a623f434fa855b92ec24df2eb5e1a27da3d1392cdad4f7d39f49"
         },
         {
           "path": "openshift/test_validate_demo_gates.py",
-          "sha256": "60f3e488180e4be11c8e5bdcd8663d72b1de06fdf2e641976d6a15ad6c459b13"
+          "sha256": "205ee59f9afa00d7ba2d1014e496ed9d0427a64dda464f7ba6b110dbeac1428f"
         }
       ]
+    },
+    {
+      "id": "demo-release-clearance-and-collision-evidence-e5",
+      "status": "Two reset-based configured simulated cycles completed with RHOAI inference; 52 repeat gates and independent five-stage executive evidence passed; PVCs, pods and caches preserved",
+      "patch_path": "patches/omts-release-clearance.patch",
+      "patch_sha256": "7875799b7be3d2bbeda09bb4ec2b27c69f4f1c4569f7cd46428841592a88e567",
+      "upstream_repository": "intrinsic-omts",
+      "upstream_ref": "20260922.0",
+      "upstream_commit": "8253cdfdd173da9d5b7c9bb7b8cee817f66902ae",
+      "rationale": "Add explicit post-release vertical clearance before loading/infeed lateral exits; retain ordinary transit and environment collision checking. Geometry-only experiment rejected and reverted. Record sanitized planner, collision-model, force-request and belief-state evidence.",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/apply_demo_clearance.py",
+          "sha256": "d535e47fe918c7981e65274b7c5d15941d687b9285006d9abdccedfb7ae50ea6"
+        },
+        {
+          "path": "openshift/collision_probe.py",
+          "sha256": "14801deedccecdaefb040ab65e484fdd39a8687850e42175876214043cb22c83"
+        },
+        {
+          "path": "openshift/collision_trace.py",
+          "sha256": "c91a6e697c67ad6f95ce2c5ea6a2ecd9ae61a77409c040b435987382e1b00dfd"
+        },
+        {
+          "path": "openshift/test_collision_trace.py",
+          "sha256": "2c52b62e3167b18c949e618ae4f9d392884f2acee6be6d3e45e02bc14e24f33e"
+        },
+        {
+          "path": "openshift/COLLISION_DIAGNOSTICS.md",
+          "sha256": "abf0ddb052ffc0ecccf51c1483a8bee4fefdee6b45c16f4eab5abfc01a167c08"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/prepare-omts-source.sh",
+          "sha256": "eba2c4c657f3fd09c76267c9e47250e5d59e74bd22db90e06a15e70ad4a0e023"
+        },
+        {
+          "path": "openshift/deployment/omts-runner/Containerfile.toolchain",
+          "sha256": "5e57fd0b5d905bef8f77a7bdcfc83eebcc2828543912bf611a344f4f2ae685ec"
+        }
+      ],
+      "verification": {
+        "configured_reset_cycles_completed": 2,
+        "repeat_acceptance_gates": 52,
+        "rhoai_inference_observed": true,
+        "all_five_stages_succeeded": true,
+        "pvc_identities_and_specs_unchanged": true,
+        "workload_specs_and_pod_identities_unchanged": true,
+        "planner_and_collision_geometry_hashes_unchanged": true,
+        "fresh_aws_run_performed": false,
+        "physical_contact_telemetry_collected": false
+      }
     }
   ]
 }

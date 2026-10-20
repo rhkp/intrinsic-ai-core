@@ -645,6 +645,28 @@ or files while preserving external behavior.
 
 **Priority:** 5
 
+**Status:** application collision resolved and repeat simulation verified on
+2026-10-20; read-only trace export and offline comparison implemented.
+
+- Executive evidence corrected the earlier stage assumption: picking succeeded;
+  the first failure was the loading exit after releasing the workpiece.
+- Added explicit post-release vertical clearance before lateral transit at the
+  machine and infeed exits, using the configured approach offset. Contact-escape
+  exclusions are scoped to the gripper/workpiece pair. Scene geometry, force
+  thresholds, controller and deployment specifications are unchanged.
+- Two independently reset configured simulated cycles completed with RHOAI
+  inference. The repeat passed all 52 gates; an independent SDK trace confirmed
+  all five subtrees and the operation succeeded.
+- All 10 PVCs, workload specifications, Pod identities and caches were preserved.
+  The patch and both build/source-preparation paths are tracked.
+- Added a pinned/idempotent workspace patch helper, safe trace exporter and
+  offline comparison with planner/model identities and numeric state deltas.
+- No fresh AWS run, sampled contact-command stream, measured contact points,
+  or actual simulator jaw feedback is claimed. These remain diagnostic follow-ups;
+  the trace explicitly marks uncollected feedback.
+
+See [collision diagnosis, commands and evidence](openshift/COLLISION_DIAGNOSTICS.md).
+
 **Problem:** The controlling application gate is the gripper/stock collision
 observed during the one-cycle simulation. Reproducing the same failure does not
 establish demo parity.
@@ -679,12 +701,12 @@ that captures comparable evidence on AWS and OpenShift.
 
 **Priority:** 6
 
-**Problem:** The RHOAI/KServe deployment is Ready and synthetic inference
-passes, but the wrapper adapter is not rolled out and the demo still uses the
-existing endpoint.
+**Problem:** The wrapper adapter is deployed and real demo inference reaches
+RHOAI/KServe. Model artifact identity, lifecycle, security and rollback still
+need the additional evidence described below.
 
 **Improvement:** Finish the remaining model identity, lifecycle, security, and
-application gates before changing the wrapper endpoint.
+application gates for the deployed wrapper integration.
 
 **Implementation notes**
 

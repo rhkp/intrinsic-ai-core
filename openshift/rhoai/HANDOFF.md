@@ -8,6 +8,28 @@
 
 ## Current state
 
+### Latest result: E5 configured simulation completes (2026-10-20)
+
+- The original failure was the lateral loading exit after release; picking had
+  succeeded. The tracked `patches/omts-release-clearance.patch` adds vertical
+  tool −Z clearance at the machine and infeed release exits, using the existing
+  approach offset and segment-scoped gripper/workpiece exclusions. Ordinary
+  transit collision checks remain enabled; scene geometry is unchanged.
+- Two fresh-reset configured cycles passed with RHOAI FoundationPose completion.
+  The repeat passed all 52 gates. A separate SDK trace confirmed terminal
+  `SUCCEEDED` and all five configured subtrees `SUCCEEDED`.
+- All 10 PVC identities/specifications/Bound states, workload specifications,
+  application Pod identities and build caches were preserved. No controller
+  rollout, image rebuild, resource replacement or model change was required.
+- Check source with `python3 openshift/apply_demo_clearance.py`; writing requires
+  `--apply`, exact hashes, a Ready simulation and an idle executive. Future
+  tool builds/source preparation include the patch.
+- Export current read-only evidence with `python3 openshift/collision_trace.py`.
+  The SDK/offline comparison format supports both topologies; a fresh AWS run
+  and measured contact/jaw telemetry remain unverified.
+- See [the E5 runbook](../COLLISION_DIAGNOSTICS.md) for commands, experiments,
+  evidence limitations, existing-tools-image migration, and local reports.
+
 ### Latest result: E3 executable acceptance gates (2026-10-19)
 
 - `python3 openshift/validate_demo_gates.py --json` runs phases 1–5 read-only.

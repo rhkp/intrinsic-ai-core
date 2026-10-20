@@ -307,7 +307,9 @@ def action_probe(request: dict) -> dict:
             "known_collision": False,
         }
     log = process.stdout + process.stderr
-    collision = "gripper_finger2" in log and "raw_stock_2x3x5" in log
+    collision = (
+        "gripper_finger1" in log or "gripper_finger2" in log
+    ) and "raw_stock_2x3x5" in log
     # A reproduced collision always fails the cycle gate, even with an exit-zero bug.
     completed = process.returncode == 0 and not collision
     return {

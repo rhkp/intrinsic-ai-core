@@ -41,6 +41,7 @@ for patch_file in \
   omts-openshift-module-registry-keychain.patch \
   omts-openshift-sim-config-safety.patch \
   omts-tinygltf-bcr-override.patch \
+  omts-release-clearance.patch \
   intrinsic-core-triton-digest-pin.patch \
   openshift-rules-ros2-build-compat.patch \
   openshift-tinygltf-bazel-headers.patch \

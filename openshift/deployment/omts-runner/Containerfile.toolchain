@@ -1,3 +1,4 @@
+# This project was developed with assistance from AI tools.
 FROM registry.access.redhat.com/ubi10/ubi-minimal@sha256:ab0348d8ef0435d8c069792602b7943a97affab6ef5789d8bd9cc492f7756782 AS builder
 
 USER 0
@@ -51,6 +52,7 @@ COPY patches/omts-openshift-demo-configs.patch /opt/intrinsic/repo/patches/omts-
 COPY patches/omts-openshift-module-registry-keychain.patch /opt/intrinsic/repo/patches/omts-openshift-module-registry-keychain.patch
 COPY patches/omts-openshift-sim-config-safety.patch /opt/intrinsic/repo/patches/omts-openshift-sim-config-safety.patch
 COPY patches/omts-tinygltf-bcr-override.patch /opt/intrinsic/repo/patches/omts-tinygltf-bcr-override.patch
+COPY patches/omts-release-clearance.patch /opt/intrinsic/repo/patches/omts-release-clearance.patch
 COPY patches/intrinsic-core-triton-digest-pin.patch /opt/intrinsic/repo/patches/intrinsic-core-triton-digest-pin.patch
 COPY patches/openshift-rules-ros2-build-compat.patch /opt/intrinsic/repo/patches/openshift-rules-ros2-build-compat.patch
 COPY patches/openshift-tinygltf-bazel-headers.patch /opt/intrinsic/repo/patches/openshift-tinygltf-bazel-headers.patch

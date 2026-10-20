@@ -80,7 +80,7 @@ validate_source_changes() {
   while IFS= read -r change; do
     [[ -z "${change}" ]] && continue
     case "${change:3}" in
-      BUILD|MODULE.bazel|bazel/gh_release.bzl|bazel/patches/BUILD|bazel/patches/openshift_registry_keychain.patch|bazel/patches/openshift_gpu_toleration.patch|bazel/patches/resource_registry_namespace_configmaps.patch|bazel/patches/resource_registry_openshift_ingress.patch|bazel/patches/openshift_triton_digest_pin.patch|bazel/patches/openshift_rules_ros2.patch|bazel/patches/openshift_tinygltf_bazel_headers.patch|bazel/patches/openshift_glib_gmodule_header.patch|bazel/patches/openshift_grpc_proto_path_order.patch|bazel/patches/openshift_dumb_init_version_header.patch|bazel/patches/openshift_gz_common_cdt_headers.patch|bazel/patches/openshift_aravis_api_header.patch|bazel/patches/openshift_libzmq_install_libdir.patch|configs/BUILD|src/BUILD) ;;
+      BUILD|MODULE.bazel|bazel/gh_release.bzl|bazel/patches/BUILD|bazel/patches/openshift_registry_keychain.patch|bazel/patches/openshift_gpu_toleration.patch|bazel/patches/resource_registry_namespace_configmaps.patch|bazel/patches/resource_registry_openshift_ingress.patch|bazel/patches/openshift_triton_digest_pin.patch|bazel/patches/openshift_rules_ros2.patch|bazel/patches/openshift_tinygltf_bazel_headers.patch|bazel/patches/openshift_glib_gmodule_header.patch|bazel/patches/openshift_grpc_proto_path_order.patch|bazel/patches/openshift_dumb_init_version_header.patch|bazel/patches/openshift_gz_common_cdt_headers.patch|bazel/patches/openshift_aravis_api_header.patch|bazel/patches/openshift_libzmq_install_libdir.patch|configs/BUILD|src/BUILD|src/behaviors/load_machine.py|src/behaviors/return_infeed.py) ;;
       *)
         echo "unexpected OMTS source modification; refusing to build" >&2
         return 1
@@ -96,6 +96,8 @@ readonly patch_owned_tracked_files=(
   bazel/patches/BUILD
   configs/BUILD
   src/BUILD
+  src/behaviors/load_machine.py
+  src/behaviors/return_infeed.py
 )
 readonly compatibility_patches=(
   "${repo_root}/patches/omts-anonymous-releases.patch"
@@ -105,6 +107,7 @@ readonly compatibility_patches=(
   "${repo_root}/patches/omts-openshift-resource-registry-adaptations.patch"
   "${repo_root}/patches/omts-openshift-module-registry-keychain.patch"
   "${repo_root}/patches/omts-tinygltf-bcr-override.patch"
+  "${repo_root}/patches/omts-release-clearance.patch"
 )
 
 validate_source_changes
