@@ -509,7 +509,7 @@
         },
         {
           "path": "openshift/README.md",
-          "sha256": "ec693bb529818a81f89067f81928db8609945b16abcc7dea48bb8cd38183eb85"
+          "sha256": "9fd9f3960ded7eb08f10a170a83aa7736296fb066fc1b6bf345d708136bd91a8"
         },
         {
           "path": "openshift/audit/audit_config.py",
@@ -740,6 +740,48 @@
         "planner_and_collision_geometry_hashes_unchanged": true,
         "fresh_aws_run_performed": false,
         "physical_contact_telemetry_collected": false
+      }
+    },
+    {
+      "id": "operational-observability-baseline-e8",
+      "status": "Project-local observer deployed; existing OpenShift Prometheus collects 13 metric families and evaluates nine healthy warning rules; native RPC/IPC and GPU memory instrumentation remains open",
+      "rationale": "Add read-only project-scoped operational visibility without changing the controller, application or RHOAI workloads; preserve all PVCs and cached builds.",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/observability.py",
+          "sha256": "19accdecddd54ade82d6647661877a3c8341bb208930c5ff4c0e8f2e834f3d94"
+        },
+        {
+          "path": "openshift/observability/observer.py",
+          "sha256": "52f43c9498d3b566be12f7c28f2198a1ec3d0839f5fc17bd247315494dee7fae"
+        },
+        {
+          "path": "openshift/observability/index.html",
+          "sha256": "53cd49c763e6242c457b03492773acca090cd60c183db1a6539a97a52e31b0e0"
+        },
+        {
+          "path": "openshift/observability/dashboard.js",
+          "sha256": "d764ef3b48e2694059701973aa13d5c0ae2c55c995ced61f75df8bc5d6c4d42b"
+        },
+        {
+          "path": "openshift/observability/dashboard.css",
+          "sha256": "839eeac8b95681970fae22c4bd53cad116bae5c8debc6a37157660f20717978c"
+        },
+        {
+          "path": "openshift/observability/README.md",
+          "sha256": "f89664fcf0ec57a7d36ea8b586353fa3b81652dda2cb6807c752566b49c1d794"
+        }
+      ],
+      "verification": {
+        "metric_families_collected": 13,
+        "healthy_alert_rules": 9,
+        "required_components_ready": 10,
+        "assignments_ready": 4,
+        "original_workload_specs_and_pod_identities_unchanged": true,
+        "original_pvcs_bound_and_unchanged": 10,
+        "notification_delivery_verified": false,
+        "native_rpc_ipc_gpu_memory_instrumentation_complete": false,
+        "read_only_acceptance_gates_passed": 42
       }
     }
   ]

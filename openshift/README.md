@@ -14,6 +14,13 @@ passed all 52 gates; all five behavior-tree stages succeeded. PVCs and caches
 were preserved. See [the collision diagnosis and reproducible commands](COLLISION_DIAGNOSTICS.md)
 for the application patch, trace exporter and explicit reset/run command.
 
+## Operational observability
+
+[E8 observability](observability/README.md) connects a read-only observer to the
+existing OpenShift Prometheus, adds nine warning alerts and a private dashboard.
+Application workloads, PVCs and caches are preserved. Native RPC/IPC and GPU
+memory telemetry remain unconnected and are identified explicitly.
+
 ## Canonical target configuration
 
 Copy `openshift/config.example.json` to the ignored

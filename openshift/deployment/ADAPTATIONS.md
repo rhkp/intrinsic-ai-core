@@ -1,5 +1,20 @@
 # OpenShift adaptations
 
+## E8 operational observability baseline
+
+The additive [E8 observer](../observability/README.md) uses the existing OpenShift
+user-workload Prometheus through a ServiceMonitor and nine warning rules. Its
+private dashboard shows ten components, four assignments, current restart/GPU
+allocation gauges and recent deployment warnings. Thirteen metric families are
+collected; all nine rules are loaded and healthy. Native controller/RPC errors
+and latency, simulator IPC disconnects and GPU memory remain unconnected.
+
+The renderer uses canonical target/image-lock settings and applies only nine
+owned project objects after a server dry run. The locked viewer image supplies
+Python; no controller build or application rollout is required. Read-only demo
+acceptance passed all 42 gates. Original workload specifications, Pod identities
+and all ten PVCs were preserved. No new motion or notification test was run.
+
 ## Registry image publisher — first implementation slice
 
 Status: applied to the owned copy at `intrinsic-core/`; it is not yet wired into a complete OpenShift deployment.

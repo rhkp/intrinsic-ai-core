@@ -8,6 +8,23 @@
 
 ## Current state
 
+### Latest result: E8 operational baseline (2026-10-20)
+
+- A project-local read-only observer and dashboard use existing OpenShift
+  user-workload monitoring. Prometheus collects 13 metric families; nine warning
+  alert rules are loaded, healthy and inactive. No separate Prometheus was needed.
+- Ten components and four assignments are ready. Coverage includes current
+  restarts, GPU allocation, settlement duration and recent deployment warnings.
+- All 42 read-only demo gates pass. Baseline comparison preserved 35 Deployment
+  and 13 StatefulSet specifications, original Pods and ten Bound PVCs.
+- Native controller/RPC latency and errors, simulator IPC disconnects and GPU
+  memory remain unconnected. Their unavailability is explicit; no motion-cycle
+  success is inferred from readiness. Notification delivery remains unverified.
+- Apply with `python3 openshift/observability.py --apply`; it changes only its
+  nine owned objects. No application/controller/model rollout or PVC is needed.
+  See [the E8 runbook](../observability/README.md) for the private dashboard and
+  alert troubleshooting. Source is maintained in the main repository workdir.
+
 ### Latest result: E5 configured simulation completes (2026-10-20)
 
 - The original failure was the lateral loading exit after release; picking had

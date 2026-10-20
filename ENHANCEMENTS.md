@@ -152,7 +152,7 @@ Checked-in model (real values remain in ignored local configuration):
         "istio": "intrinsic-grpc-gateway"
       },
       "zenoh_router_endpoint": "zenoh-router.{namespace}.svc.cluster.local:7447",
-      "rhoai_triton_endpoint": "triton-rhoai-grpc.{namespace}.svc.cluster.local:9000",
+      "rhoai_triton_endpoint": "your-rhoai-service.your-project-namespace.svc.cluster.local:9000",
       "mesh_namespace": "your-mesh-namespace",
       "mesh_revision": "your-service-mesh-control-plane"
     },
@@ -759,6 +759,15 @@ dependencies.
 ## E8 — Add operational observability
 
 **Priority:** 8
+
+**Status:** Operational baseline deployed and verified. Existing OpenShift
+user-workload Prometheus scrapes 13 metric families; nine warning rules are
+loaded and healthy. The project-local dashboard covers ten components, four
+assignments, current restarts/GPU allocations and recent deployment warnings.
+Application workload specifications, PVCs and caches are preserved. Native
+controller/RPC latency and error telemetry, IPC disconnects and GPU memory remain
+open; this is not full suggested-signal coverage. See the
+[E8 installation and runbooks](openshift/observability/README.md).
 
 **Problem:** Current validation relies heavily on manual inspection with
 `oc logs`, `oc get`, and documentation updates.
