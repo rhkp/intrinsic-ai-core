@@ -140,7 +140,7 @@
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "3c60fd42ba2031de7c2d64dfc355485f120a9e21e914a2581ab41027ca942780"
+          "sha256": "d90c557d7ad8bc9f2c3907d7d416cd15e12336edb8745f3c080be74e3140eb41"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -193,11 +193,11 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "d2f7c16f7a66e6322c027558d54a6b088ae0f04eaa71f09fd6d0978cfd943ff7"
+          "sha256": "5d289011d47308e363466986600c9284eda26bb5609c5343b1d6ffddeed5173e"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "86cffa1f2940469665024beae3b9b45bd68b0f5ef52a9b6bf47d255a0f13ab4a"
+          "sha256": "ff794a895907c26a6c986338c66587f2ab0e22ef57dbd705d2e59dfe73f58567"
         },
         {
           "path": "openshift/configure_routing.py",
@@ -393,15 +393,15 @@
       "added_adaptation_files": [
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift.go",
-          "sha256": "d2f7c16f7a66e6322c027558d54a6b088ae0f04eaa71f09fd6d0978cfd943ff7"
+          "sha256": "5d289011d47308e363466986600c9284eda26bb5609c5343b1d6ffddeed5173e"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_test.go",
-          "sha256": "86cffa1f2940469665024beae3b9b45bd68b0f5ef52a9b6bf47d255a0f13ab4a"
+          "sha256": "ff794a895907c26a6c986338c66587f2ab0e22ef57dbd705d2e59dfe73f58567"
         },
         {
           "path": "openshift/image-lock.json",
-          "sha256": "3c60fd42ba2031de7c2d64dfc355485f120a9e21e914a2581ab41027ca942780"
+          "sha256": "d90c557d7ad8bc9f2c3907d7d416cd15e12336edb8745f3c080be74e3140eb41"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -457,7 +457,7 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/controller/openshift_ros_zenoh.go",
-          "sha256": "4ed65c497043f11ee3ab72e832f663a3c07bf091a402e8e294092e8cd7395ad5"
+          "sha256": "55e870212d786ae1b1cd1c481db81a6fc6f4d08f15a5c367cb8c9bff42d7dc46"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/cmd/chart-assignment-controller/main.go",
@@ -513,11 +513,11 @@
         },
         {
           "path": "openshift/audit/audit_config.py",
-          "sha256": "14fd2aa3e776f74207e3bcfa7de26e532c14e703ec11d765eefa4641f284bff3"
+          "sha256": "1c2be211f3ba8a9994b999ca2e5d2a4645752ee0411be898fba95e8620360796"
         },
         {
           "path": "openshift/audit/test_audit_config.py",
-          "sha256": "e61f9341de7b6fe1c0dd3e8b486f695f3cc010eb5f1e7da76d9e193f282e9942"
+          "sha256": "76e53ac13bb8c46ea5ff80bfb44b7a7a4664fac4f021fe24700f2426b4482671"
         },
         {
           "path": "openshift/canonical-env.sh",
@@ -641,15 +641,15 @@
         },
         {
           "path": "openshift/testdata/config-render/configmap.golden",
-          "sha256": "80e3a946c39e2286b7958987e6ed4dc57c52fb0a93de6e67d333d3902cdd5591"
+          "sha256": "3d74c11344b28a50536be279b550c8c5ad5f506adcf6bec0a3831b7a0b8977a9"
         },
         {
           "path": "openshift/testdata/config-render/controller_deployment.golden",
-          "sha256": "67a59824d376f93bb303d2b66f0d1c5d6087e8da7eb37bf41af4914aab718ae0"
+          "sha256": "551367d977672bda7751ad369ba29fe784f3d1441fca3c5aecbe00c17630a54a"
         },
         {
           "path": "openshift/testdata/config-render/controller_patch.golden",
-          "sha256": "123b7b1940bf67cc00f35eb220a8b87ce955d07b30c2e7f6cf0bd05624ab4eab"
+          "sha256": "68a082184aa0c962382f6f6c62cd9282c73307031e76a839921b1fbe76801aa0"
         },
         {
           "path": "openshift/testdata/config-render/controller_rbac.golden",
@@ -783,6 +783,155 @@
         "native_rpc_ipc_gpu_memory_instrumentation_complete": false,
         "read_only_acceptance_gates_passed": 42
       }
+    },
+    {
+      "id": "controller-adapter-refactor-e4",
+      "status": "Deployed and verified: controller-only rollout, 42 read-only gates and complete reset-based RHOAI cycle passing 52 gates; application workloads, Pods and PVCs preserved",
+      "reference_commit": "07b6b6a988f26c9c742d8855886b81997cca4f7e",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/CONTROLLER_REFACTOR_PLAN.md",
+          "sha256": "edd0266d990acd4d297be1a286cfad53a00aab95ad4285d18d240a638ebeeaac"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_artifacts.go",
+          "sha256": "858e38d65d79cc721575bc8f17a8fd640c9ed3c28393dbe9e78f9f9551b97215"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_contract_test.go",
+          "sha256": "06c41ef866e5506b6b362adb7cd7207643d7b64891445d1a7ee1de03e753d18b"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_deployments.go",
+          "sha256": "fea30b151730d120ffdb5484be55affbc507b827fadcb91d00ab346cec377328"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_deployments_test.go",
+          "sha256": "f0fca734a4e86768b3b3169504a172bf2538f5aed86be3391fb2ad44386501a3"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_helpers_test.go",
+          "sha256": "b4532669fe328a4202189ec1c31461c345079cdca109f64b8ca90c4f15e1eb23"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_images.go",
+          "sha256": "41df962b097b7551a5ce4d460c42d07f3eee33a4465c8c6f09fa948e4f073169"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_images_test.go",
+          "sha256": "2355a19c1dc485f21b130a37e09826c16ddc9bdccac6bb5bf51cc6055064aa1c"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_inference.go",
+          "sha256": "b3ac15e7cd6d6e853d78b40f6122b98fdd14ea45b7f39f08efdcdd5d742ffc65"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_inference_test.go",
+          "sha256": "63583b85d034b53452b3e410e1dfac79f1e1871d9983533d1053adbce9691bd2"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_networkpolicy.go",
+          "sha256": "85c2a17ced275e1305e9a19e35b06d67c7e4ef76f703e395c84e7ae372539a1f"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_networkpolicy_test.go",
+          "sha256": "0c04eac7e9fa92165b631ceae883f8d86461d7cc5b591d59b6fc941750bad62f"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_pod.go",
+          "sha256": "21a7750fc359e1a17b2843e3b0eb7d3a6de60135c66460943b9b3ee649031cbf"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_rbac.go",
+          "sha256": "185d1c5f6d48d6d052c5af47fc038fcb9be05f0df9bda04553ad0c5a058925ae"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_rbac_test.go",
+          "sha256": "62f73111ef27f8ac5163bafd9e293bc989941078bcd87ab9286e140c120c571f"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_references.go",
+          "sha256": "bcaee8246fd5b9d6b20585e59c19490e428f63277297e663ac495178c9777674"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_ros_zenoh_test.go",
+          "sha256": "59749a8c9db9c41c1a24f0337d2ba55e62bd1df8225cd5784ae21d8bb36e771b"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_routing.go",
+          "sha256": "239f8b3f196bf281f35cc9905d8f376cedc77209041a1d4ab4dafb4cf4e26313"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_routing_test.go",
+          "sha256": "ff9c1311db08074daafb171779124b316ff869d6d3e4e39d0ad366dcf245b9f2"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_scheduling.go",
+          "sha256": "6151fcbcb9d7605828af29a0b2f63d6118deb9a293d0c6d605d8f5f772ca2be7"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_scheduling_test.go",
+          "sha256": "fe479b97599e5c4ae50817cb45df8e82175b994020f3995faca9832fa54e6189"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_security.go",
+          "sha256": "bd43f8700048782aab40a8fc141ebfd39c12ae55bbe2c44944cd9c47839a16e4"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_security_test.go",
+          "sha256": "f15e259f06fecc898a5e9072565f8ea52befd87b2f9715586e7765a1487d82b7"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_services.go",
+          "sha256": "623b369abf28741a22036931207be68ab3515aaf61271947232d8fd133fac131"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_services_test.go",
+          "sha256": "1e67add1523787a4e293ccd7a005ecc05f47bc203e13522e4eb4b104726a13be"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_storage.go",
+          "sha256": "6a093ed50e377659a62e8946fdb26b46893f225e5883add98e17dd258f234d1a"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_storage_test.go",
+          "sha256": "3104f48b70147da8167201a549145197900e7d56a8e12a201b157097e7748529"
+        },
+        {
+          "path": "openshift/deployment/chartassignment-controller/controller/openshift_unstructured.go",
+          "sha256": "cec29f79c6ec441c4e0b8356efad76003fa126db8df45100b6360d11a3f1959d"
+        }
+      ],
+      "verification": {
+        "original_production_declarations_unchanged": 155,
+        "orchestrator_functions_updated": 1,
+        "production_helpers_extracted": 2,
+        "original_named_tests_preserved": 44,
+        "original_test_declarations_unchanged": 50,
+        "go_test_results_passed": 120,
+        "python_tests_passed": 115,
+        "go_vet_passed": true,
+        "complete_objects_compared": 223,
+        "renderer_commands_verified": 2,
+        "top_level_render_order_nondeterministic_in_reference": true,
+        "live_rollout_verified": true,
+        "read_only_gates_passed": 42,
+        "full_cycle_gates_passed": 52,
+        "application_cycle_complete": true,
+        "rhoai_demo_inference_observed": true,
+        "unchanged_non_controller_deployments": 35,
+        "unchanged_statefulsets": 13,
+        "unchanged_services": 75,
+        "unchanged_assignments": 4,
+        "unchanged_bound_pvcs": 10,
+        "application_pod_identities_preserved": true,
+        "observability_metric_families": 13,
+        "healthy_observability_rules": 9,
+        "matching_rollback_prepared": true,
+        "rollback_exercised_during_e4": false,
+        "canonical_target_policy_unchanged": true
+      },
+      "controller_digest": "sha256:ca0f1689ccc96a420247fde86673b403972aefdbb15176bd0eec8fbe0104f263"
     }
   ]
 }

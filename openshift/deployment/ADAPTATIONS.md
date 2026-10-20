@@ -1,5 +1,20 @@
 # OpenShift adaptations
 
+## E4 controller adapter refactor
+
+The [E4 refactor](../CONTROLLER_REFACTOR_PLAN.md) separates policy domains in the
+existing Go package, leaving the main adapter at 157 lines. The original tests
+and their assertions remain intact. All 120 Go test results, vet and 115 Python
+tests pass, and both offline renderers match the complete reference object bundle.
+
+The controller-only rollout passed 42 read-only gates, followed by a full
+reset-based simulated RHOAI cycle passing 52 gates. Application workloads, Pod
+identities, ten PVCs and caches were preserved. E8 monitoring remains healthy.
+The image lock records the deployed controller; the matching previous controller
+and configuration are retained privately for rollback, which was not exercised
+during E4. Current source links point to the extracted domain files; pinned
+historical evidence links retain their original commit/file references.
+
 ## E8 operational observability baseline
 
 The additive [E8 observer](../observability/README.md) uses the existing OpenShift

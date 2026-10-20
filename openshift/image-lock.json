@@ -34,7 +34,7 @@
     },
     {
       "name": "chartassignment-controller",
-      "digest": "sha256:10250f48a26cf927e81d71eddae6e381736f88742512c84162a4551ae7825a26",
+      "digest": "sha256:ca0f1689ccc96a420247fde86673b403972aefdbb15176bd0eec8fbe0104f263",
       "description": "Namespace scoped OpenShift ChartAssignment controller"
     },
     {

@@ -2,6 +2,19 @@
 > [!NOTE]
 > This project was developed with assistance from AI tools.
 
+## Adapter layout
+
+The OpenShift adapter remains in the `chartassignment` package.
+[`controller/openshift.go`](controller/openshift.go) sequences resource policies;
+[`controller/openshift_pod.go`](controller/openshift_pod.go) sequences Pod policies.
+Storage, scheduling, RBAC, references, images, services, routing, NetworkPolicy,
+security, ArtifactService, inference and special Deployment adaptations have
+separate `openshift_*.go` files, with corresponding tests. Shared test helpers
+remain serial because configuration is package-global.
+
+See the [E4 plan and verification record](../../CONTROLLER_REFACTOR_PLAN.md) for
+the ownership map, reference-render comparison and controlled rollout gates.
+
 > Deployment examples use generic placeholders for cluster context, project namespace, registry, storage class, and GPU settings. Replace them with approved environment values before use; scripts may read `OPENSHIFT_CONTEXT`, `OPENSHIFT_NAMESPACE`, `OPENSHIFT_API_SERVER_URL`, and `OPENSHIFT_GPU_TAINT_KEY` from the environment.
 
 

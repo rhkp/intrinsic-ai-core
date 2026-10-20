@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
+    intrinsic.ai/controller-config-checksum: 2cf80ea1b45c6dd8fdb3ab1351bb7853d7e3c48e9b4c00abf64e3b2a72df063c
   name: chartassignment-controller
   namespace: your-project-namespace
 spec:
@@ -15,7 +15,7 @@ spec:
   template:
     metadata:
       annotations:
-        intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
+        intrinsic.ai/controller-config-checksum: 2cf80ea1b45c6dd8fdb3ab1351bb7853d7e3c48e9b4c00abf64e3b2a72df063c
     spec:
       containers:
       - args:

@@ -608,6 +608,14 @@ each documented gate and emits structured pass/fail evidence.
 
 **Priority:** 4
 
+**Status:** Implemented, deployed and verified. The adapter is split by
+responsibility in the same Go package; the main file is 157 lines. Original tests,
+assertions and embedded inference patches are preserved. All 120 Go test results,
+vet, 115 Python tests and complete 223-object reference comparisons pass. The
+controller-only rollout passed 42 read-only gates, then a full reset-based RHOAI
+simulation passed all 52 gates. Application Pod identities, workload specifications,
+PVCs and caches were preserved. See the [E4 plan and verification record](openshift/CONTROLLER_REFACTOR_PLAN.md).
+
 **Problem:** `controller/openshift.go` is approximately 3,000 lines and covers
 image replacement, storage, scheduling, routing, NetworkPolicy, inference,
 pose estimation, simulator IPC, and other concerns.

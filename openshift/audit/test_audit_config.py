@@ -1,10 +1,48 @@
 # This project was developed with assistance from AI tools.
 import unittest
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
+from . import audit_config
 from .audit_config import collect_audit, has_target_default
 
 
 class ConfigAuditTest(unittest.TestCase):
+    def test_adapter_guard_covers_extracted_files(self):
+        cases = (
+            ("openshift.go", 'var endpoint = os.Getenv("SOME_SETTING")', True),
+            (
+                "openshift_images.go",
+                "var defaultImageOverrides = map[string]string{}",
+                True,
+            ),
+            ("openshift_routing.go", 'var endpoint = os.Getenv("SOME_SETTING")', True),
+            (
+                "openshift_inference.go",
+                'var endpoint = os.Getenv("SOME_SETTING")',
+                True,
+            ),
+            ("openshift_storage.go", 'const name = "fixed-resource"', False),
+            ("config.go", 'var endpoint = os.Getenv("SOME_SETTING")', False),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deployment = root / "deployment"
+            deployment.mkdir()
+            (deployment / "SOURCE_MANIFEST.json").write_text(json.dumps({"files": []}))
+            for name, source, rejected in cases:
+                with self.subTest(file=name):
+                    path = root / name
+                    path.write_text(source)
+                    with (
+                        patch.object(audit_config, "ROOT", root),
+                        patch.object(audit_config, "source_files", return_value=[path]),
+                    ):
+                        violations = audit_config.executable_target_violations()
+                    self.assertEqual(bool(violations), rejected)
+
     def test_reports_environment_and_target_surfaces(self):
         audit = collect_audit()
         for key in (

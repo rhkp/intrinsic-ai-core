@@ -8,6 +8,29 @@
 
 ## Current state
 
+### Latest result: E4 controller refactor verified (2026-10-20)
+
+- The 3,080-line adapter is separated into domain files within the same Go
+  package; `openshift.go` is now a 157-line orchestrator. The original 44 named
+  tests and all their assertions are preserved. Two inline policy helpers were
+  extracted; 155 other production declarations and inference patch bytes match
+  the reference structurally.
+- All 120 Go test results, vet and 115 Python tests pass. Both renderer commands
+  produce identical complete 223-object bundles. Top-level Helm output order
+  already varied in the reference; full objects are compared by unique identity,
+  while dedicated tests preserve adapter/PVC ordering.
+- The refactored controller is deployed with the canonical image lock. The
+  controller-only rollout passed 42 read-only gates. The subsequent reset-based
+  full simulation passed all 52 gates, with actual RHOAI inference observed.
+- Original application Pods, 35 other Deployments, 13 StatefulSets, 75 Services,
+  four assignments and ten Bound PVCs are preserved. E8 remains healthy with
+  13 metric families and nine rules. No application image, model, mesh policy,
+  PVC or cache was replaced.
+- [The E4 plan](../CONTROLLER_REFACTOR_PLAN.md) records the image digest, evidence,
+  safeguards and prepared rollback. Private snapshots/reference binaries are in
+  ignored `openshift/.generated/e4/`. Rollback was not exercised during E4.
+  All source changes are maintained in the main repository workdir.
+
 ### Latest result: E8 operational baseline (2026-10-20)
 
 - A project-local read-only observer and dashboard use existing OpenShift

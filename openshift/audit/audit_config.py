@@ -258,7 +258,8 @@ def executable_target_violations() -> list[str]:
             violations.append(relative)
         if (
             path.suffix == ".go"
-            and path.name == "openshift.go"
+            and path.name.startswith("openshift")
+            and not path.name.endswith("_test.go")
             and ("defaultImageOverrides" in text or "os.Getenv(" in text)
         ):
             violations.append(relative)

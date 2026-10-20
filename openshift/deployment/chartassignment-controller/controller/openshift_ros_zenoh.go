@@ -365,3 +365,51 @@ func excludeZenohPortFromIstio(resource *unstructured.Unstructured) error {
 	}
 	return unstructured.SetNestedMap(resource.Object, metadata, metadataPath...)
 }
+
+func configuredZenohRouterEndpoint(namespace string) string {
+	return "tcp/" + controllerConfig.ZenohRouterEndpoint
+}
+
+// ensureProjectZenohRouter overrides the SDK's compiled app-intrinsic-base
+// default. Namespace string rewriting only sees manifest values; it cannot
+// alter a default compiled into the World or Simulation binary.
+func ensureProjectZenohRouter(container map[string]interface{}, namespace string) error {
+	endpoint := configuredZenohRouterEndpoint(namespace)
+	args, found, err := unstructured.NestedStringSlice(container, "args")
+	if err != nil {
+		return fmt.Errorf("read container args: %w", err)
+	}
+	if !found {
+		return fmt.Errorf("container has no args")
+	}
+
+	configured := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		var value string
+		switch {
+		case arg == "--zenoh_router":
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+				return fmt.Errorf("--zenoh_router has no endpoint")
+			}
+			i++
+			value = args[i]
+		case strings.HasPrefix(arg, "--zenoh_router="):
+			value = strings.TrimPrefix(arg, "--zenoh_router=")
+		default:
+			continue
+		}
+		if value != endpoint {
+			return fmt.Errorf("container configures Zenoh endpoint %q; expected project endpoint", value)
+		}
+		if configured {
+			return fmt.Errorf("container has multiple --zenoh_router flags")
+		}
+		configured = true
+	}
+	if configured {
+		return nil
+	}
+	args = append(args, "--zenoh_router="+endpoint)
+	return unstructured.SetNestedStringSlice(container, args, "args")
+}

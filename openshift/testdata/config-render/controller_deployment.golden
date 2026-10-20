@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
+    intrinsic.ai/controller-config-checksum: 2cf80ea1b45c6dd8fdb3ab1351bb7853d7e3c48e9b4c00abf64e3b2a72df063c
   name: chartassignment-controller
   namespace: your-project-namespace
 spec:
@@ -19,7 +19,7 @@ spec:
   template:
     metadata:
       annotations:
-        intrinsic.ai/controller-config-checksum: 4a3d9ab7b72929814a685d91b9a0d9a29ff7e49c91eda4dbaa33e8aaf99db1a0
+        intrinsic.ai/controller-config-checksum: 2cf80ea1b45c6dd8fdb3ab1351bb7853d7e3c48e9b4c00abf64e3b2a72df063c
       labels:
         app: chartassignment-controller
     spec:
@@ -32,7 +32,7 @@ spec:
         - --healthz-port=8080
         - --target-config=/etc/intrinsic/controller-config/target-config.json
         - --image-lock=/etc/intrinsic/controller-config/image-lock.json
-        image: image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:10250f48a26cf927e81d71eddae6e381736f88742512c84162a4551ae7825a26
+        image: image-registry.openshift-image-registry.svc:5000/your-project-namespace/chartassignment-controller@sha256:ca0f1689ccc96a420247fde86673b403972aefdbb15176bd0eec8fbe0104f263
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
