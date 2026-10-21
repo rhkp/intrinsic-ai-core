@@ -505,7 +505,7 @@
       "added_adaptation_files": [
         {
           "path": ".github/workflows/canonical-config.yml",
-          "sha256": "e4896fef8b60ad845c61c3365b524c3a5677036b5bb94d89cb71769b837a3c5f"
+          "sha256": "3461dce52151c8969ed9fbf67b205f53bd1fc6271b2e62fa139de0384bac3706"
         },
         {
           "path": "openshift/README.md",
@@ -1002,7 +1002,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "0ec0786bf40eb669e01d78af53435bfab6e2737871d888ffebb21474688f304a"
+          "sha256": "acc083f30b71fd16f966cd49c44d1ff7c954e45689ae1baa01c58da4c8fef9ff"
         }
       ],
       "verification": {
@@ -1022,6 +1022,66 @@
           "Verify evaluated rule expressions, pending durations, labels and runbook annotations"
         ],
         "application_pvcs_preserved": 10
+      }
+    },
+    {
+      "id": "offline-validation-and-ci-e1",
+      "status": "Implemented and locally verified; hosted push/pull-request CI execution pending publication",
+      "added_adaptation_files": [
+        {
+          "path": "Makefile",
+          "sha256": "cdd430d08f3177f453c044c9c013f1cda1570c6c7a13625eb1b621f8a5454e82"
+        },
+        {
+          "path": "requirements-validation.txt",
+          "sha256": "25387c06c1074056bd728b1b9362a04ef4559ab3a0a64c64f1234e703cf1699a"
+        },
+        {
+          "path": "ruff.toml",
+          "sha256": "beb3c744230595bc01b9d9a7efb36f78251937c5651e2068995e9bc2e76fb717"
+        },
+        {
+          "path": ".yamllint.yaml",
+          "sha256": "ebfd5e678c8f5b3a70844872ef3b87e76dc29623c0e6cabf44cf8bc2bf8a0b22"
+        },
+        {
+          "path": ".gitleaks.toml",
+          "sha256": "5cf6aeb40e9b957f83ac7a7268bf188460486ef89e30cc97566000cd266f3bc7"
+        },
+        {
+          "path": ".gitignore",
+          "sha256": "342f883706ded845193242ee8cb8d8fd9dd5afca00a8b9119792f05576f617cd"
+        },
+        {
+          "path": "scripts/setup_validation.py",
+          "sha256": "1041229e631b9a468e705fbd08340fad6ef57a7a3b9b5cd4b811168c31795f20"
+        },
+        {
+          "path": "scripts/validation.py",
+          "sha256": "746ca91659e5d09cde1ece61ca5164130ab023ce8f1602513236c6f0dcf8911b"
+        },
+        {
+          "path": "tests/test_validation.py",
+          "sha256": "2637577c6d8ebe6bbc06b1cf47a4c645dfcbed2987a420856611e96476addc08"
+        },
+        {
+          "path": ".github/workflows/canonical-config.yml",
+          "sha256": "3461dce52151c8969ed9fbf67b205f53bd1fc6271b2e62fa139de0384bac3706"
+        }
+      ],
+      "verification": {
+        "local_make_validate_passed": true,
+        "python_tests_passed": 149,
+        "optional_promtool_skip": 1,
+        "validation_failure_regressions": 12,
+        "go_tests_and_vet_passed": true,
+        "yaml_and_shell_lint_passed": true,
+        "current_file_secret_scan_passed": true,
+        "git_history_scanned": false,
+        "hosted_ci_execution_verified": false,
+        "offline_run_with_blocked_proxies_passed": true,
+        "oc_invoked": false,
+        "kubeconfig_unavailable": true
       }
     }
   ]

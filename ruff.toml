@@ -1,0 +1,7 @@
+# This project was developed with assistance from AI tools.
+target-version = "py312"
+
+[lint]
+# Start with fatal syntax, invalid control flow and undefined-name checks.
+# Wider style cleanup is separate from the validation entry point.
+select = ["E9", "F63", "F7", "F82"]

@@ -1,0 +1,10 @@
+# This project was developed with assistance from AI tools.
+extends: default
+rules:
+  document-start: disable
+  line-length: disable
+  indentation:
+    spaces: consistent
+    indent-sequences: whatever
+  truthy:
+    check-keys: false

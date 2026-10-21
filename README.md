@@ -23,6 +23,57 @@ codes, and raw system logs must stay out of this repository.
 - [Deployment approaches](approaches/README.md) — the **VM Only** baseline and
   archived **AWS VM + RHOAI** hybrid experiment.
 
+## Offline validation
+
+Install the validation dependencies once, then run every offline check from the
+repository root:
+
+```sh
+make setup-validation
+make validate
+```
+
+Setup requires Python 3.12+, Git, Go and curl, plus access to public package
+registries. It creates ignored `.venv/` and `.tools/` directories, installs the
+exact versions in [requirements-validation.txt](requirements-validation.txt),
+verifies the pinned official Gitleaks archive's SHA-256 before installing its
+binary, and caches the controller's Go dependencies/toolchain. Rerun setup after
+changing the pinned requirements or `go.mod`. Validation uses that cached
+toolchain directly with automatic selection and downloads disabled.
+
+`make validate` performs no downloads or cluster operations. CI runs the same
+command after setup on pushes and pull requests. Each failed check returns
+nonzero and stops validation. Focused targets isolate a failure:
+
+| Target | Checks |
+|---|---|
+| `make test-python` | OpenShift unit tests and validation failure regressions |
+| `make test-go` | Controller-module Go tests with dependency downloads disabled |
+| `make lint-python` | Fatal syntax, invalid control flow and undefined names with Ruff |
+| `make lint-go` | Controller-module gofmt and go vet using its selected Go toolchain |
+| `make lint-shell` | Bash syntax for owned shell scripts |
+| `make lint-yaml` | YAML syntax, duplicate keys, indentation and whitespace |
+| `make scan-secrets` | Gitleaks credential rules, with matched values suppressed |
+| `make validate-config` | Strict canonical configuration and image-lock audit |
+| `make validate-provenance` | Pinned source and adaptation digests |
+| `make check-whitespace` | Working-tree and staged diff whitespace |
+
+Inputs are current tracked and non-ignored untracked files. Private environment,
+configuration and generated evidence stay ignored; accidentally tracked private
+environment/key files and symlinks fail validation before their contents are read.
+Secret scanning uses a temporary file snapshot containing no Git metadata, and
+never scans history. Only exact placeholder values are allowlisted; putting a
+credential in `.env.sample` or adding an inline suppression does not bypass the
+scan. Diagnostics show file locations and rule identifiers without source lines
+or matched credential values.
+
+Copied upstream files listed in the source manifest are hash-verified and excluded
+from owned Python/shell/YAML lint. Go tests cover the controller module. Wider
+Python style cleanup and upstream Bazel builds are separate work. The existing
+optional promtool test runs when promtool is installed; otherwise unittest reports
+that skip explicitly. Cluster-dependent acceptance remains in the deployment
+runbooks.
+
 ## Operational observability
 
 The OpenShift pilot's [E8 observer and runbooks](openshift/observability/README.md)

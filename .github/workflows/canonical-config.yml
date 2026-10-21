@@ -1,28 +1,27 @@
 # This project was developed with assistance from AI tools.
 name: Canonical OpenShift configuration
-on: [push, pull_request]
+"on": [push, pull_request]
 permissions:
   contents: read
 jobs:
   configuration:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-validation.txt
       - uses: actions/setup-go@v5
         with:
           go-version-file: openshift/deployment/chartassignment-controller/go.mod
           cache-dependency-path: openshift/deployment/chartassignment-controller/go.sum
-      - run: python -m pip install PyYAML jsonschema
-      - run: python -m unittest discover -s openshift -p 'test_*.py'
-      - run: python openshift/audit/audit_config.py --strict
-      - run: python openshift/validate_source_manifest.py
-      - run: git diff --check
-      - run: git ls-files -z 'openshift/*.sh' 'openshift/**/*.sh' | xargs -0 -n1 bash -n
-      - working-directory: openshift/deployment/chartassignment-controller
-        run: |
-          test -z "$(gofmt -l controller/config*.go controller/openshift*.go controller/legacy_expectations_test.go controller/release.go cmd/*/main*.go)"
-          go test ./...
-          go vet ./...
+      - name: Install pinned validation dependencies
+        run: make setup-validation
+      - name: Run the same offline checks as contributors
+        run: make validate

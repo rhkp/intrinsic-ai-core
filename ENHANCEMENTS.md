@@ -26,9 +26,20 @@ files passed digest verification, and all Python scripts compiled successfully.
 
 **Priority:** 1
 
-**Problem:** Validation is manual and scattered across Python, Go, shell, YAML,
-and provenance checks. There is no tracked CI workflow, Makefile, Python
-project configuration, or pre-commit configuration.
+**Status:** implemented on 2026-10-21. `make setup-validation` prepares pinned
+Python tools, a checksum-verified Gitleaks binary and cached Go dependencies.
+`make validate` runs all offline tests, lint, credential scanning, configuration,
+provenance and whitespace checks. The existing push/pull-request workflow now
+uses the same command; hosted execution awaits publication of this change.
+
+Regression coverage exercises malformed Python/YAML/shell, Go formatting,
+credential-shaped sample values, inline suppression, protected files, symlink
+escapes, tool checksums, provenance drift and failure propagation. Validation
+does not query a cluster, download dependencies or scan Git history. See the
+[validation instructions](README.md#offline-validation).
+
+**Problem:** Validation was manual and scattered across Python, Go, shell, YAML,
+and provenance checks. The initial CI covered only part of that baseline.
 
 **Improvement:** Add a single `make validate` target and CI workflow that run
 the current baseline plus YAML linting and secret scanning.

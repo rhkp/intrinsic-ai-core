@@ -1,0 +1,12 @@
+# This project was developed with assistance from AI tools.
+PyYAML==6.0.2
+jsonschema==4.23.0
+ruff==0.15.12
+yamllint==1.38.0
+# Transitive dependencies are pinned as well for the supported platforms.
+attrs==26.1.0
+jsonschema-specifications==2025.9.1
+pathspec==1.1.1
+referencing==0.37.0
+rpds-py==2026.9.1
+typing-extensions==4.16.0

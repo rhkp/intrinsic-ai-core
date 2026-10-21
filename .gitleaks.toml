@@ -1,0 +1,11 @@
+# This project was developed with assistance from AI tools.
+title = "Current-file credential checks"
+
+[extend]
+useDefault = true
+
+# Suppress only exact placeholder values, never paths or entire sample files.
+[[allowlists]]
+description = "Explicit mock values"
+regexTarget = "secret"
+regexes = ['''^(replace-with-[A-Za-z0-9_-]+|your-[A-Za-z0-9_-]+|example\.invalid)$''']

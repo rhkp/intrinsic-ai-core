@@ -1,6 +1,11 @@
 # Generated local CodeGraph index and cache.
 .codegraph/
 
+# Local validation dependencies and checksum-verified tools.
+.venv/
+.tools/
+.ruff_cache/
+
 # Local-only architecture deliverables under review.
 /architecture/
 
