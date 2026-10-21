@@ -23,6 +23,26 @@ codes, and raw system logs must stay out of this repository.
 - [Deployment approaches](approaches/README.md) — the **VM Only** baseline and
   archived **AWS VM + RHOAI** hybrid experiment.
 
+## Operational observability
+
+The OpenShift pilot's [E8 observer and runbooks](openshift/observability/README.md)
+cover workload readiness, assignments, controller/gateway latency and errors,
+inference, GPU memory and functional simulator IPC. Existing OpenShift Prometheus
+collects thirty metric families and evaluates nineteen warning rules.
+
+The [Grafana dashboard](openshift/observability/GRAFANA.md) provides twenty-four
+panels with retained history and interactive time ranges. After selecting the
+canonical context/project, run:
+
+```sh
+oc port-forward service/intrinsic-grafana 3000:3000 --address=127.0.0.1
+```
+
+Open <http://127.0.0.1:3000/d/intrinsic-e8/intrinsic-e8-operations> on the tunnel's
+machine. Access is private and Viewer-only; no Grafana login is needed. The
+original dashboard remains available through its own port-forward on 9099.
+Run `python3 openshift/check_observability.py` for read-only E8 acceptance.
+
 ## Authoritative instructions
 
 Follow the upstream [Getting Started guide](https://github.com/intrinsic-ai/intrinsic-core/blob/main/developer_resources/learn/tutorials/getting_started.md).

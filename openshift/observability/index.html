@@ -16,7 +16,8 @@
     <section><h2>Deployment settlement</h2><p>Current generation and latest ResourceSet must be ready and settled.</p><div id="assignments" class="cards"></div></section>
     <section><h2>Recent availability</h2><p>Ready components over the last hour; local history restarts with this observer.</p><svg id="history" viewBox="0 0 900 150" aria-label="Component readiness history" role="img"></svg></section>
     <section><h2>Warnings in the last 10 minutes</h2><p>Counts describe retained warning events, not a reliable lifetime failure counter.</p><div id="warnings" class="cards"></div></section>
-    <section><h2>Telemetry coverage</h2><p>Prometheus collects the operational metrics. Native signals listed here are not yet connected.</p><ul id="unavailable"></ul></section>
+    <section><h2>Native telemetry</h2><p>Measured controller, gateway, inference, GPU memory and ICON connection health. Means cover completed requests since each source restarted; OpenShift alerts evaluate recent rates.</p><div id="native-signals" class="cards"></div></section>
+    <section><h2>Missing telemetry</h2><p>Listed sources are unavailable. An empty list means every required source was collected.</p><ul id="unavailable"></ul></section>
     <section><h2>Recovery</h2><ol><li>Check collection freshness and workload availability.</li><li>Inspect assignment settlement, image pull, scheduling, and storage warnings.</li><li>Use the E3 read-only acceptance command before an explicit scene reset or motion run.</li></ol><p>This dashboard issues no reset, motion, deployment, or inference requests.</p></section>
   </main>
   <footer>Namespace-scoped observations · Prometheus history and alerts remain in OpenShift Observe · Refreshes every 15 seconds</footer>

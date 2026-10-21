@@ -14,6 +14,10 @@ from collections import deque
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import native
 
 COMPONENTS = {
     "controller": ("Deployment", "chartassignment-controller"),
@@ -42,14 +46,7 @@ WARNING_REASONS = {
     "Unhealthy": "probe",
     "BackOff": "restart",
 }
-UNAVAILABLE = (
-    "controller_reconcile_latency",
-    "gateway_grpc_latency",
-    "inference_authorization_failures",
-    "inference_request_latency",
-    "gpu_memory_utilization",
-    "simulator_ipc_connectivity",
-)
+UNAVAILABLE = native.SIGNALS
 ROOT = Path(__file__).resolve().parent
 
 
@@ -283,6 +280,7 @@ def summarize(inventory, now):
         "assignments": assignments,
         "warnings": warnings,
         "unavailable_signals": list(UNAVAILABLE),
+        "native": {"signals": {}, "metrics": []},
     }
 
 
@@ -328,8 +326,17 @@ def metrics(data, success, age):
             lines.append(
                 f'intrinsic_recent_warning_events{{reason="{category}"}} {value}'
             )
+    signals = data.get("native", {}).get("signals", {}) if success and data else {}
     for signal in UNAVAILABLE:
-        lines.append(f'intrinsic_observability_signal_available{{signal="{signal}"}} 0')
+        lines.append(
+            f'intrinsic_observability_signal_available{{signal="{signal}"}} {int(signal in signals)}'
+        )
+    if success and data:
+        for name, value in data.get("native", {}).get("metrics", []):
+            kind = "counter" if name.endswith(("_total", "_sum", "_count")) else "gauge"
+            lines.extend(
+                [f"# TYPE intrinsic_{name} {kind}", f"intrinsic_{name} {value}"]
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -345,7 +352,45 @@ class State:
         while True:
             started = time.time()
             try:
-                data = summarize(client.inventory(), time.time())
+                inventory = client.inventory()
+                data = summarize(inventory, time.time())
+                targets = {}
+                for label in ("controller", "gateway"):
+                    kind, name = COMPONENTS[label]
+                    workload = next(
+                        (
+                            w
+                            for w in inventory["deployments"]
+                            if w["metadata"]["name"] == name
+                        ),
+                        None,
+                    )
+                    targets[label] = (
+                        [
+                            p
+                            for p in owned_pods(workload, inventory)
+                            if pod_ready(p)
+                            and not p["metadata"].get("deletionTimestamp")
+                        ]
+                        if workload
+                        else []
+                    )
+                targets["rhoai"] = [
+                    p
+                    for p in inventory["pods"]
+                    if pod_ready(p)
+                    and not p["metadata"].get("deletionTimestamp")
+                    and all(
+                        p["metadata"].get("labels", {}).get(k) == v
+                        for k, v in inventory["rhoai_selector"].items()
+                    )
+                ]
+                data["native"] = native.collect(targets, client.namespace)
+                data["unavailable_signals"] = [
+                    name
+                    for name in UNAVAILABLE
+                    if name not in data["native"]["signals"]
+                ]
                 with self.lock:
                     self.data, self.updated, self.success = data, time.time(), True
                     self.history.append(

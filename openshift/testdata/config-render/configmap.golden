@@ -282,7 +282,7 @@ data:
         },
         {
           "description": "Namespace scoped OpenShift ChartAssignment controller",
-          "digest": "sha256:ca0f1689ccc96a420247fde86673b403972aefdbb15176bd0eec8fbe0104f263",
+          "digest": "sha256:0d2b9c36d43e8fd7ea295cc423357ab80a12202a39542acba887113ca00cf282",
           "name": "chartassignment-controller"
         },
         {
@@ -444,11 +444,16 @@ data:
           "digest": "sha256:7b9c67f13ddc23f5c5ea455a49f0992cd8b261977633c161c4b46f574d498af1",
           "name": "ai.intrinsic.ur3e_hardware_module_core_service.gazebo_hwm_stub_image",
           "provenance": "Existing verified resource/skill ChartAssignment image; unchanged during E2 migration"
+        },
+        {
+          "digest": "sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0",
+          "name": "intrinsic-grafana",
+          "source_image": "docker.io/grafana/grafana:13.2.2@sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0"
         }
       ],
       "schema_version": 2
     }
-  image-lock.sha256: 762f32633336c944e4d7b2b5ef1170c1623683aee9b4e090a1a5b1943ce73465
+  image-lock.sha256: 5bdbd578c165bb9fbbcf2db2dd47e52e744fecfcfa7b0874348b504a79b26e81
   target-config.json: |
     {
       "schema_version": 1,

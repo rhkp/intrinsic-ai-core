@@ -768,14 +768,25 @@ dependencies.
 
 **Priority:** 8
 
-**Status:** Operational baseline deployed and verified. Existing OpenShift
-user-workload Prometheus scrapes 13 metric families; nine warning rules are
-loaded and healthy. The project-local dashboard covers ten components, four
-assignments, current restarts/GPU allocations and recent deployment warnings.
-Application workload specifications, PVCs and caches are preserved. Native
-controller/RPC latency and error telemetry, IPC disconnects and GPU memory remain
-open; this is not full suggested-signal coverage. See the
-[E8 installation and runbooks](openshift/observability/README.md).
+**Status:** completed, deployed and verified on 2026-10-21. Existing OpenShift
+user-workload monitoring collects 30 metric families and evaluates 19 warning
+rules. All nine native signals are connected: controller/gateway latency and
+errors, inference authorization/latency/errors, visible inference-device memory,
+and functional ICON/IPC health. The private dashboard retains component,
+assignment, restart, allocation and deployment-warning coverage.
+
+An optional [Grafana trial](openshift/observability/GRAFANA.md) provides twenty-four
+panels over the existing retained Prometheus data with private Viewer access on
+loopback port 3000. The original dashboard remains available on 9099.
+
+`python3 openshift/check_observability.py` verifies fresh observations, complete
+native coverage, actual Prometheus ingestion and healthy current rule evaluation.
+A rejected test token increments the authorization metric while the valid
+identity continues to succeed. The controller-only metrics rollout and observer
+update preserve application workload specifications, original application Pods,
+all ten PVCs and caches. GPU memory is scoped to Triton's visible devices; IPC
+health uses ICON operational/hardware status. External notification receivers
+remain platform-owned. See the [E8 installation and runbooks](openshift/observability/README.md).
 
 **Problem:** Current validation relies heavily on manual inspection with
 `oc logs`, `oc get`, and documentation updates.

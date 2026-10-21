@@ -3,170 +3,284 @@
 > [!NOTE]
 > This project was developed with assistance from AI tools.
 
-## Architecture
+## Install, verify, and open
 
-Existing OpenShift user-workload Prometheus scrapes a project-local, read-only
-observer through a ServiceMonitor. A PrometheusRule supplies nine warning alerts,
-evaluated by the existing monitoring stack. No additional Prometheus or Grafana
-instance is installed.
-
-The observer polls Kubernetes every 30 seconds. Its dashboard refreshes every
-15 seconds and retains approximately one hour of samples in memory; local history
-resets when the observer restarts. Prometheus retention follows the cluster
-configuration. The dashboard reads the observer, not the Prometheus query API.
-Use OpenShift **Observe → Metrics / Alerting** for retained metrics and alerts.
-Notification destinations remain the platform administrator's responsibility;
-notification delivery is unverified.
-
-## Install and open
-
-Requires a valid ignored `openshift/config.local.json`, its image lock, a logged-in
-`oc` session, enabled user-workload monitoring, monitoring CRDs, and permission to
-create the nine namespaced objects. The namespace must not be excluded from
-monitoring. Enabling platform monitoring requires a cluster administrator.
-Implementation: [installer and alert rules](../observability.py),
-[collector/exporter](observer.py), and [dashboard](dashboard.js).
-
-From the repository root:
+Use an ignored, valid `openshift/config.local.json` and image lock, an authenticated
+`oc` session, and enabled OpenShift user-workload monitoring. The installer binds
+to the canonical context and API, checks ownership, and performs a server dry run
+before applying its thirteen project-local objects.
 
 ```sh
-# Render only; generated target details remain ignored and private.
+# Render into ignored openshift/.generated/e8/resources.yaml.
 python3 openshift/observability.py
 
-# Ownership check and server dry run, then apply only the nine E8 objects.
+# Apply monitoring resources and wait for the observer rollout.
 python3 openshift/observability.py --apply
+oc rollout status deployment/intrinsic-observability --timeout=180s
 
-# Select the same context/project as the canonical configuration first.
+# Read-only acceptance: fresh observer, nine native signals, healthy scrape/rules.
+python3 openshift/check_observability.py
+
+# Select the canonical context/project before this command; bind only to loopback.
 oc port-forward service/intrinsic-observability 9099:9099 --address=127.0.0.1
 ```
 
-Open <http://127.0.0.1:9099/>. No Route or public dashboard is created. Kubernetes
-authorizes the port-forward; the local dashboard has no separate login. Keep it
-bound to loopback.
+Open <http://127.0.0.1:9099/>. No public Route or separate dashboard login is
+created. Kubernetes authorizes the port-forward. Allow one collection/scrape
+interval after a rollout before checking acceptance. The checker returns sanitized
+JSON and a nonzero exit code for missing/stale data or failed checks. In addition
+to project access, its monitoring checks require access to the existing Thanos
+query Route and the cluster-published ingress/trust CA ConfigMaps. It uses the
+operator's existing login in memory; no credentials are saved.
 
-The installer creates a ConfigMap, ServiceAccount, Role, RoleBinding, Deployment,
-Service, NetworkPolicy, ServiceMonitor and PrometheusRule, all named
-`intrinsic-observability`. Existing objects must have its ownership label.
-Reapplying source changes restarts only the observer.
+The observer reuses the digest-locked viewer image's standard-library Python.
+There is no new observer image, package installation, PVC, or Prometheus.
+The optional [Grafana dashboard](GRAFANA.md) reads the same retained metrics.
+The controller image enables its existing controller-runtime metrics listener on
+9092; deploy that digest through the canonical image lock before expecting the
+controller signals. The E8 installer updates only its monitoring resources.
 
-The observer reuses the digest-locked viewer image's Python standard library,
-replacing its entrypoint. It needs no package installation, image build, PVC or
-writable root filesystem. Its opt-out label excludes it from the legacy
-controller's namespace-wide application readiness check. Application, controller
-and RHOAI workload specifications remain unchanged.
+## Architecture and access
 
-## Coverage and limits
+Existing OpenShift user-workload Prometheus scrapes the observer through a
+ServiceMonitor. Nineteen warning rules are evaluated by the existing monitoring
+stack. OpenShift **Observe → Metrics / Alerting** provides retained history and
+alert state. Grafana reads retained Prometheus data; the original private
+dashboard reads the observer directly.
 
-| Signal | Implementation | Recovery pointer |
+The observer polls namespaced Kubernetes objects every thirty seconds, then
+collects five native endpoints concurrently with five-second HTTP timeouts and
+bounded response sizes. The dashboard refreshes every fifteen seconds and keeps
+about an hour of local readiness history; restarting the observer clears it.
+Prometheus retention follows platform configuration.
+
+The thirteen owned objects comprise a ConfigMap, ServiceAccount, Role,
+RoleBinding, Deployment, two Services, two NetworkPolicies, a ServiceMonitor,
+a PrometheusRule, and two workload-selected EnvoyFilters. Ownership labels protect
+existing unrelated objects. Reapplying source changes restarts only the observer.
+
+The observer's mesh sidecar authenticates read-only ICON and Triton metrics
+requests using existing strict mTLS. Its 9099 scrape port and outbound native
+9092/15090 metrics ports are excluded from interception. NetworkPolicy permits
+monitoring ingress and narrowly enumerated API, DNS, native telemetry and mesh
+control-plane ports. There is no public dashboard or application authorization
+exception. The metrics path is already excluded from the platform's RHOAI
+external-authorization policy; inference authentication remains enforced.
+
+The two EnvoyFilters enable the mesh's built-in passive statistics filter only
+on the configured gateway and the selected predictor's inbound port 9000. They
+change live proxy configuration without replacing application Pods. This mesh
+has no active Prometheus statistics provider; a Telemetry object alone did not
+install the filter. Before using this adapter in a differently configured mesh,
+check for an existing statistics filter and avoid installing it twice. The
+predictor selector comes from the canonical RHOAI Service and must be nonempty.
+
+The observer can list/get project Pods, events, Deployments, StatefulSets,
+ReplicaSets, ChartAssignments and ResourceSets, and get only the configured
+RHOAI Service. It cannot read Secrets, logs or cluster nodes, execute commands,
+or mutate resources. Its projected API token rotates. API HTTPS verifies the
+mounted cluster CA. It does not query platform Prometheus or read other projects.
+
+## Coverage and interpretation
+
+| Signal | Measurement | Runbook |
 |---|---|---|
-| Ten required components | Current rollout/Pod readiness and current Pod container restarts | [Workload readiness](#workload-readiness) |
-| Four ChartAssignments | Observed generation, Ready/Settled, latest numbered ResourceSet failure and settlement duration | [Assignment settlement](#assignment-settlement) |
-| GPU allocation | Sum of current component container `nvidia.com/gpu` limits | [Storage and placement](#storage-and-placement) |
-| Image pull and registry warnings | Retained Warning event objects observed within ten minutes | [Image pull and registry](#image-pull-and-registry) |
-| Storage, placement, probe and restart warnings | Fixed categories from recent retained Warning events | [Storage and placement](#storage-and-placement) |
-| Collector health | Last complete API collection, snapshot age and scrape health | [Collection](#collection) |
-| Native controller reconcile errors/latency, gateway gRPC errors/latency, inference authorization errors/latency, simulator IPC disconnects, GPU memory | Not connected in this slice; unavailable markers are zero, without fabricated measurements | Requires native instrumentation/exporter integration |
+| Ten required components | Current rollout, owned Pod readiness, current container restarts and allocated GPUs | [Workloads](#workload-readiness) |
+| Four ChartAssignments | Observed generation, Ready/Settled, latest numbered ResourceSet failure and settlement duration | [Assignments](#assignment-settlement) |
+| Image pull, registry, scheduling, storage and probes | Fixed categories from retained Warning events seen within ten minutes | [Warnings](#image-pull-and-registry) |
+| Controller latency and errors | Native reconciliation duration sum/count and reconciliation outcome counters | [Controller/RPC](#controller-and-rpc) |
+| Gateway gRPC latency and errors | Native completed-request duration and HTTP/gRPC result counters | [Controller/RPC](#controller-and-rpc) |
+| Inference authorization failures | Predictor HTTP 401/403 or gRPC 7/16 responses | [Inference](#inference) |
+| Inference latency and errors | Triton request duration, successes and failures for the two intended models | [Inference](#inference) |
+| GPU memory | Used/total device memory reported by Triton for its visible inference GPU(s) | [GPU memory](#gpu-memory) |
+| Simulator IPC health | Read-only ICON operational and cell hardware states must both be ENABLED | [Simulator IPC](#simulator-ipc) |
+| Collection and source availability | Fresh API snapshot, scrape health and nine independent native-source markers | [Collection](#collection) |
 
-Readiness does not establish successful inference or robot motion. Current Pod
-restart counts are gauges, not lifetime counters; replacement resets them.
-Settlement duration describes only the latest retained ResourceSet version,
-not a latency histogram. Warning values count retained event objects, not
-occurrences, and disappear after ten minutes. Image-pull message classification
-is best effort; kubelet wording and event retention vary. GPU allocation does not
-describe device utilization, free capacity or memory.
+The dashboard shows cumulative counts and mean completed-request durations since
+each source restarted. Latency alert expressions use five-minute rates of the
+native sums/counts and minimum traffic thresholds. No completed requests means
+latency is unavailable, rather than zero. GPU memory describes the device(s)
+visible to Triton, not simulator GPU memory, per-process usage, or cluster capacity.
+IPC health is a functional ICON/hardware check, not a sampled Unix-socket or
+reconnection counter. Simulator restarts remain covered separately.
 
-The active RHOAI predictor is selected through the configured internal Service,
-so an unused second deployment is not mistaken for the demo's predictor.
-Collection failures retain the last snapshot, mark it unverified, and suppress
-secondary workload alerts until collection succeeds again.
+All non-OK gRPC statuses remain in `intrinsic_gateway_grpc_errors_total`.
+`intrinsic_gateway_grpc_unexpected_errors_total` excludes CANCELLED (1) and
+UNIMPLEMENTED (12): SDK feature discovery generates UNIMPLEMENTED responses on
+this gateway. The operational failure-rate alert uses the latter counter;
+HTTP errors still count as unexpected failures.
+
+Current restart counts reset on Pod replacement. Settlement duration covers only
+the latest retained ResourceSet, not a latency histogram. Warning gauges count
+retained event objects, not occurrences, and expire after ten minutes. Neither
+readiness nor successful native collection establishes successful inference or
+robot motion. E7 recovery testing and E6 inference lifecycle acceptance remain
+separate work.
 
 ## Metrics and verification
 
-The exporter uses fixed metric names and bounded component, assignment, warning
-and unavailable-signal labels. It emits no object names, messages, API addresses,
-credentials or inference payloads. The ServiceMonitor drops target instance,
-Pod and container labels from application samples. OpenShift adds namespace,
-job and service scope. Native Prometheus `up` and target discovery retain
-platform-managed target metadata; access follows platform permissions.
+The exporter exposes thirty metric families. Names and component/assignment/
+warning/signal labels are fixed. Native endpoint labels are parsed locally and
+discarded: no model identifier, principal, hostname, GPU UUID, Pod IP, credential,
+raw log or inference payload is exported. Monitoring adds its normal project,
+job and service scope; the ServiceMonitor removes instance/Pod/container labels
+from application samples. Native Prometheus target discovery retains its own
+platform-controlled metadata.
 
-In OpenShift Observe, scoped to the configured project:
+Native endpoint failures are isolated. A failed source loses its measurements
+and its availability marker becomes zero; other sources and Kubernetes collection
+continue. Failed/stale API collection suppresses all native measurements and
+marks them unavailable, rather than publishing stale values as current.
+Inference duration and error coverage each require measurements for both intended
+models; a partial model scrape cannot establish full coverage.
+
+In project-scoped OpenShift Observe:
 
 ```promql
 up{service="intrinsic-observability"}
 intrinsic_observability_collection_success
-intrinsic_component_ready
-intrinsic_assignment_ready
 intrinsic_observability_signal_available
+rate(intrinsic_controller_reconcile_errors_total[5m])
+rate(intrinsic_gateway_grpc_unexpected_errors_total[5m])
+rate(intrinsic_inference_request_duration_seconds_sum[5m])
+  / rate(intrinsic_inference_request_duration_seconds_count[5m])
+intrinsic_inference_gpu_memory_used_bytes / intrinsic_inference_gpu_memory_total_bytes
+intrinsic_simulator_ipc_connected
 ```
 
-Expected initial results: healthy scrape, collection success `1`, ten component
-readiness samples, four assignment readiness samples and six unavailable-signal
-markers. Check freshness before interpreting stored values. The operational
-baseline was verified with 13 metric families and nine healthy, inactive rules.
-This establishes collection/evaluation, not notification delivery. No synthetic
-alert or motion was triggered for verification.
+Use `python3 -m unittest discover -s openshift -p 'test_observability.py'` for
+offline coverage of parsing, sanitization, source failure isolation, stale data,
+request classification, GPU capacity, resource scope and acceptance failures.
+Live acceptance additionally checks that all nine availability markers reached
+Prometheus and all nineteen rules loaded without evaluation errors. Loaded rule
+expressions, thresholds, pending durations, labels and runbook annotations must
+match source; only formatting and injected project selectors are normalized.
 
-The existing read-only demo acceptance passed all 42 gates after deployment.
-Baseline comparison preserved 35 Deployments, 13 StatefulSets, all original Pod
-identities and all ten PVC identities/specifications/Bound states. No motion
-cycle was replayed for E8, and no new unit tests were run in this implementation.
+With `promtool` on PATH, unittest discovery also executes the eight checked-in
+alert scenarios in `testdata/observability-rules.test.yaml`. Without it, that
+optional test is skipped. The completion run executed the same fixture with the
+platform's existing immutable Prometheus image in a disposable project Pod with
+an emptyDir; the Pod was removed. Scenarios cover missing sources, IPC faults,
+GPU pressure, expected SDK discovery errors, unexpected failures, no/low traffic,
+and authorization-alert firing/resolution. No live fault or notification was
+required for these synthetic rule tests.
+
+The subsequent Grafana audit also executes four freshness scenarios using the
+actual dashboard expression: healthy collection, failed collection, failed scrape
+and an old retained sample. All twelve synthetic scenarios pass. Grafana's
+summary colors reflect readiness and memory pressure; a cached successful sample
+cannot show a failed scrape as fresh. The full Python suite passes 137 tests,
+with one optional local-promtool skip; the twelve scenarios were separately
+executed with the platform binary. Browser visual verification was unavailable;
+Grafana health, all twenty-nine panel queries, retained samples and project
+isolation were verified through its API.
+
+Completion evidence (2026-10-21): all nine E8 acceptance checks and all forty-two
+read-only demo gates pass. Thirty metric families are exposed and every native
+family is present in Prometheus; all nineteen current rules evaluate cleanly.
+The original thirty-four application Deployments, thirteen StatefulSets,
+seventy-four Services, forty-seven application Pods and ten Bound PVCs retain
+their specifications/identities. Only the controller and observer rolled.
 
 ## Runbooks
 
 ### Collection
 
-Missing scrapes wait five minutes; API collection failures wait three. Check
-the observer rollout and `/readyz`, Service endpoint, ServiceMonitor target and
-monitoring ingress. Inspect API access/RBAC, project monitoring exclusions and
-the observer NetworkPolicy. Re-render after API endpoint changes. Do not loosen
-policy or expose the dashboard publicly as a workaround. A missing scrape makes
-the other measurements unverified.
+Missing scrapes wait five minutes; failed API collection waits three. Check the
+observer rollout, `/readyz`, Service endpoint, ServiceMonitor and monitoring
+NetworkPolicy ingress. Inspect project API permissions and monitoring exclusions.
+The observer's readiness reflects API collection; native sources have separate
+availability alerts. Do not expose the dashboard publicly as a workaround.
+
+### Native telemetry
+
+A missing source waits five minutes. Check current source ownership/readiness,
+9092 controller listener, 15090 proxy metrics, predictor selection, 8002 Triton
+metrics Service, ICON 9091 HTTP endpoint, observer sidecar/XDS and NetworkPolicy.
+Check both source freshness and API collection. If there has been no gRPC traffic
+since filter installation, run the existing read-only E3 acceptance command to
+populate gateway and authenticated model-readiness observations.
 
 ### Workload readiness
 
-Unavailability waits five minutes. Repeated restarts require a current Pod count
-of at least three for ten minutes. Inspect rollout, container waiting/termination
-reasons and recent events. Run the existing read-only acceptance command before
-an explicit recovery action:
+Unavailability waits five minutes. Three or more current container restarts wait
+ten minutes. Inspect rollout, container reasons and recent events. Start with:
 
 ```sh
 python3 openshift/validate_demo_gates.py --json
 ```
 
-Use [the collision runbook](../COLLISION_DIAGNOSTICS.md) for an explicitly
-authorized reset/motion cycle. Preserve application PVCs and build caches.
+Use the [collision runbook](../COLLISION_DIAGNOSTICS.md) for an explicitly
+requested reset or motion cycle. Preserve application PVCs and build caches.
 
 ### Assignment settlement
 
-Not-ready assignments wait five minutes; failures wait two. Slow settlement means
-the latest ResourceSet has remained unsettled over ten minutes, for another two
-minutes. Inspect current generation, conditions and latest ResourceSet phase.
-Find the blocked workload before reconciliation. An old settled version does
-not establish readiness of the current generation.
+Not-ready assignments wait five minutes; failures wait two. Settlement older
+than ten minutes waits a further two. Inspect observed generation, conditions,
+latest ResourceSet and the blocked workload before reconciliation.
+
+### Controller and RPC
+
+Controller errors wait two minutes; mean reconciliation over ten seconds waits
+five and requires at least five recent reconciles. Gateway unexpected failures
+over five percent or mean completed-request duration over five seconds wait five
+minutes and require at least twenty recent calls. Inspect readiness, current
+assignments and transport state. Streaming RPC duration includes the stream's
+lifetime. Do not retry robot actions to clear an alert.
+
+### Inference
+
+New authorization or model-inference failures wait two minutes. Mean inference
+over thirty seconds waits five minutes and requires at least three recent
+requests. Check predictor/model readiness, the wrapper's projected-token audience
+and rotation, its existing named-resource authorization and mesh policy. Preserve
+model repositories and PVCs. Use the existing read-only authenticated readiness
+probe; keep tokens, tensor data and raw inference responses out of reports.
+
+### GPU memory
+
+Used memory above ninety percent of visible inference-device capacity waits five
+minutes. Inspect current model load and concurrent demand before changing model
+placement. Device memory includes other processes sharing that device. GPU
+allocation alone does not establish memory pressure. Missing telemetry is a
+source failure, not evidence of free memory.
+
+### Simulator IPC
+
+An operational or cell hardware state other than ENABLED waits two minutes.
+Inspect simulator, ICON and UR readiness, required co-location, shared IPC mounts
+and permissions using the dependency ladder. A successful HTTP request alone
+does not pass this check. Recovery/reset and fault injection remain explicit,
+bounded operational actions; the observer never performs them.
 
 ### Image pull and registry
 
-Recent image/credential warnings wait two minutes. Inspect the affected Pod's
-waiting reason, image reference and ServiceAccount pull permissions. Confirm the
-digest exists in the canonical image lock and registry. Do not print credentials
-or create inline credential values. Recent events can outlive a recovered Pod.
+Recent image/credential warnings wait two minutes. Inspect waiting reasons,
+digest identity and ServiceAccount pull access without printing credentials.
+Recent events may outlive recovery.
 
 ### Storage and placement
 
-Recent scheduling/storage warnings wait two minutes. Inspect pending Pod events,
-PVC Bound state, requested resources, GPU tolerations and required affinity.
-Preserve PVCs and caches. Allocation panels cannot establish available cluster
-capacity or GPU memory pressure.
+Recent scheduling/storage warnings wait two minutes. Inspect pending reasons,
+Bound PVCs, resources, GPU tolerations and required affinity. Preserve PVCs and
+caches; allocation panels do not show cluster capacity.
 
-## Access boundaries
+## Rollback and notification boundary
 
-The observer can list/get project Pods, events, Deployments, StatefulSets,
-ReplicaSets, ChartAssignments and ResourceSets, and get only the configured
-RHOAI Service. Event requests filter Warning events. It cannot read Secrets,
-logs, cluster nodes or other projects, execute commands or mutate resources.
-Its projected token rotates; HTTPS uses the mounted cluster CA. Tokens and raw
-API responses are never written to logs or dashboard output.
+Before changing controller identity or monitoring, preserve the controller
+Deployment, target ConfigMap, canonical locks and owned monitoring objects in
+ignored private evidence. Restore the previous controller image/configuration
+as one controlled rollout, restore the nine baseline monitoring objects, and
+remove only the four newly owned native-integration objects. Never delete
+ChartAssignments, ResourceSets, application Pods, model repositories or PVCs.
+Then re-run read-only acceptance. The E8 completion run retains a target- and
+controller-generation-checked rollback at
+`openshift/.generated/e8/finish/rollback.py`; it was prepared, not exercised.
+That snapshot predates the Grafana image-lock addition and audit fixes. Its
+generation/configuration guard should reject newer state; do not bypass it.
+Prepare a new matching snapshot before a later rollback. For Grafana-only
+removal, use the [trial's removal instructions](GRAFANA.md#verify-and-remove).
 
-NetworkPolicy permits monitoring ingress on TCP 9099 and outbound API/DNS traffic.
-The observer has no mesh sidecar or application RPC calls. Existing application
-mesh, RHOAI authentication, storage and motion behavior remain unchanged.
+Prometheus evaluation and in-console alert state are verified. External email,
+Slack, paging receivers and notification delivery remain the platform
+administrator's responsibility; E8 does not configure or send external messages.

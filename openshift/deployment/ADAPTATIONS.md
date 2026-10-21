@@ -15,20 +15,35 @@ and configuration are retained privately for rollback, which was not exercised
 during E4. Current source links point to the extracted domain files; pinned
 historical evidence links retain their original commit/file references.
 
-## E8 operational observability baseline
+## E8 operational observability
 
 The additive [E8 observer](../observability/README.md) uses the existing OpenShift
-user-workload Prometheus through a ServiceMonitor and nine warning rules. Its
+user-workload Prometheus through a ServiceMonitor and nineteen warning rules. Its
 private dashboard shows ten components, four assignments, current restart/GPU
-allocation gauges and recent deployment warnings. Thirteen metric families are
-collected; all nine rules are loaded and healthy. Native controller/RPC errors
-and latency, simulator IPC disconnects and GPU memory remain unconnected.
+allocation gauges and recent deployment warnings. Thirty metric families include
+native reconciliation and gateway gRPC errors/latency, inference authorization
+failures, Triton model latency/failures, visible inference-device memory and
+functional ICON operational/hardware status. Nine availability markers separate
+missing sources from measured zero values.
 
-The renderer uses canonical target/image-lock settings and applies only nine
-owned project objects after a server dry run. The locked viewer image supplies
-Python; no controller build or application rollout is required. Read-only demo
-acceptance passed all 42 gates. Original workload specifications, Pod identities
-and all ten PVCs were preserved. No new motion or notification test was run.
+The renderer uses canonical settings and applies thirteen owned project objects
+after a server dry run. Two workload-selected passive EnvoyFilters enable gateway
+and predictor statistics; the observer joins the existing strict-mTLS mesh to read
+ICON and Triton metrics. The controller's existing metrics server is enabled on
+9092 and its new immutable identity is in the canonical lock. No application or
+model image changes are required. The locked viewer image still supplies Python.
+`check_observability.py` verifies fresh sources, Prometheus ingestion and current
+rule evaluation. Invalid-token rejection is counted while valid readiness still
+succeeds. Application Pod identities, workload specifications, ten PVCs and caches
+are preserved; no motion or external notification is issued by E8.
+
+The optional [Grafana trial](../observability/GRAFANA.md) provisions twenty-four
+panels over the same retained project metrics. Its immutable official image is
+recorded in the canonical lock. A project-only `view` binding, verified service
+CA and rotating projected token authorize read-only Thanos queries. Grafana binds
+to Pod loopback for private port-forward access and anonymous Viewer permissions.
+Its own generated admin Secret serves only local provisioning reloads. Local
+state uses bounded `emptyDir`; no application PVC or separate Prometheus is added.
 
 ## Registry image publisher — first implementation slice
 

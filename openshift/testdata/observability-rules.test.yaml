@@ -1,0 +1,153 @@
+# This project was developed with assistance from AI tools.
+evaluation_interval: 1m
+rule_files:
+- RULE_FILE
+tests:
+- alert_rule_test:
+  - alertname: IntrinsicNativeTelemetryMissing
+    eval_time: 4m
+    exp_alerts: []
+  - alertname: IntrinsicNativeTelemetryMissing
+    eval_time: 6m
+    exp_alerts:
+    - exp_annotations:
+        description: Use the linked runbook to inspect this project. This alert does
+          not establish inference or motion-cycle success.
+        runbook_url: https://github.com/rhkp/intrinsic-ai-core/blob/main/openshift/observability/README.md#native-telemetry
+        summary: A required native telemetry source is missing
+      exp_labels:
+        namespace: demo-project
+        severity: warning
+        signal: gpu_memory_utilization
+        team: intrinsic-demo
+  input_series:
+  - series: intrinsic_observability_collection_success{namespace="demo-project"}
+    values: 1+0x12
+  - series: intrinsic_observability_signal_available{namespace="demo-project",signal="gpu_memory_utilization"}
+    values: 0+0x12
+  interval: 1m
+  name: missing source waits and fires
+- alert_rule_test:
+  - alertname: IntrinsicSimulatorIPCDisconnected
+    eval_time: 1m
+    exp_alerts: []
+  - alertname: IntrinsicSimulatorIPCDisconnected
+    eval_time: 3m
+    exp_alerts:
+    - exp_annotations:
+        description: Use the linked runbook to inspect this project. This alert does
+          not establish inference or motion-cycle success.
+        runbook_url: https://github.com/rhkp/intrinsic-ai-core/blob/main/openshift/observability/README.md#simulator-ipc
+        summary: ICON operational or cell hardware state is not enabled
+      exp_labels:
+        namespace: demo-project
+        severity: warning
+        team: intrinsic-demo
+  input_series:
+  - series: intrinsic_simulator_ipc_connected{namespace="demo-project"}
+    values: 0+0x8
+  interval: 1m
+  name: disconnected functional IPC
+- alert_rule_test:
+  - alertname: IntrinsicInferenceGPUMemoryPressure
+    eval_time: 6m
+    exp_alerts:
+    - exp_annotations:
+        description: Use the linked runbook to inspect this project. This alert does
+          not establish inference or motion-cycle success.
+        runbook_url: https://github.com/rhkp/intrinsic-ai-core/blob/main/openshift/observability/README.md#gpu-memory
+        summary: Inference device memory usage exceeds ninety percent
+      exp_labels:
+        namespace: demo-project
+        severity: warning
+        team: intrinsic-demo
+  input_series:
+  - series: intrinsic_inference_gpu_memory_used_bytes{namespace="demo-project"}
+    values: 95+0x12
+  - series: intrinsic_inference_gpu_memory_total_bytes{namespace="demo-project"}
+    values: 100+0x12
+  interval: 1m
+  name: inference device memory pressure
+- alert_rule_test:
+  - alertname: IntrinsicGatewayGRPCErrors
+    eval_time: 12m
+    exp_alerts: []
+  input_series:
+  - series: intrinsic_gateway_grpc_requests_total{namespace="demo-project"}
+    values: 0+10x20
+  - series: intrinsic_gateway_grpc_errors_total{namespace="demo-project"}
+    values: 0+3x20
+  - series: intrinsic_gateway_grpc_unexpected_errors_total{namespace="demo-project"}
+    values: 0+0x20
+  interval: 1m
+  name: discovery errors are visible but not operational failures
+- alert_rule_test:
+  - alertname: IntrinsicGatewayGRPCErrors
+    eval_time: 12m
+    exp_alerts:
+    - exp_annotations:
+        description: Use the linked runbook to inspect this project. This alert does
+          not establish inference or motion-cycle success.
+        runbook_url: https://github.com/rhkp/intrinsic-ai-core/blob/main/openshift/observability/README.md#controller-and-rpc
+        summary: Gateway gRPC failures exceed five percent
+      exp_labels:
+        namespace: demo-project
+        severity: warning
+        team: intrinsic-demo
+  input_series:
+  - series: intrinsic_gateway_grpc_requests_total{namespace="demo-project"}
+    values: 0+10x20
+  - series: intrinsic_gateway_grpc_unexpected_errors_total{namespace="demo-project"}
+    values: 0+2x20
+  interval: 1m
+  name: unexpected gateway failures
+- alert_rule_test:
+  - alertname: IntrinsicGatewayGRPCSlow
+    eval_time: 12m
+    exp_alerts: []
+  - alertname: IntrinsicInferenceSlow
+    eval_time: 12m
+    exp_alerts: []
+  input_series:
+  - series: intrinsic_gateway_grpc_duration_seconds_sum{namespace="demo-project"}
+    values: 0+0x20
+  - series: intrinsic_gateway_grpc_duration_seconds_count{namespace="demo-project"}
+    values: 0+0x20
+  - series: intrinsic_inference_request_duration_seconds_sum{namespace="demo-project"}
+    values: 0+0x20
+  - series: intrinsic_inference_request_duration_seconds_count{namespace="demo-project"}
+    values: 0+0x20
+  interval: 1m
+  name: no traffic is not slow traffic
+- alert_rule_test:
+  - alertname: IntrinsicInferenceAuthorizationFailures
+    eval_time: 5m
+    exp_alerts:
+    - exp_annotations:
+        description: Use the linked runbook to inspect this project. This alert does
+          not establish inference or motion-cycle success.
+        runbook_url: https://github.com/rhkp/intrinsic-ai-core/blob/main/openshift/observability/README.md#inference
+        summary: RHOAI rejected an inference identity or permission
+      exp_labels:
+        namespace: demo-project
+        severity: warning
+        team: intrinsic-demo
+  - alertname: IntrinsicInferenceAuthorizationFailures
+    eval_time: 10m
+    exp_alerts: []
+  input_series:
+  - series: intrinsic_inference_authorization_failures_total{namespace="demo-project"}
+    values: 0 0 1+0x12
+  interval: 1m
+  name: authorization alert fires then resolves
+- alert_rule_test:
+  - alertname: IntrinsicGatewayGRPCSlow
+    eval_time: 12m
+    exp_alerts: []
+  input_series:
+  - series: intrinsic_gateway_grpc_duration_seconds_sum{namespace="demo-project"}
+    values: 0+10x20
+  - series: intrinsic_gateway_grpc_duration_seconds_count{namespace="demo-project"}
+    values: 0+1x20
+  interval: 1m
+  name: low traffic slow requests do not alert

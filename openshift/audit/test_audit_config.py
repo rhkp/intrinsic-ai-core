@@ -72,7 +72,9 @@ class ConfigAuditTest(unittest.TestCase):
         )
         self.assertEqual(len(audit["image_lock_references"]["quay"]), 24)
         self.assertEqual(len(audit["image_lock_references"]["openshift"]), 1)
-        self.assertEqual(len(audit["image_lock_references"]["project"]), 38)
+        self.assertEqual(len(audit["image_lock_references"]["project"]), 39)
+        self.assertTrue(any("/intrinsic-grafana@sha256:" in reference
+                            for reference in audit["image_lock_references"]["project"]))
         self.assertEqual(audit["controller_image_constant_mismatches"], {})
         self.assertEqual(audit["executable_target_violations"], [])
 

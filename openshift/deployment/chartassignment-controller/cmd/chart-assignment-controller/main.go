@@ -137,7 +137,7 @@ func runController(ctx context.Context, cfg *rest.Config, cluster string) error 
 		Scheme:                 sc,
 		Cache:                  cache.Options{DefaultNamespaces: map[string]cache.Config{*watchNamespace: {}}},
 		WebhookServer:          webhook.NewServer(webhook.Options{CertDir: *certDir, Port: *webhookPort}),
-		Metrics:                metricsserver.Options{BindAddress: "0"}, // disabled
+		Metrics:                metricsserver.Options{BindAddress: ":9092"},
 		HealthProbeBindAddress: fmt.Sprintf(":%d", *healthzPort),
 	})
 	if err != nil {

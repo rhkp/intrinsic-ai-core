@@ -140,7 +140,7 @@
       "added_adaptation_files": [
         {
           "path": "openshift/image-lock.json",
-          "sha256": "d90c557d7ad8bc9f2c3907d7d416cd15e12336edb8745f3c080be74e3140eb41"
+          "sha256": "f7f33c95be0fe76982b9d266af7d3e72b9eca6bdf4884ab4806285b2a5ce6d08"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -401,7 +401,7 @@
         },
         {
           "path": "openshift/image-lock.json",
-          "sha256": "d90c557d7ad8bc9f2c3907d7d416cd15e12336edb8745f3c080be74e3140eb41"
+          "sha256": "f7f33c95be0fe76982b9d266af7d3e72b9eca6bdf4884ab4806285b2a5ce6d08"
         },
         {
           "path": "openshift/deployment/quay-image-values.yaml",
@@ -461,7 +461,7 @@
         },
         {
           "path": "openshift/deployment/chartassignment-controller/cmd/chart-assignment-controller/main.go",
-          "sha256": "e17964f9d564a081deac8644cc1da2b07dcf3d79297e725a4cf092ad5b23a7f9"
+          "sha256": "86af8e8ad0a419ea25d5c20b75f6f80083041aa1bd9e62cdbb1b12167b672187"
         },
         {
           "path": "openshift/deployment/chartassignment-controller/cmd/render-openshift-chart/main_test.go",
@@ -509,7 +509,7 @@
         },
         {
           "path": "openshift/README.md",
-          "sha256": "9fd9f3960ded7eb08f10a170a83aa7736296fb066fc1b6bf345d708136bd91a8"
+          "sha256": "5e814ce4015c2a09a8160b5e8a10fbf31843e94e3d8cd41b7f9105c79d570896"
         },
         {
           "path": "openshift/audit/audit_config.py",
@@ -517,7 +517,7 @@
         },
         {
           "path": "openshift/audit/test_audit_config.py",
-          "sha256": "76e53ac13bb8c46ea5ff80bfb44b7a7a4664fac4f021fe24700f2426b4482671"
+          "sha256": "aa5bd5353f6527c6c8e2d91a3f41509a71d0e1cdcd66ec4ae6267179a2dfb987"
         },
         {
           "path": "openshift/canonical-env.sh",
@@ -641,15 +641,15 @@
         },
         {
           "path": "openshift/testdata/config-render/configmap.golden",
-          "sha256": "3d74c11344b28a50536be279b550c8c5ad5f506adcf6bec0a3831b7a0b8977a9"
+          "sha256": "ea76b35af77bf48fe28fbad0245eab47fb03faed8318ba96e8a0de46f14f990c"
         },
         {
           "path": "openshift/testdata/config-render/controller_deployment.golden",
-          "sha256": "551367d977672bda7751ad369ba29fe784f3d1441fca3c5aecbe00c17630a54a"
+          "sha256": "6c8e98949098e517c06bee0c2ae780ada57ee4d8ac4d5d838cc389c85b36c45e"
         },
         {
           "path": "openshift/testdata/config-render/controller_patch.golden",
-          "sha256": "68a082184aa0c962382f6f6c62cd9282c73307031e76a839921b1fbe76801aa0"
+          "sha256": "31ade88f81a19b6984047a9fc37735c566b0b495ea2d0b2df45af63859af6a6a"
         },
         {
           "path": "openshift/testdata/config-render/controller_rbac.golden",
@@ -744,24 +744,24 @@
     },
     {
       "id": "operational-observability-baseline-e8",
-      "status": "Project-local observer deployed; existing OpenShift Prometheus collects 13 metric families and evaluates nine healthy warning rules; native RPC/IPC and GPU memory instrumentation remains open",
-      "rationale": "Add read-only project-scoped operational visibility without changing the controller, application or RHOAI workloads; preserve all PVCs and cached builds.",
+      "status": "Completed, deployed and verified: thirty metric families, nineteen healthy warning rules and all nine native signals; read-only acceptance passes",
+      "rationale": "Extend the project observer with bounded native metrics and passive workload-selected mesh statistics; enable the existing controller metrics listener; preserve application Pods, models, PVCs and caches.",
       "added_adaptation_files": [
         {
           "path": "openshift/observability.py",
-          "sha256": "19accdecddd54ade82d6647661877a3c8341bb208930c5ff4c0e8f2e834f3d94"
+          "sha256": "9c72d29d0f6df1d6f35340b90a61909623363d7031a3197af729d89480c09d2f"
         },
         {
           "path": "openshift/observability/observer.py",
-          "sha256": "52f43c9498d3b566be12f7c28f2198a1ec3d0839f5fc17bd247315494dee7fae"
+          "sha256": "2dc933476059cdd8c75bac640f85703bad653f33dbe2dcd0601009c9fa0010ce"
         },
         {
           "path": "openshift/observability/index.html",
-          "sha256": "53cd49c763e6242c457b03492773acca090cd60c183db1a6539a97a52e31b0e0"
+          "sha256": "6ef5f34814e7e4e0bcc68f0255e8761cd07f38b5f3c3f7060554d640ad8db064"
         },
         {
           "path": "openshift/observability/dashboard.js",
-          "sha256": "d764ef3b48e2694059701973aa13d5c0ae2c55c995ced61f75df8bc5d6c4d42b"
+          "sha256": "ca296e667b9bf8be04acb34a73fd4ce4d5a465b3622a3cecf9f984a2641be8bc"
         },
         {
           "path": "openshift/observability/dashboard.css",
@@ -769,19 +769,58 @@
         },
         {
           "path": "openshift/observability/README.md",
-          "sha256": "f89664fcf0ec57a7d36ea8b586353fa3b81652dda2cb6807c752566b49c1d794"
+          "sha256": "836e9dbbc8e97cb44eb1a332b649a11b08d0860d62293cfa6cc211d5ba88de50"
+        },
+        {
+          "path": "openshift/observability/native.py",
+          "sha256": "40b10a75253310bfb607a32e2273f9ec8db8c701e441ce644e08ee83036e5449"
+        },
+        {
+          "path": "openshift/test_observability.py",
+          "sha256": "c5793c4fdf19fce95a730c5145e2c5b480d27faecba0bd5afc59af8fd9bad422"
+        },
+        {
+          "path": "openshift/check_observability.py",
+          "sha256": "6520273f03f483fe18a399d8ec378f740fffcc9a848a9c3181b386112b2bd1cc"
+        },
+        {
+          "path": "openshift/test_observability_rules.py",
+          "sha256": "ce8a31207dcbca469f055ac6ec3d6fe6f068e6a12d0858ebb82c8ba4c5b11517"
+        },
+        {
+          "path": "openshift/testdata/observability-rules.test.yaml",
+          "sha256": "0ebbd66863108348d2ae83a4a4ab0ff8bbe44a58712670f164fb215d85bb822e"
         }
       ],
       "verification": {
-        "metric_families_collected": 13,
-        "healthy_alert_rules": 9,
+        "metric_families_collected": 30,
+        "healthy_alert_rules": 19,
         "required_components_ready": 10,
         "assignments_ready": 4,
-        "original_workload_specs_and_pod_identities_unchanged": true,
         "original_pvcs_bound_and_unchanged": 10,
         "notification_delivery_verified": false,
-        "native_rpc_ipc_gpu_memory_instrumentation_complete": false,
-        "read_only_acceptance_gates_passed": 42
+        "native_rpc_ipc_gpu_memory_instrumentation_complete": true,
+        "read_only_acceptance_gates_passed": 42,
+        "native_signals_available": 9,
+        "original_application_workload_specs_and_pod_identities_unchanged": true,
+        "original_application_pods_preserved": 47,
+        "application_deployments_preserved": 34,
+        "statefulsets_preserved": 13,
+        "services_preserved": 74,
+        "gpu_memory_scope": "Triton-visible inference devices",
+        "ipc_scope": "Functional ICON operational and cell hardware status",
+        "controller_metrics_rollout_verified": true,
+        "invalid_token_rejected_and_counted": true,
+        "valid_identity_readiness_verified": true,
+        "synthetic_alert_scenarios_passed": 8,
+        "temporary_test_resources_removed": true,
+        "external_notification_receivers_owner": "platform",
+        "rollback_prepared": true,
+        "rollback_exercised": false,
+        "python_tests_passed": 131,
+        "optional_local_promtool_test_skipped": 1,
+        "e8_acceptance_checks_passed": 9,
+        "all_native_metric_families_ingested": true
       }
     },
     {
@@ -932,6 +971,58 @@
         "canonical_target_policy_unchanged": true
       },
       "controller_digest": "sha256:ca0f1689ccc96a420247fde86673b403972aefdbb15176bd0eec8fbe0104f263"
+    },
+    {
+      "id": "operational-observability-grafana-e8",
+      "status": "Project Grafana deployed and API verified; observability audit fixes deployed; browser visual verification unavailable",
+      "added_adaptation_files": [
+        {
+          "path": "openshift/grafana.py",
+          "sha256": "0a50a4146d623408bdf3c8262b45d94ad2a8fa3e61e45c24a7650387dba3c28e"
+        },
+        {
+          "path": "openshift/observability/grafana_dashboard.py",
+          "sha256": "e9b3d5b4eec9fbf866fe7e4baaf7c25fe3288e51d6ebf95bfa550d2976c6f999"
+        },
+        {
+          "path": "openshift/observability/grafana_provision.py",
+          "sha256": "b8147396546b2e8bd79acc269ddbd89b2ed7d1cdc77cdfe8224948a4be63dd22"
+        },
+        {
+          "path": "openshift/test_grafana.py",
+          "sha256": "cd91c1f4a03d601600aed1cdb7a740ae95112548efe22c3bfdd454d4ec78b10e"
+        },
+        {
+          "path": "openshift/observability/GRAFANA.md",
+          "sha256": "e0080bcef73837d2ee3686490a4da7282e3499af304bc9c010a44cf896032068"
+        },
+        {
+          "path": "openshift/image-lock.json",
+          "sha256": "f7f33c95be0fe76982b9d266af7d3e72b9eca6bdf4884ab4806285b2a5ce6d08"
+        },
+        {
+          "path": "README.md",
+          "sha256": "0ec0786bf40eb669e01d78af53435bfab6e2737871d888ffebb21474688f304a"
+        }
+      ],
+      "verification": {
+        "grafana_version": "13.2.2",
+        "panels": 24,
+        "panel_queries_passed": 29,
+        "project_tenancy_rejection_verified": true,
+        "own_datasource_hot_reload_verified": true,
+        "existing_assignment_objects_unchanged": 223,
+        "python_tests_passed": 137,
+        "optional_local_promtool_skip": 1,
+        "synthetic_scenarios_passed": 12,
+        "browser_visual_verification": false,
+        "audit_fixes": [
+          "Reject partial per-model latency/error telemetry",
+          "Require fresh samples and healthy scrapes for Grafana freshness; meaningful summary colors",
+          "Verify evaluated rule expressions, pending durations, labels and runbook annotations"
+        ],
+        "application_pvcs_preserved": 10
+      }
     }
   ]
 }

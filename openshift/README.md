@@ -17,9 +17,13 @@ for the application patch, trace exporter and explicit reset/run command.
 ## Operational observability
 
 [E8 observability](observability/README.md) connects a read-only observer to the
-existing OpenShift Prometheus, adds nine warning alerts and a private dashboard.
-Application workloads, PVCs and caches are preserved. Native RPC/IPC and GPU
-memory telemetry remain unconnected and are identified explicitly.
+existing OpenShift Prometheus, adds nineteen warning alerts and a private dashboard.
+Nine native signals cover controller/gateway errors and latency, inference
+authorization and execution, inference GPU memory, and functional ICON/IPC health.
+Run `python3 openshift/check_observability.py` for read-only acceptance.
+The [Grafana trial](observability/GRAFANA.md) adds twenty-four panels over the
+same retained Prometheus data, available through a private port-forward on 3000.
+Application workloads, PVCs and caches are preserved.
 
 ## Canonical target configuration
 

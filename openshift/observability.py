@@ -104,6 +104,90 @@ def rules():
             "storage-and-placement",
         ),
     ]
+    definitions.extend(
+        [
+            (
+                "IntrinsicNativeTelemetryMissing",
+                f"(intrinsic_observability_signal_available == 0) and {healthy}",
+                "5m",
+                "warning",
+                "A required native telemetry source is missing",
+                "native-telemetry",
+            ),
+            (
+                "IntrinsicControllerReconcileErrors",
+                "increase(intrinsic_controller_reconcile_errors_total[5m]) > 0",
+                "2m",
+                "warning",
+                "The controller is returning reconciliation errors",
+                "controller-and-rpc",
+            ),
+            (
+                "IntrinsicControllerReconcileSlow",
+                "(rate(intrinsic_controller_reconcile_duration_seconds_sum[5m]) / rate(intrinsic_controller_reconcile_duration_seconds_count[5m]) > 10) and (increase(intrinsic_controller_reconcile_duration_seconds_count[5m]) >= 5)",
+                "5m",
+                "warning",
+                "Mean controller reconciliation exceeds ten seconds",
+                "controller-and-rpc",
+            ),
+            (
+                "IntrinsicGatewayGRPCErrors",
+                "(rate(intrinsic_gateway_grpc_unexpected_errors_total[5m]) / rate(intrinsic_gateway_grpc_requests_total[5m]) > 0.05) and (increase(intrinsic_gateway_grpc_requests_total[5m]) >= 20)",
+                "5m",
+                "warning",
+                "Gateway gRPC failures exceed five percent",
+                "controller-and-rpc",
+            ),
+            (
+                "IntrinsicGatewayGRPCSlow",
+                "(rate(intrinsic_gateway_grpc_duration_seconds_sum[5m]) / rate(intrinsic_gateway_grpc_duration_seconds_count[5m]) > 5) and (increase(intrinsic_gateway_grpc_duration_seconds_count[5m]) >= 20)",
+                "5m",
+                "warning",
+                "Mean completed gateway gRPC duration exceeds five seconds",
+                "controller-and-rpc",
+            ),
+            (
+                "IntrinsicInferenceAuthorizationFailures",
+                "increase(intrinsic_inference_authorization_failures_total[5m]) > 0",
+                "2m",
+                "warning",
+                "RHOAI rejected an inference identity or permission",
+                "inference",
+            ),
+            (
+                "IntrinsicInferenceErrors",
+                "increase(intrinsic_inference_request_errors_total[5m]) > 0",
+                "2m",
+                "warning",
+                "Triton recorded failed model inference requests",
+                "inference",
+            ),
+            (
+                "IntrinsicInferenceSlow",
+                "(rate(intrinsic_inference_request_duration_seconds_sum[5m]) / rate(intrinsic_inference_request_duration_seconds_count[5m]) > 30) and (increase(intrinsic_inference_request_duration_seconds_count[5m]) >= 3)",
+                "5m",
+                "warning",
+                "Mean model inference duration exceeds thirty seconds",
+                "inference",
+            ),
+            (
+                "IntrinsicInferenceGPUMemoryPressure",
+                "intrinsic_inference_gpu_memory_used_bytes / intrinsic_inference_gpu_memory_total_bytes > 0.9",
+                "5m",
+                "warning",
+                "Inference device memory usage exceeds ninety percent",
+                "gpu-memory",
+            ),
+            (
+                "IntrinsicSimulatorIPCDisconnected",
+                "intrinsic_simulator_ipc_connected == 0",
+                "2m",
+                "warning",
+                "ICON operational or cell hardware state is not enabled",
+                "simulator-ipc",
+            ),
+        ]
+    )
     return [
         {
             "alert": name,
@@ -120,8 +204,17 @@ def rules():
     ]
 
 
-def render(target, lock, api_addresses):
+def render(target, lock, api_addresses, predictor_selector):
     ns = target.namespace
+    if (
+        not predictor_selector
+        or not isinstance(predictor_selector, dict)
+        or not all(
+            isinstance(k, str) and k and isinstance(v, str) and v
+            for k, v in predictor_selector.items()
+        )
+    ):
+        raise ValueError("exact_predictor_selector_required")
     endpoint = target.document["target"]["networking"]["rhoai_triton_endpoint"]
     rhoai = re.fullmatch(
         r"([a-z0-9-]+)\.([a-z0-9-]+)\.svc\.cluster\.local:9000", endpoint
@@ -135,7 +228,13 @@ def render(target, lock, api_addresses):
     runtime = f"{registry}/{ns}/intrinsic-rviz-novnc@{image['digest']}"
     sources = {
         name: (ROOT / "observability" / name).read_text()
-        for name in ("observer.py", "index.html", "dashboard.js", "dashboard.css")
+        for name in (
+            "observer.py",
+            "native.py",
+            "index.html",
+            "dashboard.js",
+            "dashboard.css",
+        )
     }
     checksum = hashlib.sha256(json.dumps(sources, sort_keys=True).encode()).hexdigest()
 
@@ -171,7 +270,9 @@ def render(target, lock, api_addresses):
                         "cloudrobotics.com/opt-out-error-checking": "true",
                     },
                     "annotations": {
-                        "sidecar.istio.io/inject": "false",
+                        "sidecar.istio.io/inject": "true",
+                        "traffic.sidecar.istio.io/excludeInboundPorts": "9099",
+                        "traffic.sidecar.istio.io/excludeOutboundPorts": "9092,15090",
                         "intrinsic.ai/source-sha256": checksum,
                     },
                 },
@@ -267,6 +368,40 @@ def render(target, lock, api_addresses):
             },
         },
     )
+
+    def stats_filter(suffix, selector, context, port=None):
+        listener = {
+            "filterChain": {
+                "filter": {"name": "envoy.filters.network.http_connection_manager"}
+            }
+        }
+        if port:
+            listener["portNumber"] = port
+        return resource(
+            "EnvoyFilter",
+            name=NAME + "-" + suffix,
+            api="networking.istio.io/v1alpha3",
+            spec={
+                "workloadSelector": {"labels": selector},
+                "configPatches": [
+                    {
+                        "applyTo": "HTTP_FILTER",
+                        "match": {"context": context, "listener": listener},
+                        "patch": {
+                            "operation": "INSERT_FIRST",
+                            "value": {
+                                "name": "istio.stats",
+                                "typed_config": {
+                                    "@type": "type.googleapis.com/stats.PluginConfig",
+                                    "disable_host_header_fallback": True,
+                                },
+                            },
+                        },
+                    }
+                ],
+            },
+        )
+
     return [
         resource("ConfigMap", data=sources),
         resource("ServiceAccount", automountServiceAccountToken=False),
@@ -317,6 +452,37 @@ def render(target, lock, api_addresses):
             },
         ),
         resource(
+            "Service",
+            name=NAME + "-triton",
+            spec={
+                "selector": predictor_selector,
+                "ports": [{"name": "http-metrics", "port": 8002, "targetPort": 8002}],
+            },
+        ),
+        stats_filter("gateway", target.ingress_selector, "GATEWAY"),
+        stats_filter("predictor", predictor_selector, "SIDECAR_INBOUND", 9000),
+        resource(
+            "NetworkPolicy",
+            name=NAME + "-controller",
+            api="networking.k8s.io/v1",
+            spec={
+                "podSelector": {"matchLabels": {"app": "chartassignment-controller"}},
+                "policyTypes": ["Ingress"],
+                "ingress": [
+                    {
+                        "from": [
+                            {
+                                "podSelector": {
+                                    "matchLabels": {"app.kubernetes.io/name": NAME}
+                                }
+                            }
+                        ],
+                        "ports": [{"protocol": "TCP", "port": 9092}],
+                    }
+                ],
+            },
+        ),
+        resource(
             "NetworkPolicy",
             api="networking.k8s.io/v1",
             spec={
@@ -337,6 +503,27 @@ def render(target, lock, api_addresses):
                     }
                 ],
                 "egress": [
+                    {
+                        "to": [{"podSelector": {}}],
+                        "ports": [
+                            {"protocol": "TCP", "port": port}
+                            for port in (8002, 9091, 9092, 15090)
+                        ],
+                    },
+                    {
+                        "to": [
+                            {
+                                "namespaceSelector": {
+                                    "matchLabels": {
+                                        "kubernetes.io/metadata.name": target.document[
+                                            "target"
+                                        ]["networking"]["mesh_namespace"]
+                                    }
+                                }
+                            }
+                        ],
+                        "ports": [{"protocol": "TCP", "port": 15012}],
+                    },
                     {
                         "to": [{"ipBlock": {"cidr": cidr}} for cidr in api_cidrs],
                         "ports": [
@@ -425,8 +612,15 @@ def main(argv=None):
             for subset in endpoints.get("subsets", [])
             for a in subset.get("addresses", [])
         ]
+        rhoai_name = target.document["target"]["networking"][
+            "rhoai_triton_endpoint"
+        ].split(".")[0]
+        predictor_selector = reader.get("service", rhoai_name)["spec"].get("selector")
         objects = render(
-            target, load_image_lock(target.document, args.config), addresses
+            target,
+            load_image_lock(target.document, args.config),
+            addresses,
+            predictor_selector,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         text = HEADER + yaml.safe_dump_all(objects, sort_keys=False)

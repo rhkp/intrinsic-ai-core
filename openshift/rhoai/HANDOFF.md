@@ -8,6 +8,38 @@
 
 ## Current state
 
+### Grafana trial for E8 (2026-10-21)
+
+- A separate project-owned Grafana 13.2.2 instance provisions twenty-four E8
+  panels against the existing project-tenanted Thanos API. Access uses a private
+  loopback port-forward on 3000 with anonymous Viewer permissions.
+- The datasource verifies the service CA and reloads its rotating projected token.
+  It has only project `view` access. Dashboard definitions are source controlled;
+  Grafana's local state is ephemeral and no PVC or new Prometheus is created.
+- See [installation and access](../observability/GRAFANA.md). The original
+  dashboard on 9099 and the nineteen OpenShift alert rules remain available.
+
+### Latest result: E8 native observability completed (2026-10-21)
+
+- Nine native signals cover reconciliation and gateway gRPC errors/latency,
+  inference authorization/latency/errors, visible inference-device memory and
+  functional ICON operational/hardware status. The private dashboard and existing
+  OpenShift monitoring collect thirty metric families and evaluate nineteen
+  warning rules. `python3 openshift/check_observability.py` verifies live coverage,
+  ingestion and current rule health without motion or inference requests.
+- A rejected test token increments the predictor authorization metric while the
+  existing valid identity still passes readiness. Passive workload-selected mesh
+  statistics filters and an observer sidecar preserve strict mTLS and inference
+  authorization. The controller-only image update enables its existing native
+  metrics server on 9092; canonical image locks record the new identity.
+- Eight synthetic rule scenarios pass using the existing platform promtool image
+  in a temporary project Pod. No model repository, application workload or PVC
+  is changed. External notification delivery remains platform-owned; device
+  memory scope and the functional IPC measurement are documented explicitly.
+- See the [E8 runbook](../observability/README.md). Private snapshots, reports
+  and a guarded, prepared rollback are retained in ignored
+  `openshift/.generated/e8/finish/`. The earlier E4 record remains historical.
+
 ### Latest result: E4 controller refactor verified (2026-10-20)
 
 - The 3,080-line adapter is separated into domain files within the same Go
