@@ -1026,7 +1026,7 @@
     },
     {
       "id": "offline-validation-and-ci-e1",
-      "status": "Implemented and locally verified; hosted push/pull-request CI execution pending publication",
+      "status": "Complete: one-command offline validation, guarded local proof and hosted push CI passed",
       "added_adaptation_files": [
         {
           "path": "Makefile",
@@ -1078,10 +1078,12 @@
         "yaml_and_shell_lint_passed": true,
         "current_file_secret_scan_passed": true,
         "git_history_scanned": false,
-        "hosted_ci_execution_verified": false,
+        "hosted_ci_execution_verified": true,
         "offline_run_with_blocked_proxies_passed": true,
         "oc_invoked": false,
-        "kubeconfig_unavailable": true
+        "kubeconfig_unavailable": true,
+        "hosted_ci_run": "https://github.com/rhkp/intrinsic-ai-core/actions/runs/39665482199",
+        "hosted_ci_commit": "31c21ed0a8369a9ee2fdac754b84be5e22457efe"
       }
     }
   ]

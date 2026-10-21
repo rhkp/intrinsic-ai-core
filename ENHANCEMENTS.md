@@ -26,11 +26,15 @@ files passed digest verification, and all Python scripts compiled successfully.
 
 **Priority:** 1
 
-**Status:** implemented on 2026-10-21. `make setup-validation` prepares pinned
+**Status:** completed and verified on 2026-10-21. `make setup-validation` prepares pinned
 Python tools, a checksum-verified Gitleaks binary and cached Go dependencies.
 `make validate` runs all offline tests, lint, credential scanning, configuration,
 provenance and whitespace checks. The existing push/pull-request workflow now
-uses the same command; hosted execution awaits publication of this change.
+uses the same command. Both dependency setup and validation passed in
+[hosted CI](https://github.com/rhkp/intrinsic-ai-core/actions/runs/39665482199).
+The guarded local run also passed with blocked network proxies, no kubeconfig
+and zero `oc` calls: 149 Python tests passed, one optional promtool test skipped,
+and Go tests/vet, lint, provenance, configuration and credential scanning passed.
 
 Regression coverage exercises malformed Python/YAML/shell, Go formatting,
 credential-shaped sample values, inline suppression, protected files, symlink
