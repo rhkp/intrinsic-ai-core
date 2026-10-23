@@ -9,6 +9,9 @@ This directory contains the current implementation, configuration and verificati
 for that path. The original failure and resolution are recorded below; earlier
 experiment files remain available in Git history.
 
+For the protocol diagnosis, alternate Route design and measured demo evidence,
+see [Why the hybrid demo uses a dedicated Triton gRPC Route](GRPC_ROUTE_DESIGN.md).
+
 This is an interim integration checkpoint for an already prepared Intrinsic VM
 and RHOAI model deployment. The complete fresh-clone provisioning sequence has
 not been validated; the commands below assume the documented runtime prerequisites,
@@ -42,7 +45,7 @@ The target reports OpenShift 4.20.26, RHOAI 2.25.9 and Service Mesh 2.6.17.
 The original controller-owned re-encrypt Route negotiated no ALPN protocol.
 Its OAuth proxy serves HTTP/1.1 and points an HTTP upstream at Triton's gRPC
 port. Changing only the Route certificate cannot establish gRPC through that
-proxy. The [OpenShift Route documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/ingress_and_load_balancing/configuring-routes)
+proxy. The [OpenShift Route documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.20/html/networking_operators/configuring-ingress)
 explains the custom-certificate requirement for terminated HTTP/2 Routes;
 the [OAuth proxy TLS implementation](https://github.com/openshift/oauth-proxy/blob/master/http.go)
 advertises only `http/1.1`.
