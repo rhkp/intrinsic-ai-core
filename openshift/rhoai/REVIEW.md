@@ -77,10 +77,11 @@ released the attachment. These fixes apply only to the isolated candidate.
 | The synthetic sample requested a GPU but its model configuration used CPU execution | GPU scheduling was exercised; GPU model execution was not proven | Use a CPU-only transport smoke first. Actual-model tests must prove GPU execution, including FoundationPose's renderer and ONNX sessions. |
 | Successful REST/token results appear in historical comparison-cluster sections | Those results are not target-cluster evidence | The archive mixes historical contexts; use the explicit target-status sections as the conservative evidence boundary. Reproduce target auth tests rather than promote an old success statement. REST success cannot substitute for the actual gRPC caller. |
 
-Sources: [archived overall status](../../approaches/tried-not-feasible-aws-vm-with-rhoai/README.md),
-[target status and historical comparison](../../approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/README.md),
-and [synthetic serving record](../../approaches/tried-not-feasible-aws-vm-with-rhoai/openshift/serving/README.md).
-Do not infer a complete root cause from partial logs or the directory name.
+Historical sources: the original hybrid status, target/comparison observations,
+and synthetic serving record preserved in Git commit `df77a76` (2026-10-13).
+The [current hybrid runbook](../../approaches/aws-vm-with-rhoai/README.md) records
+the subsequent Route diagnosis and successful VM demo. The earlier observations
+above describe the original experiment.
 
 ## Challenged assumptions and required fixes
 

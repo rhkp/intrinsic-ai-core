@@ -1,0 +1,3 @@
+# This project was developed with assistance from AI tools.
+tritonclient[grpc]==2.73.0
+numpy==2.5.4

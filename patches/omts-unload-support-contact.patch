@@ -1,0 +1,24 @@
+# This project was developed with assistance from AI tools.
+--- a/src/behaviors/unload_machine.py
++++ b/src/behaviors/unload_machine.py
+@@ -1,3 +1,4 @@
++# This project was developed with assistance from AI tools.
+ # Copyright 2026 Intrinsic Innovation LLC
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+@@ -133,8 +134,15 @@
+       create_relative_retract_task(
+         robot=robot,
+         distance_meters=retract_distance_meters,
++        # Permit the support contact only while lifting the attached part away.
++        # Subsequent transit retains ordinary environment collision checking.
+         excluded_collision_pairs=[
+           (config.robot.tool_object_name, workpiece_object_name),
++          *(
++            [(config.robot.enclosure_object_name, workpiece_object_name)]
++            if config.robot.enclosure_object_name
++            else []
++          ),
+         ],
+         task_name=f"Linear Retract Clear of Vise ({retract_distance_meters * 100:.1f} cm, -Z Tool)",
+       ),

@@ -5,6 +5,7 @@
 .venv/
 .tools/
 .ruff_cache/
+.local/
 
 # Local-only architecture deliverables under review.
 /architecture/
@@ -14,6 +15,17 @@
 .env
 .env.*
 !.env.sample
+
+# Local runtime evidence and VM source/history backups.
+*.log
+*.log.*
+*.bundle
+*.tar
+*.tar.gz
+*.tgz
+*.bak
+.envrc
+.direnv/
 
 # Local machine metadata and private credentials/certificates.
 .DS_Store
@@ -33,12 +45,19 @@ __pycache__/
 *.jks
 *.keystore
 *.kubeconfig
-/kubeconfig
+kubeconfig
+kubeconfig.*
+*.kubeconfig.*
 .secrets/
 secrets/
 *.token
 *.secret
 *.credentials
+.dockerconfigjson
+.dockercfg
+token
+unauthorized-token
+rhoai-token
 
 # Local CLI and registry credential stores.
 .aws/
@@ -87,9 +106,6 @@ id_rsa
 /openshift/target-config.json
 /openshift/deployment/chartassignment-controller/deploy/target-config.configmap.yaml
 /openshift/deployment/chartassignment-controller/deploy/controller-deployment-patch.yaml
-
-# Local bearer token file referenced by the ignored RHOAI environment.
-/approaches/tried-not-feasible-aws-vm-with-rhoai/~/.config/intrinsic/rhoai-token
 
 # Codex runtime logs, local caches, and credential keys
 .codex/cache/

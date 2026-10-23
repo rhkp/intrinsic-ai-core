@@ -1,0 +1,226 @@
+# This project was developed with assistance from AI tools.
+# Render placeholders with prepare_grpc_ingress.py before applying.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: hybrid-triton-bootstrap
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hybrid-triton-ca
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  isCA: true
+  commonName: Hybrid gRPC pilot CA
+  secretName: hybrid-triton-ca
+  duration: 168h
+  renewBefore: 24h
+  privateKey:
+    algorithm: RSA
+    size: 3072
+    rotationPolicy: Always
+  issuerRef:
+    name: hybrid-triton-bootstrap
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: hybrid-triton-ca
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  ca:
+    secretName: hybrid-triton-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: hybrid-triton-tls
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  secretName: hybrid-triton-tls
+  dnsNames:
+    - ${RHOAI_GRPC_HOST}
+  duration: 144h
+  renewBefore: 24h
+  privateKey:
+    algorithm: RSA
+    size: 3072
+    rotationPolicy: Always
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+  issuerRef:
+    name: hybrid-triton-ca
+    kind: Issuer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hybrid-triton-gateway
+  namespace: ${RHOAI_NAMESPACE}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hybrid-triton-gateway
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  selector:
+    app: hybrid-triton-gateway
+    istio: hybrid-triton-gateway
+  ports:
+    - name: https-grpc
+      port: 443
+      targetPort: 8443
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hybrid-triton-gateway
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hybrid-triton-gateway
+      istio: hybrid-triton-gateway
+  template:
+    metadata:
+      labels:
+        app: hybrid-triton-gateway
+        istio: hybrid-triton-gateway
+        sidecar.istio.io/inject: "true"
+      annotations:
+        inject.istio.io/templates: gateway
+    spec:
+      serviceAccountName: hybrid-triton-gateway
+      volumes:
+        - name: serving-cert
+          secret:
+            secretName: hybrid-triton-tls
+      containers:
+        - name: istio-proxy
+          image: auto
+          volumeMounts:
+            - name: serving-cert
+              mountPath: /etc/hybrid-tls
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: hybrid-triton-external
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  selector:
+    app: hybrid-triton-gateway
+    istio: hybrid-triton-gateway
+  servers:
+    - port:
+        name: https-grpc
+        number: 443
+        protocol: HTTPS
+      hosts:
+        - ${RHOAI_GRPC_HOST}
+      tls:
+        mode: SIMPLE
+        serverCertificate: /etc/hybrid-tls/tls.crt
+        privateKey: /etc/hybrid-tls/tls.key
+        minProtocolVersion: TLSV1_2
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: hybrid-triton-external
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  exportTo: ["."]
+  hosts:
+    - ${RHOAI_GRPC_HOST}
+  gateways:
+    - hybrid-triton-external
+  http:
+    - match:
+        - uri:
+            regex: /inference[.]GRPCInferenceService/(ServerLive|ServerReady|ServerMetadata|ModelReady|ModelMetadata|ModelConfig|ModelInfer)
+      rewrite:
+        authority: triton-rhoai-grpc.${RHOAI_NAMESPACE}.svc.cluster.local
+      headers:
+        request:
+          set:
+            k-original-host: triton-rhoai-grpc.${RHOAI_NAMESPACE}.svc.cluster.local
+      route:
+        - destination:
+            host: triton-rhoai-grpc.${RHOAI_NAMESPACE}.svc.cluster.local
+            port:
+              number: 9000
+      timeout: 120s
+    - directResponse:
+        status: 403
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: hybrid-triton-upstream
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  exportTo: ["."]
+  workloadSelector:
+    matchLabels:
+      app: hybrid-triton-gateway
+  host: triton-rhoai-grpc.${RHOAI_NAMESPACE}.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hybrid-triton-router-access
+  namespace: ${RHOAI_NAMESPACE}
+spec:
+  podSelector:
+    matchLabels:
+      app: hybrid-triton-gateway
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              network.openshift.io/policy-group: ingress
+      ports:
+        - protocol: TCP
+          port: 8443
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: hybrid-triton-grpc
+  namespace: ${RHOAI_NAMESPACE}
+  annotations:
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  host: ${RHOAI_GRPC_HOST}
+  to:
+    kind: Service
+    name: hybrid-triton-gateway
+  port:
+    targetPort: https-grpc
+  tls:
+    termination: passthrough
+    insecureEdgeTerminationPolicy: None
+  wildcardPolicy: None

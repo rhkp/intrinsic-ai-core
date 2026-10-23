@@ -68,9 +68,10 @@ Python/CUDA package and both caller tensor contracts. The [adversarial
 review](REVIEW.md) records corrected assumptions, prior-failure evidence,
 source anchors, and the required experiment matrix.
 
-The [archived hybrid experiment](../../approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
-provides the serving-runtime and token-authenticated Route workflow to carry
-forward. Its cross-environment VM connectivity result is historical. The
+The [consolidated hybrid approach](../../approaches/aws-vm-with-rhoai/README.md)
+contains the verified external gRPC gateway and VM demo. Its
+[Route diagnosis](../../approaches/aws-vm-with-rhoai/README.md#original-route-diagnosis)
+records the original cross-environment connectivity failure and resolution. The
 former actual-model candidate was created through CLI KServe resources and
 used an internal gRPC Service; it did not prove the required RHOAI dashboard
 deployment or Model access Route. The prior hybrid Route and certificate

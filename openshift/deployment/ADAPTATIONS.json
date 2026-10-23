@@ -1002,7 +1002,7 @@
         },
         {
           "path": "README.md",
-          "sha256": "acc083f30b71fd16f966cd49c44d1ff7c954e45689ae1baa01c58da4c8fef9ff"
+          "sha256": "969deb99cdc37381fe4c65979fb611686f43894a6a990f6345130209c711f51c"
         }
       ],
       "verification": {
@@ -1050,7 +1050,7 @@
         },
         {
           "path": ".gitignore",
-          "sha256": "342f883706ded845193242ee8cb8d8fd9dd5afca00a8b9119792f05576f617cd"
+          "sha256": "de68980aee14c0531f2d862c3f045b4560787246f749dbf960c5cca71ae620f6"
         },
         {
           "path": "scripts/setup_validation.py",

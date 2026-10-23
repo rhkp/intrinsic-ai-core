@@ -20,7 +20,7 @@ were applied before it failed on the absent `cnc_enclosure`. The correct
 `your-workcell` updates were applied afterward, but the live world may retain extra
 CNC-cell frames. No complete OpenShift cycle or viewer pass is verified.
 [OpenShift deployment journal](openshift/README.md) · [Current pod reference](PODS_README.md) · [Demo results](DEMO_README.md)
-[Deployment approaches](approaches/README.md) · [Archived hybrid experiment](approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
+[Deployment approaches](approaches/README.md) · [Verified hybrid approach](approaches/aws-vm-with-rhoai/README.md)
 
 ## Simulator IPC: placement fixed, reset reconnect still failing
 

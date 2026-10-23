@@ -86,10 +86,10 @@ panels with retained history and interactive time ranges. After selecting the
 canonical context/project, run:
 
 ```sh
-oc port-forward service/intrinsic-grafana 3000:3000 --address=127.0.0.1
+oc port-forward service/intrinsic-grafana 3000:3000 --address=localhost
 ```
 
-Open <http://127.0.0.1:3000/d/intrinsic-e8/intrinsic-e8-operations> on the tunnel's
+Open <http://localhost:3000/d/intrinsic-e8/intrinsic-e8-operations> on the tunnel's
 machine. Access is private and Viewer-only; no Grafana login is needed. The
 original dashboard remains available through its own port-forward on 9099.
 Run `python3 openshift/check_observability.py` for read-only E8 acceptance.
@@ -194,7 +194,7 @@ future deployment; do not silently substitute a different release.
     expected checksum was changed, and no unexpected archive was accepted.
 14. Started a second build as `intrinsic-omts-build-2.service`, with private log
     `~/intrinsic-install-logs/omts-build-2.log`. Added
-    `--distdir=/home/ubuntu/intrinsic-distfiles` before the command's `--` separator
+    `--distdir="$HOME/intrinsic-distfiles"` before the command's `--` separator
     so Bazel can use that verified local archive. Dependency analysis completed
     and compilation proceeded without another fetch failure.
 15. After repeated checks showed approximately 24 GiB of available memory and
@@ -533,14 +533,16 @@ See [the demo runbook](DEMO_README.md) for repeatable commands and the distincti
 between demonstrated behavior and the remaining simulation failure. The
 [OpenShift plan](OPENSHIFT_PLAN.md) now uses this more precise baseline.
 
-## Hybrid feasibility experiment — 2026-10-01
+## AWS VM + RHOAI hybrid — verified 2026-10-23
 
-We tested RHOAI-managed Triton serving on the target cluster while Intrinsic Core and the
-simulation remained on the AWS VM. Internal gRPC inference passed, but the
-AWS VM could not complete gRPC inference through the token-authenticated model
-route because HTTP/2 (`h2`) was not negotiated. A manual custom-certificate
-change to the RHOAI-managed route was not a durable, supported configuration;
-REST would require client/integration changes and was not validated end to end.
-We have set the hybrid approach aside and will plan a full OpenShift deployment.
-See the [archived experiment record](approaches/tried-not-feasible-aws-vm-with-rhoai/README.md)
-and [full OpenShift work plan](OPENSHIFT_PLAN.md).
+Two complete OMTS simulation cycles passed with execution on the AWS VM and
+RF-DETR/FoundationPose inference through a token-authenticated OpenShift Route to
+RHOAI-managed Triton. All five stages succeeded in both runs. The dedicated
+passthrough Route and mesh gateway negotiate HTTP/2 and preserve the existing
+model authorization checks. Existing source adaptations and build caches were
+preserved, and native inference rollback was exercised.
+
+The [consolidated hybrid runbook](approaches/aws-vm-with-rhoai/README.md) contains
+the working implementation, token refresh, verification and rollback commands.
+The runbook also explains the original Route/ALPN failure and its resolution. The
+[full OpenShift work plan](OPENSHIFT_PLAN.md) remains a separate deployment track.

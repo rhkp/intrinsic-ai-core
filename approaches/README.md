@@ -6,24 +6,25 @@
 
 
 This directory keeps deployment experiments distinct. The VM deployment remains
-the known baseline. The AWS VM + RHOAI hybrid experiment is archived; the current
-direction is a full OpenShift deployment.
+the known baseline. The AWS VM + RHOAI hybrid experiment reopened on 2026-10-22
+to resolve external gRPC connectivity. The full OpenShift deployment remains
+available as a separate validated topology.
 
 | Approach | Placement | Status | Reference |
 | --- | --- | --- | --- |
 | **VM Only** | Intrinsic Core, OMTS, simulation, and inference run on the AWS VM's K3s cluster. | Deployed and used as the control case; current demo limitations are documented. | [VM Only reference](vm-only/README.md) |
-| **AWS VM + RHOAI (Hybrid)** | Intrinsic execution and simulation on the AWS VM; RHOAI-managed Triton serving on OpenShift. | Tried and not pursued. Internal gRPC inference worked on the target cluster, but the AWS VM could not complete external gRPC inference through the token-authenticated route because HTTP/2 (`h2`) was not negotiated. REST/client adaptation and a supported durable custom-certificate route setup were not established. | [Archived hybrid record](tried-not-feasible-aws-vm-with-rhoai/README.md) · [OpenShift notes](tried-not-feasible-aws-vm-with-rhoai/openshift/README.md) · [test record](tried-not-feasible-aws-vm-with-rhoai/TEST_PLAN.md) |
+| **AWS VM + RHOAI (Hybrid)** | Intrinsic execution and simulation on the AWS VM; RHOAI-managed Triton serving on OpenShift. | Verified 2026-10-23: two complete simulation cycles through a token-authenticated RHOAI gRPC Route. Both remote models served actual demo requests; all five stages succeeded. Native rollback exercised; existing sources and build caches preserved. | [Verified hybrid demo](aws-vm-with-rhoai/README.md) |
 
-The [full OpenShift work plan](../OPENSHIFT_PLAN.md) is the active planning
-document. Hybrid notes are retained only as a record of the approach tested and
-the reason it was set aside; they are not current deployment instructions.
+The [full OpenShift work plan](../OPENSHIFT_PLAN.md) tracks that deployment.
+The current hybrid code, configuration and verification live under
+`aws-vm-with-rhoai/`. Its README contains the runbook and original failure diagnosis;
+obsolete experiment files are recoverable from Git history.
 
 ## Experiment rules
 
 - Keep the VM Only deployment and its runbook as the comparison baseline.
-- Keep historical hybrid manifests and test records under
-  `tried-not-feasible-aws-vm-with-rhoai/`; do not use them as active deployment
-  instructions.
+- Keep hybrid code, configuration examples and evidence under `aws-vm-with-rhoai/`.
+  Its README is the single runbook; retain earlier attempts in Git history.
 - Record software/model versions and test outcomes, but keep endpoint addresses,
   kubeconfigs, tokens, keys, certificates, personal data, and raw sensitive logs
   out of Git.
