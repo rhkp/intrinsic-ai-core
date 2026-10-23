@@ -10,7 +10,7 @@ from pathlib import Path
 
 import yaml
 
-from hybrid_config import ConfigError, load
+from hybrid_config import ConfigError, DEFAULT_CONFIG_PATH, load
 
 ROOT = Path(__file__).resolve().parent
 RUNFILES = (
@@ -138,32 +138,23 @@ def prepare(baseline, source_file, endpoint, ca, output, *, endpoint_value=None)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env-file", type=Path)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     for name in ("baseline", "source-file", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
-    parser.add_argument("--endpoint", type=Path)
-    parser.add_argument("--ca", type=Path)
     args = parser.parse_args()
-    endpoint_value = None
-    if args.env_file:
-        if args.endpoint or args.ca:
-            parser.error("Use --env-file or --endpoint/--ca, without mixing them")
-        try:
-            config = load(args.env_file)
-        except ConfigError as exc:
-            parser.error(str(exc))
-        endpoint_value, args.ca = config.endpoint, config.ca_file
-    elif not args.endpoint or not args.ca:
-        parser.error("Select --env-file or supply --endpoint and --ca")
+    try:
+        config = load(args.config)
+    except ConfigError as exc:
+        parser.error(str(exc))
     previous = os.umask(0o077)
     try:
         prepare(
             args.baseline,
             args.source_file,
-            args.endpoint,
-            args.ca,
+            None,
+            config.ca_file,
             args.output,
-            endpoint_value=endpoint_value,
+            endpoint_value=config.endpoint,
         )
     finally:
         os.umask(previous)

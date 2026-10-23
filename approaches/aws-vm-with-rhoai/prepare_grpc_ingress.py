@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 import string
 
-from hybrid_config import ConfigError, load
+from hybrid_config import ConfigError, DEFAULT_CONFIG_PATH, load
 
 
 def prepare(namespace: str, host: str, output: Path) -> None:
@@ -38,22 +38,15 @@ def prepare(namespace: str, host: str, output: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env-file", type=Path)
-    parser.add_argument("--namespace")
-    parser.add_argument("--host")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.env_file:
-        if args.namespace or args.host:
-            parser.error("Use --env-file or --namespace/--host, without mixing them")
-        try:
-            config = load(args.env_file)
-        except ConfigError as exc:
-            parser.error(str(exc))
-        args.namespace, args.host = config.namespace, config.endpoint.rsplit(":", 1)[0]
-    if not args.namespace or not args.host:
-        parser.error("Select --env-file or supply --namespace and --host")
-    prepare(args.namespace, args.host, args.output)
+    try:
+        # Certificate provisioning precedes the availability of client CA files.
+        config = load(args.config, validate_files=False)
+    except ConfigError as exc:
+        parser.error(str(exc))
+    prepare(config.namespace, config.endpoint.rsplit(":", 1)[0], args.output)
     print(
         "Prepared ingress manifest; no cluster resources changed or private keys generated."
     )

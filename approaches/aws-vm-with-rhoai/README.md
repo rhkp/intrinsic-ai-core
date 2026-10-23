@@ -94,36 +94,57 @@ explicitly trusted by this client only. Use an approved certificate issuer
 and a managed trust/renewal process before durable use. CA renewal changes
 client trust; this pilot does not automate CA distribution or VM token rotation.
 
-## Configuration ownership
+## Canonical hybrid configuration
 
-The active ignored `.env` describes the working gRPC hybrid deployment.
-Copy [`.env.sample`](.env.sample) for another environment and supply the actual
-OpenShift context/project, passthrough Route endpoint (`hostname:443`), public CA,
-model-scoped service account, RF-DETR/FoundationPose model names and VM SSH target.
-Store no token or private-key contents in this file.
+Copy [config.example.json](config.example.json) to the ignored
+`approaches/aws-vm-with-rhoai/config.local.json` and replace its placeholders.
+[config.schema.json](config.schema.json) is the hybrid-only JSON Schema.
+[hybrid_config.py](hybrid_config.py) validates it without importing the full
+OpenShift configuration or reading shell environment variables to select targets.
 
-[hybrid_config.py](hybrid_config.py) is the hybrid-only configuration contract.
-It validates versioned `HYBRID_*` fields, requires both models and explicit targets,
-rejects unknown/duplicate/legacy REST settings, and resolves local paths relative
-to the selected file. It never sources a shell file, reads a shared root `.env`,
-changes `os.environ`, or changes the OpenShift-only schema/defaults. Target
-arguments cannot be mixed with `--env-file`; token issuance uses its exact context.
+The canonical document separates workstation context/API address, public CA and
+SSH-key paths (`local`) from the RHOAI project/Route/models and VM SSH destination
+(`target`). Paths resolve relative to the JSON file. Runtime commands reject
+unknown fields, duplicate JSON keys, placeholders and invalid target formats.
+Token refresh verifies that the selected context points to the configured HTTPS
+API server before issuing a credential. Tokens and private-key contents stay
+outside JSON; the model token remains in the VM Kubernetes Secret.
 
-From the repository root:
+Use the isolated tooling environment from the repository root. Create it only
+if absent, and install the hybrid requirements:
 
 ```bash
-export HYBRID_ENV=approaches/aws-vm-with-rhoai/.env
-python3 approaches/aws-vm-with-rhoai/hybrid_config.py --env-file "$HYBRID_ENV"
-python3 approaches/aws-vm-with-rhoai/prepare_grpc_ingress.py --env-file "$HYBRID_ENV" --output .local/new-hybrid-ingress
-python3 approaches/aws-vm-with-rhoai/prepare_vm_overlay.py --env-file "$HYBRID_ENV" --baseline "$BASELINE_DIR" --source-file "$WRAPPER_SOURCE_JSON" --output .local/new-hybrid-overlay
+if [ ! -x .local/hybrid-client/bin/python ]; then
+  uv venv .local/hybrid-client
+fi
+uv pip install --python .local/hybrid-client/bin/python -r approaches/aws-vm-with-rhoai/requirements.txt
+export HYBRID_PYTHON=.local/hybrid-client/bin/python
+export HYBRID_CONFIG=approaches/aws-vm-with-rhoai/config.local.json
+
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/hybrid_config.py --config "$HYBRID_CONFIG" --validate-only
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/hybrid_config.py --config "$HYBRID_CONFIG" --verify-context --output-root .local/hybrid-config
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/hybrid_config.py --config "$HYBRID_CONFIG" --output-root .local/hybrid-config --check
 ```
 
-The first command validates local settings; the other commands only prepare
-private artifacts. Verify the plan against the intended owner before applying.
-The wrapper receives its endpoint, CA path and token path from the resulting
-ChartAssignment PodSpec; its CA and token are mounted from a ConfigMap and Secret.
-The active `.env` is workstation configuration and must not be copied to the VM
-as a replacement for those runtime mounts.
+The generated `.local/hybrid-config/.env` is a compatibility artifact; do not edit
+it. Operational helpers read canonical JSON through `--config` (defaulting to
+this approach's `config.local.json`), never the generated env or another
+approach's configuration. `--allow-placeholders` is available only with
+`--validate-only` for the published example and tests.
+
+Schema/semantic validation and ingress rendering do not require a CA file to
+exist before certificate provisioning. Overlay preparation and token refresh
+also require the configured local CA and protected SSH-key files. Render the
+private owner overlay after capturing the VM baseline and wrapper source:
+
+```bash
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/prepare_vm_overlay.py --config "$HYBRID_CONFIG" --baseline "$BASELINE_DIR" --source-file "$WRAPPER_SOURCE_JSON" --output .local/new-hybrid-overlay
+```
+
+The wrapper receives endpoint/CA/token settings from the resulting ChartAssignment
+PodSpec, ConfigMap and Secret. Do not copy the workstation JSON or its SSH key to
+the VM as a replacement for those runtime mounts. VM demo `--config` still refers
+to the OMTS application YAML, separately from workstation target configuration.
 
 ## VM application integration
 
@@ -159,7 +180,7 @@ all five stages; process exit zero alone is insufficient.
 Refresh the token from the logged-in workstation before running:
 
 ```bash
-python3 approaches/aws-vm-with-rhoai/refresh_vm_token.py --env-file approaches/aws-vm-with-rhoai/.env
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/refresh_vm_token.py --config "$HYBRID_CONFIG"
 ```
 
 Only the model-scoped token goes to the VM. Tokens request a one-hour lifetime
@@ -195,41 +216,33 @@ The project must permit cert-manager Issuers/Certificates and mesh gateway
 injection. Use the existing dedicated model client service account and its
 model-specific RoleBinding. The pilot adds no GPU allocation or model storage.
 
-Set environment values to the selected project, a unique hostname under its
-ingress domain, and the existing authorized model client account. Keep real
-values and rendered artifacts in ignored local files.
+Use the canonical configuration and its generated compatibility env for the
+low-level `oc` commands below. No target values are entered a second time:
 
 ```bash
-export RHOAI_NAMESPACE=your-project
-export RHOAI_GRPC_HOST=hybrid-grpc.your-apps-domain.example
-export RHOAI_CLIENT_ACCOUNT=your-model-client-sa
-export RHOAI_MODEL_NAME=your-segmentation-model
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/hybrid_config.py --config "$HYBRID_CONFIG" --verify-context --output-root .local/hybrid-config
+set -a
+. .local/hybrid-config/.env
+set +a
 export PILOT_DIR=.local/hybrid-grpc
 
-python3 approaches/aws-vm-with-rhoai/prepare_grpc_ingress.py \
-  --namespace "$RHOAI_NAMESPACE" --host "$RHOAI_GRPC_HOST" --output "$PILOT_DIR"
-oc apply --dry-run=server -f "$PILOT_DIR/ingress.yaml"
-oc apply -f "$PILOT_DIR/ingress.yaml"
-oc rollout status deployment/hybrid-triton-gateway -n "$RHOAI_NAMESPACE" --timeout=90s
-oc wait --for=condition=Ready certificate/hybrid-triton-tls \
-  -n "$RHOAI_NAMESPACE" --timeout=90s
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/prepare_grpc_ingress.py --config "$HYBRID_CONFIG" --output "$PILOT_DIR"
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" apply --dry-run=server -f "$PILOT_DIR/ingress.yaml"
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" apply -f "$PILOT_DIR/ingress.yaml"
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" rollout status deployment/hybrid-triton-gateway -n "$HYBRID_RHOAI_NAMESPACE" --timeout=90s
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" wait --for=condition=Ready certificate/hybrid-triton-tls -n "$HYBRID_RHOAI_NAMESPACE" --timeout=90s
 
 # Extract only the public CA certificate. Never export tls.key.
-oc get secret hybrid-triton-ca -n "$RHOAI_NAMESPACE" \
-  -o 'jsonpath={.data.tls\.crt}' | base64 --decode > "$PILOT_DIR/ca.crt"
+mkdir -p "$(dirname "$HYBRID_RHOAI_CA_FILE")"
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" get secret hybrid-triton-ca -n "$HYBRID_RHOAI_NAMESPACE" -o 'jsonpath={.data.tls\.crt}' | base64 --decode > "$HYBRID_RHOAI_CA_FILE"
 (umask 077
-  oc create token "$RHOAI_CLIENT_ACCOUNT" -n "$RHOAI_NAMESPACE" \
-    --duration=10m --audience=https://kubernetes.default.svc > "$PILOT_DIR/token"
-  oc create token hybrid-triton-gateway -n "$RHOAI_NAMESPACE" \
-    --duration=10m --audience=https://kubernetes.default.svc > "$PILOT_DIR/unauthorized-token"
-  printf '%s\n' "$RHOAI_MODEL_NAME" > "$PILOT_DIR/model"
+  oc --context "$HYBRID_OPENSHIFT_CONTEXT" create token "$HYBRID_RHOAI_CLIENT_ACCOUNT" -n "$HYBRID_RHOAI_NAMESPACE" --duration=10m --audience=https://kubernetes.default.svc > "$PILOT_DIR/token"
+  oc --context "$HYBRID_OPENSHIFT_CONTEXT" create token hybrid-triton-gateway -n "$HYBRID_RHOAI_NAMESPACE" --duration=10m --audience=https://kubernetes.default.svc > "$PILOT_DIR/unauthorized-token"
+  printf '%s\n' "$HYBRID_RHOAI_SEGMENTATION_MODEL" > "$PILOT_DIR/model"
 )
 
-uv venv .local/hybrid-client
-uv pip install --python .local/hybrid-client/bin/python \
-  -r approaches/aws-vm-with-rhoai/requirements.txt
-.local/hybrid-client/bin/python approaches/aws-vm-with-rhoai/verify_grpc.py \
-  --endpoint-file "$PILOT_DIR/endpoint" --ca "$PILOT_DIR/ca.crt" \
+"$HYBRID_PYTHON" approaches/aws-vm-with-rhoai/verify_grpc.py \
+  --endpoint-file "$PILOT_DIR/endpoint" --ca "$HYBRID_RHOAI_CA_FILE" \
   --token-file "$PILOT_DIR/token" --model-file "$PILOT_DIR/model" \
   --unauthorized-token-file "$PILOT_DIR/unauthorized-token"
 ```
@@ -246,7 +259,7 @@ contract fails the check.
 
 | Files | Purpose |
 | --- | --- |
-| [`.env.sample`](.env.sample), [hybrid_config.py](hybrid_config.py) | Current gRPC profile and isolated validation; live values stay in ignored `.env`. |
+| [config.schema.json](config.schema.json), [config.example.json](config.example.json), [hybrid_config.py](hybrid_config.py) | Canonical hybrid JSON validation and derived compatibility env; live values stay in ignored `config.local.json`. |
 | [hybrid_triton.py](hybrid_triton.py) | Mounted wrapper adapter: TLS, bearer authentication, RPC bounds and KServe lifecycle handling. |
 | [grpc-ingress.yaml](manifests/grpc-ingress.yaml), [prepare_grpc_ingress.py](prepare_grpc_ingress.py) | Dedicated Route/gateway resources and private rendering. |
 | [prepare_vm_overlay.py](prepare_vm_overlay.py), [vm_overlay.py](vm_overlay.py) | Prepare, apply and roll back the guarded owner configuration. |
@@ -254,7 +267,7 @@ contract fails the check.
 | [capture_vm_baseline.py](capture_vm_baseline.py) | Preserve existing source modifications, runtime state and cache identities before cutover. |
 | [run_vm_demo.py](run_vm_demo.py), [capture_vm_operation.py](capture_vm_operation.py) | Run a bounded simulation and require authoritative executive completion. |
 | [verify_grpc.py](verify_grpc.py), [requirements.txt](requirements.txt) | Strict TLS, token rejection and synthetic RF-DETR transport checks. |
-| [test_hybrid_config.py](test_hybrid_config.py), [test_hybrid_triton.py](test_hybrid_triton.py) | Configuration isolation, safe token delivery, credential rotation and deadline regressions. |
+| [test_hybrid.py](test_hybrid.py) | Configuration isolation, safe token delivery, credential rotation and deadline regressions. |
 
 Before a demo, validate the selected profile and live owner plan, refresh the
 token, confirm model readiness, then use the cached runfiles runner. Capture
@@ -339,9 +352,9 @@ pod is unchanged. A failed check must stop application integration.
 Delete the pilot objects using the rendered manifest when the experiment ends:
 
 ```bash
-oc delete -f "$PILOT_DIR/ingress.yaml"
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" delete -f "$PILOT_DIR/ingress.yaml"
 # cert-manager does not necessarily delete Secret objects with Certificates.
-oc delete secret hybrid-triton-tls hybrid-triton-ca -n "$RHOAI_NAMESPACE"
+oc --context "$HYBRID_OPENSHIFT_CONTEXT" delete secret hybrid-triton-tls hybrid-triton-ca -n "$HYBRID_RHOAI_NAMESPACE"
 rm -f "$PILOT_DIR/token" "$PILOT_DIR/unauthorized-token"
 ```
 

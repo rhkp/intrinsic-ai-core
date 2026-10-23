@@ -1,37 +1,42 @@
 # This project was developed with assistance from AI tools.
-"""Explicit, isolated configuration contract for the working hybrid approach."""
+"""Validate canonical hybrid JSON without importing another topology's configuration."""
 
 import argparse
 from dataclasses import dataclass
+import json
+import os
 from pathlib import Path
-import re
 import shlex
 import ssl
+import subprocess
+import tempfile
+from urllib.parse import urlsplit
+
+from jsonschema import Draft202012Validator
+
+ROOT = Path(__file__).resolve().parent
+SCHEMA_PATH = ROOT / "config.schema.json"
+EXAMPLE_PATH = ROOT / "config.example.json"
+DEFAULT_CONFIG_PATH = ROOT / "config.local.json"
+PLACEHOLDERS = (
+    "replace-me",
+    "replace-with-",
+    "your-",
+    ".invalid",
+    ".example",
+    "{namespace}",
+)
 
 
 class ConfigError(ValueError):
-    """Configuration errors identify fields, never their private values."""
+    """Safe-to-print errors never include private configuration values."""
 
 
-FIELDS = {
-    "HYBRID_CONFIG_VERSION": "version",
-    "HYBRID_OPENSHIFT_CONTEXT": "context",
-    "HYBRID_RHOAI_NAMESPACE": "namespace",
-    "HYBRID_RHOAI_ROUTE": "route",
-    "HYBRID_RHOAI_ENDPOINT": "endpoint",
-    "HYBRID_RHOAI_CA_FILE": "ca_file",
-    "HYBRID_RHOAI_CLIENT_ACCOUNT": "account",
-    "HYBRID_RHOAI_SEGMENTATION_MODEL": "segmentation_model",
-    "HYBRID_RHOAI_POSE_MODEL": "pose_model",
-    "HYBRID_VM_SSH_HOST": "ssh_host",
-    "HYBRID_VM_SSH_KEY": "ssh_key",
-}
-
-
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class HybridConfig:
-    version: str
+    schema_version: int
     context: str
+    api_server_url: str
     namespace: str
     route: str
     endpoint: str
@@ -43,90 +48,214 @@ class HybridConfig:
     ssh_key: Path
 
 
-def load(path: Path, *, validate_files=True) -> HybridConfig:
-    """Read only the explicitly selected file; never source it or alter os.environ."""
-    path = path.expanduser().resolve()
+def unique_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ConfigError("Duplicate JSON configuration field")
+        result[key] = value
+    return result
+
+
+def read_json(path):
     try:
-        text = path.read_text()
-    except OSError:
-        raise ConfigError("Cannot read the selected hybrid environment file") from None
-    values = {}
-    for number, line in enumerate(text.splitlines(), 1):
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            line = line[7:].lstrip()
-        key, separator, raw = line.partition("=")
-        key = key.strip()
-        if not separator or key not in FIELDS:
-            raise ConfigError(f"Unknown hybrid field on line {number}")
-        if key in values:
-            raise ConfigError(f"Duplicate field: {key}")
-        try:
-            parts = shlex.split(raw, comments=True)
-        except ValueError:
-            raise ConfigError(f"Invalid quoting: {key}") from None
-        if len(parts) != 1 or not parts[0] or any(c in parts[0] for c in "\r\n\x00"):
-            raise ConfigError(f"Expected one nonempty value: {key}")
-        values[key] = parts[0]
-    missing = FIELDS.keys() - values.keys()
-    if missing:
-        raise ConfigError("Missing hybrid fields: " + ", ".join(sorted(missing)))
-    if values["HYBRID_CONFIG_VERSION"] != "1":
-        raise ConfigError("Unsupported HYBRID_CONFIG_VERSION")
-    context = values["HYBRID_OPENSHIFT_CONTEXT"]
-    if context.startswith("-") or any(c.isspace() for c in context):
-        raise ConfigError("Invalid HYBRID_OPENSHIFT_CONTEXT")
-    label = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
-    for key in (
-        "HYBRID_RHOAI_NAMESPACE",
-        "HYBRID_RHOAI_ROUTE",
-        "HYBRID_RHOAI_CLIENT_ACCOUNT",
-    ):
-        if not re.fullmatch(label, values[key]):
-            raise ConfigError(f"Invalid application resource name: {key}")
-    if values["HYBRID_RHOAI_NAMESPACE"].startswith(("openshift-", "kube-")):
-        raise ConfigError("HYBRID_RHOAI_NAMESPACE must be an application namespace")
-    if not re.fullmatch(rf"{label}(?:\.{label})+:443", values["HYBRID_RHOAI_ENDPOINT"]):
+        return json.loads(path.read_text(), object_pairs_hook=unique_fields)
+    except (OSError, UnicodeError, json.JSONDecodeError):
         raise ConfigError(
-            "HYBRID_RHOAI_ENDPOINT must be a DNS hostname:443, without an HTTPS URL or REST path"
+            "Could not read the selected hybrid JSON configuration"
+        ) from None
+
+
+def validate_schema(document):
+    schema = read_json(SCHEMA_PATH)
+    validator = Draft202012Validator(schema)
+    error = next(validator.iter_errors(document), None)
+    if error is not None:
+        field = ".".join(str(part) for part in error.absolute_path) or "config"
+        raise ConfigError(
+            f"Hybrid schema validation failed at {field} ({error.validator})"
         )
-    for key in ("HYBRID_RHOAI_SEGMENTATION_MODEL", "HYBRID_RHOAI_POSE_MODEL"):
-        if not re.fullmatch(r"[A-Za-z0-9_.-]+", values[key]):
-            raise ConfigError(f"Invalid model name: {key}")
-    if values["HYBRID_RHOAI_SEGMENTATION_MODEL"] == values["HYBRID_RHOAI_POSE_MODEL"]:
+
+
+def reject_placeholders(value):
+    if isinstance(value, str) and any(marker in value for marker in PLACEHOLDERS):
+        raise ConfigError("Hybrid runtime configuration contains placeholder values")
+    if isinstance(value, dict):
+        for nested in value.values():
+            reject_placeholders(nested)
+
+
+def load(path=DEFAULT_CONFIG_PATH, *, allow_placeholders=False, validate_files=True):
+    """Use one explicitly selected JSON source; shell env and dotenv never select targets."""
+    path = path.expanduser().resolve()
+    document = read_json(path)
+    validate_schema(document)
+    if not allow_placeholders:
+        reject_placeholders(document)
+    local, target = document["local"], document["target"]
+    rhoai = target["rhoai"]
+    if target["namespace"].startswith(("openshift-", "kube-")):
+        raise ConfigError("target.namespace must be an application namespace")
+    if rhoai["models"]["segmentation"] == rhoai["models"]["pose"]:
         raise ConfigError("Segmentation and pose models must be distinct")
-    if not re.fullmatch(
-        r"[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+", values["HYBRID_VM_SSH_HOST"]
-    ):
-        raise ConfigError("HYBRID_VM_SSH_HOST must be one user@host destination")
-    fields = {attribute: values[key] for key, attribute in FIELDS.items()}
-    for attribute in ("ca_file", "ssh_key"):
-        file = Path(fields[attribute]).expanduser()
-        fields[attribute] = (
+    try:
+        api = urlsplit(local["api_server_url"])
+        valid = (
+            api.scheme == "https"
+            and api.hostname
+            and not api.username
+            and not api.password
+            and api.path in ("", "/")
+            and not api.query
+            and not api.fragment
+            and not any(c.isspace() for c in local["api_server_url"])
+        )
+        if api.port is not None and not 1 <= api.port <= 65535:
+            valid = False
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ConfigError(
+            "local.api_server_url must be an HTTPS API address without credentials"
+        )
+    paths = {}
+    for field in ("rhoai_ca_file", "vm_ssh_key"):
+        file = Path(local[field]).expanduser()
+        paths[field] = (
             (path.parent / file).resolve() if not file.is_absolute() else file
         )
-        if validate_files and not fields[attribute].is_file():
-            raise ConfigError(f"Missing file for {attribute}")
+        if validate_files and not paths[field].is_file():
+            raise ConfigError(f"Missing local file for {field}")
     if validate_files:
-        if fields["ssh_key"].stat().st_mode & 0o077:
-            raise ConfigError("ssh_key must be accessible only to its owner")
         try:
-            ssl.create_default_context(cafile=str(fields["ca_file"]))
+            if paths["vm_ssh_key"].stat().st_mode & 0o077:
+                raise ConfigError(
+                    "local.vm_ssh_key must be accessible only to its owner"
+                )
+            ssl.create_default_context(cafile=str(paths["rhoai_ca_file"]))
         except (OSError, ssl.SSLError):
-            raise ConfigError("ca_file must contain a usable CA certificate") from None
-    return HybridConfig(**fields)
+            raise ConfigError(
+                "Local SSH key or CA certificate is unavailable or invalid"
+            ) from None
+    return HybridConfig(
+        schema_version=document["schema_version"],
+        context=local["context"],
+        api_server_url=local["api_server_url"],
+        namespace=target["namespace"],
+        route=rhoai["route"],
+        endpoint=rhoai["endpoint"],
+        ca_file=paths["rhoai_ca_file"],
+        account=rhoai["client_account"],
+        segmentation_model=rhoai["models"]["segmentation"],
+        pose_model=rhoai["models"]["pose"],
+        ssh_host=target["vm"]["ssh_host"],
+        ssh_key=paths["vm_ssh_key"],
+    )
+
+
+def verify_context(config):
+    """Bind credential issuance to both the canonical context and its approved API server."""
+    try:
+        result = subprocess.run(
+            [
+                "oc",
+                "--context",
+                config.context,
+                "config",
+                "view",
+                "--minify",
+                "-o",
+                "jsonpath={.clusters[0].cluster.server}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ConfigError("Cannot verify the configured OpenShift context") from None
+    if result.returncode or result.stdout.strip() != config.api_server_url:
+        raise ConfigError(
+            "Configured OpenShift context does not match its approved API server"
+        )
+
+
+def render_env(config):
+    """Compatibility output is derived from canonical JSON, never read as a source."""
+    values = {
+        "HYBRID_CONFIG_VERSION": str(config.schema_version),
+        "HYBRID_OPENSHIFT_CONTEXT": config.context,
+        "HYBRID_OPENSHIFT_API_SERVER_URL": config.api_server_url,
+        "HYBRID_RHOAI_NAMESPACE": config.namespace,
+        "HYBRID_RHOAI_ROUTE": config.route,
+        "HYBRID_RHOAI_ENDPOINT": config.endpoint,
+        "HYBRID_RHOAI_CA_FILE": str(config.ca_file),
+        "HYBRID_RHOAI_CLIENT_ACCOUNT": config.account,
+        "HYBRID_RHOAI_SEGMENTATION_MODEL": config.segmentation_model,
+        "HYBRID_RHOAI_POSE_MODEL": config.pose_model,
+        "HYBRID_VM_SSH_HOST": config.ssh_host,
+        "HYBRID_VM_SSH_KEY": str(config.ssh_key),
+    }
+    return (
+        "# Generated by hybrid_config.py from canonical JSON. Do not edit.\n"
+        + "".join(f"{key}={shlex.quote(value)}\n" for key, value in values.items())
+    )
+
+
+def write_env(config, output_root, *, check=False):
+    output_root = output_root.expanduser().resolve()
+    if output_root in (ROOT, ROOT.parents[1]):
+        raise ConfigError("Use a separate private generated-output directory")
+    path = output_root / ".env"
+    content = render_env(config)
+    if check:
+        try:
+            matches = path.read_text() == content
+        except OSError:
+            matches = False
+        if not matches:
+            raise ConfigError(
+                "Generated hybrid env is missing or drifted from canonical JSON"
+            )
+        return
+    output_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(prefix=".env.", dir=output_root)
+    try:
+        with os.fdopen(fd, "w") as output:
+            output.write(content)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env-file", type=Path, required=True)
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--output-root", type=Path)
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--verify-context", action="store_true")
+    parser.add_argument(
+        "--allow-placeholders",
+        action="store_true",
+        help="Validate the published example only; runtime helpers reject placeholders",
+    )
     args = parser.parse_args()
+    if args.check and not args.output_root:
+        parser.error("--check requires --output-root")
+    if args.validate_only and args.output_root:
+        parser.error("--validate-only does not write generated output")
+    if args.allow_placeholders and not args.validate_only:
+        parser.error("--allow-placeholders requires --validate-only")
     try:
-        load(args.env_file)
+        config = load(
+            args.config,
+            allow_placeholders=args.allow_placeholders,
+            validate_files=False,
+        )
+        if args.verify_context:
+            verify_context(config)
+        if args.output_root:
+            write_env(config, args.output_root, check=args.check)
     except ConfigError as exc:
         parser.exit(2, str(exc) + "\n")
-    print(
-        "Hybrid configuration and local CA/key files validated; no resources changed."
-    )
+    print("Hybrid JSON configuration validated; no resources changed.")

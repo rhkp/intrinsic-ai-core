@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "This project was developed with assistance from AI tools.",
+  "title": "Intrinsic hybrid AWS VM and RHOAI configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "local",
+    "target"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "local": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "context",
+        "api_server_url",
+        "rhoai_ca_file",
+        "vm_ssh_key"
+      ],
+      "properties": {
+        "context": {
+          "type": "string",
+          "pattern": "^[^\\s-][^\\s]*$"
+        },
+        "api_server_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rhoai_ca_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vm_ssh_key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "namespace",
+        "rhoai",
+        "vm"
+      ],
+      "properties": {
+        "namespace": {
+          "$ref": "#/$defs/resourceName"
+        },
+        "rhoai": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "route",
+            "endpoint",
+            "client_account",
+            "models"
+          ],
+          "properties": {
+            "route": {
+              "type": "string",
+              "const": "hybrid-triton-grpc"
+            },
+            "endpoint": {
+              "type": "string",
+              "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+:443$"
+            },
+            "client_account": {
+              "$ref": "#/$defs/resourceName"
+            },
+            "models": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "segmentation",
+                "pose"
+              ],
+              "properties": {
+                "segmentation": {
+                  "$ref": "#/$defs/modelName"
+                },
+                "pose": {
+                  "$ref": "#/$defs/modelName"
+                }
+              }
+            }
+          }
+        },
+        "vm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ssh_host"
+          ],
+          "properties": {
+            "ssh_host": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+$"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "resourceName": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+    },
+    "modelName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    }
+  }
+}

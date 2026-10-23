@@ -97,6 +97,9 @@ id_rsa
 !*.sample.json
 !openshift/config.schema.json
 !openshift/config.example.json
+# Hybrid schema and sanitized example only; config.local.json stays ignored.
+!approaches/aws-vm-with-rhoai/config.schema.json
+!approaches/aws-vm-with-rhoai/config.example.json
 !openshift/deployment/ADAPTATIONS.json
 !openshift/deployment/SOURCE_MANIFEST.json
 !openshift/image-lock.json

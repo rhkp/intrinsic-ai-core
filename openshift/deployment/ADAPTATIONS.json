@@ -1050,7 +1050,7 @@
         },
         {
           "path": ".gitignore",
-          "sha256": "de68980aee14c0531f2d862c3f045b4560787246f749dbf960c5cca71ae620f6"
+          "sha256": "75a7fea9b750ea4c5edec170e0ab521312e1589aaf0f474687c3822ab686da80"
         },
         {
           "path": "scripts/setup_validation.py",

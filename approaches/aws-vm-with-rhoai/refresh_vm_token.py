@@ -4,10 +4,9 @@
 import argparse
 import json
 from pathlib import Path
-import shlex
 import subprocess
 
-from hybrid_config import ConfigError, load
+from hybrid_config import ConfigError, DEFAULT_CONFIG_PATH, load, verify_context
 
 
 def refresh(host, key, namespace, account, *, context=None):
@@ -66,38 +65,17 @@ print(json.dumps({'model_token_refreshed':True,'requested_lifetime_seconds':3600
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env-file", type=Path)
-    parser.add_argument("--context")
-    parser.add_argument("--ssh-host")
-    parser.add_argument("--ssh-key", type=Path)
-    parser.add_argument("--namespace")
-    parser.add_argument("--account")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG_PATH)
     args = parser.parse_args()
-    if args.env_file:
-        if any(
-            (args.context, args.ssh_host, args.ssh_key, args.namespace, args.account)
-        ):
-            parser.error(
-                "Use --env-file or explicit target arguments, without mixing them"
-            )
-        try:
-            config = load(args.env_file)
-        except ConfigError as exc:
-            parser.error(str(exc))
-        args.context, args.namespace, args.account = (
-            config.context,
-            config.namespace,
-            config.account,
-        )
-        args.ssh_host, args.ssh_key = config.ssh_host, config.ssh_key
-    if not all((args.ssh_host, args.ssh_key, args.namespace, args.account)):
-        parser.error("Select --env-file or supply all SSH/namespace/account arguments")
-    if (
-        args.ssh_host.startswith("-")
-        or not args.ssh_host
-        or shlex.split(args.ssh_host) != [args.ssh_host]
-    ):
-        raise ValueError("Use one SSH destination")
+    try:
+        config = load(args.config)
+        verify_context(config)
+    except ConfigError as exc:
+        parser.error(str(exc))
     refresh(
-        args.ssh_host, args.ssh_key, args.namespace, args.account, context=args.context
+        config.ssh_host,
+        config.ssh_key,
+        config.namespace,
+        config.account,
+        context=config.context,
     )

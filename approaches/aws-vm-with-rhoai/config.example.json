@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "local": {
+    "context": "replace-with-your-context-name",
+    "api_server_url": "https://api.example.invalid:6443",
+    "rhoai_ca_file": "../../.local/your-hybrid-experiment/ca.crt",
+    "vm_ssh_key": "~/.ssh/your-vm-key.pem"
+  },
+  "target": {
+    "namespace": "your-project",
+    "rhoai": {
+      "route": "hybrid-triton-grpc",
+      "endpoint": "hybrid-grpc.your-apps-domain.example:443",
+      "client_account": "your-model-client-sa",
+      "models": {
+        "segmentation": "ai.intrinsic.ioc_pose_estimation.segmentor.rfdetr",
+        "pose": "ai.intrinsic.ioc_pose_estimation.pose_estimator.foundationpose"
+      }
+    },
+    "vm": {
+      "ssh_host": "ubuntu@your-aws-vm"
+    }
+  }
+}
